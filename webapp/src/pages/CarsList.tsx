@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, CarAdPreview } from '../api'
+import { useBackButton } from '../hooks/useBackButton'
 
 export default function CarsList() {
+  useBackButton('/catalog')
   const [searchParams] = useSearchParams()
   const brand = searchParams.get('brand') || ''
   const model = searchParams.get('model') || ''

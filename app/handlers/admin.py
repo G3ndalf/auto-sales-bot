@@ -160,7 +160,6 @@ async def handle_moderation(
             await callback.answer(ADMIN_APPROVED, show_alert=False)
             # Notify user
             try:
-                from app.services.user_service import get_user_by_telegram_id
                 from app.models.user import User
                 from sqlalchemy import select
 
@@ -171,6 +170,8 @@ async def handle_moderation(
                     await bot.send_message(user.telegram_id, USER_AD_APPROVED)
             except Exception:
                 logger.exception("Failed to notify user about approval")
+            # Publish to channel
+            await _publish_to_channel(bot, ad, ad_type, session)
         else:
             await callback.answer(ADMIN_AD_NOT_FOUND, show_alert=True)
             return
@@ -201,6 +202,70 @@ async def handle_moderation(
 
     # Show next pending ad
     await _show_next_pending(callback, session)
+
+
+async def _publish_to_channel(bot: Bot, ad, ad_type: str, session: AsyncSession):
+    """Publish approved ad to the channel."""
+    channel_id = settings.channel_id
+    if not channel_id:
+        return
+
+    from app.models.photo import AdPhoto, AdType
+    from sqlalchemy import select
+    from aiogram.types import InputMediaPhoto
+
+    # Get photos
+    photo_type = AdType.CAR if ad_type == "car" else AdType.PLATE
+    photo_stmt = (
+        select(AdPhoto)
+        .where(AdPhoto.ad_type == photo_type, AdPhoto.ad_id == ad.id)
+        .order_by(AdPhoto.position)
+    )
+    photos = (await session.execute(photo_stmt)).scalars().all()
+
+    # Format text
+    if ad_type == "car":
+        text = (
+            f"🚗 <b>{ad.brand} {ad.model}</b> ({ad.year})\n\n"
+            f"💰 {ad.price:,} ₽\n".replace(",", " ") +
+            f"🛣 {ad.mileage:,} км\n".replace(",", " ") +
+            f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
+            f"🎨 {ad.color} | 🏎 {ad.engine_volume}л\n"
+            f"📍 {ad.city}\n"
+        )
+        if ad.description:
+            text += f"\n📝 {ad.description[:500]}\n"
+        text += f"\n📞 {ad.contact_phone}"
+        if ad.contact_telegram:
+            text += f"\n📱 {ad.contact_telegram}"
+    else:
+        text = (
+            f"🔢 <b>{ad.plate_number}</b>\n\n"
+            f"💰 {ad.price:,} ₽\n".replace(",", " ") +
+            f"📍 {ad.city}\n"
+        )
+        if ad.description:
+            text += f"\n📝 {ad.description[:500]}\n"
+        text += f"\n📞 {ad.contact_phone}"
+        if ad.contact_telegram:
+            text += f"\n📱 {ad.contact_telegram}"
+
+    try:
+        if photos:
+            media = []
+            for i, photo in enumerate(photos[:10]):
+                media.append(
+                    InputMediaPhoto(
+                        media=photo.file_id,
+                        caption=text if i == 0 else None,
+                        parse_mode="HTML" if i == 0 else None,
+                    )
+                )
+            await bot.send_media_group(chat_id=channel_id, media=media)
+        else:
+            await bot.send_message(chat_id=channel_id, text=text)
+    except Exception:
+        logger.exception("Failed to publish to channel")
 
 
 async def _show_next_pending(callback: CallbackQuery, session: AsyncSession):

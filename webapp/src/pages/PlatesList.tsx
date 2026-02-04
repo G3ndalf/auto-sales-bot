@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, PlateAdPreview } from '../api'
+import { useBackButton } from '../hooks/useBackButton'
 
 export default function PlatesList() {
+  useBackButton('/catalog')
   const [searchParams] = useSearchParams()
   const city = searchParams.get('city') || ''
 

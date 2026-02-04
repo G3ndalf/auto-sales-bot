@@ -95,6 +95,9 @@ async def handle_web_app_data(
             photo_count=0,
         )
 
+        # Notify admins
+        await _notify_admins(bot, ad, ad_type)
+
     except Exception as e:
         logger.exception("Error creating ad from web_app_data")
         await message.answer(WEB_APP_ERROR)
@@ -119,6 +122,25 @@ async def _create_car_ad(session: AsyncSession, user_id: int, data: dict):
         contact_phone=data["contact_phone"].strip(),
         contact_telegram=data.get("contact_telegram"),
     )
+
+
+async def _notify_admins(bot: Bot, ad, ad_type: str):
+    """Send moderation notification to all admins."""
+    from app.config import settings
+    from app.handlers.admin import _format_car_ad, _format_plate_ad, _moderation_keyboard
+
+    if ad_type == "car_ad":
+        text = f"🆕 Новое объявление!\n\n{_format_car_ad(ad)}"
+        kb = _moderation_keyboard("car", ad.id)
+    else:
+        text = f"🆕 Новое объявление!\n\n{_format_plate_ad(ad)}"
+        kb = _moderation_keyboard("plate", ad.id)
+
+    for admin_id in settings.admin_ids:
+        try:
+            await bot.send_message(admin_id, text, reply_markup=kb)
+        except Exception:
+            logger.exception(f"Failed to notify admin {admin_id}")
 
 
 async def _create_plate_ad(session: AsyncSession, user_id: int, data: dict):

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api, PlateAdFull } from '../api'
+import { useBackButton } from '../hooks/useBackButton'
 
 export default function PlateAdDetail() {
+  useBackButton('/plates')
   const { id } = useParams<{ id: string }>()
   const [ad, setAd] = useState<PlateAdFull | null>(null)
   const [photoIndex, setPhotoIndex] = useState(0)

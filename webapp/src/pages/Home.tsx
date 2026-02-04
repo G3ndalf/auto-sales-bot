@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 import { TEXTS } from '../constants/texts'
+import { useBackButton } from '../hooks/useBackButton'
 
 export default function Home() {
+  useBackButton()
+
   return (
     <div className="home">
       <div className="home-icon">🚘</div>

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Brand, Model } from '../api'
+import { useBackButton } from '../hooks/useBackButton'
 
 type View = 'brands' | 'models'
 
 export default function Catalog() {
+  useBackButton('/')
   const [view, setView] = useState<View>('brands')
   const [brands, setBrands] = useState<Brand[]>([])
   const [models, setModels] = useState<Model[]>([])

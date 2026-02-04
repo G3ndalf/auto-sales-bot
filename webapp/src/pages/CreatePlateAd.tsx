@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
+import { useBackButton } from '../hooks/useBackButton'
 
 interface PhotoFile {
   file: File
@@ -16,6 +17,8 @@ export default function CreatePlateAd() {
   const [telegram, setTelegram] = useState('')
   const [photos, setPhotos] = useState<PhotoFile[]>([])
   const [submitted, setSubmitted] = useState(false)
+
+  useBackButton('/')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 

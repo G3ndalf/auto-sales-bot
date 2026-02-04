@@ -1,24 +1,7 @@
 import { useState, useRef } from 'react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: {
-        sendData: (data: string) => void
-        close: () => void
-        MainButton: {
-          setText: (text: string) => void
-          show: () => void
-          hide: () => void
-          onClick: (cb: () => void) => void
-          offClick: (cb: () => void) => void
-        }
-      }
-    }
-  }
-}
+import { useBackButton } from '../hooks/useBackButton'
 
 interface PhotoFile {
   file: File
@@ -41,6 +24,8 @@ export default function CreateCarAd() {
   const [telegram, setTelegram] = useState('')
   const [photos, setPhotos] = useState<PhotoFile[]>([])
   const [submitted, setSubmitted] = useState(false)
+
+  useBackButton('/')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api, CarAdFull } from '../api'
+import { useBackButton } from '../hooks/useBackButton'
 
 export default function CarAdDetail() {
+  useBackButton()
   const { id } = useParams<{ id: string }>()
   const [ad, setAd] = useState<CarAdFull | null>(null)
   const [photoIndex, setPhotoIndex] = useState(0)

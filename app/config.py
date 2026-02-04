@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     admin_ids: list[int] = []
     api_port: int = 8080
     api_host: str = "0.0.0.0"
-    webapp_url: str = ""  # Mini App URL for inline keyboards
+    webapp_url: str = ""
+    channel_id: str = ""  # @channel_username or -100xxx
 
     model_config = {"env_file": ".env"}
 
