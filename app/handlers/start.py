@@ -1,9 +1,9 @@
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
+    KeyboardButton,
     Message,
+    ReplyKeyboardMarkup,
     WebAppInfo,
 )
 
@@ -17,20 +17,21 @@ router = Router()
 async def cmd_start(message: Message):
     kb = None
     if settings.webapp_url:
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
+        kb = ReplyKeyboardMarkup(
+            keyboard=[
                 [
-                    InlineKeyboardButton(
+                    KeyboardButton(
                         text="🚗 Подать объявление",
                         web_app=WebAppInfo(url=settings.webapp_url),
                     ),
                 ],
                 [
-                    InlineKeyboardButton(
+                    KeyboardButton(
                         text="📋 Каталог",
                         web_app=WebAppInfo(url=f"{settings.webapp_url}/catalog"),
                     ),
                 ],
-            ]
+            ],
+            resize_keyboard=True,
         )
     await message.answer(START_WELCOME, reply_markup=kb)
