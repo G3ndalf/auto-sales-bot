@@ -187,12 +187,16 @@ tests/              # Pytest tests
 ## Next Steps
 - [x] Создать `app/texts.py` и `app/constants.py`
 - [x] Создать `webapp/src/constants/texts.ts` и `webapp/src/constants/config.ts`
-- [ ] Модели: User, CarAd, PlateAd, AdPhoto в models/
-- [ ] Alembic init + первая миграция
-- [ ] CRUD-сервисы (car_ad_service, plate_ad_service)
+- [x] Модели: User, CarAd, PlateAd, AdPhoto в models/
+- [x] Alembic init + первая миграция
+- [x] CRUD-сервисы (car_ad_service, plate_ad_service, user_service)
+- [x] DB middleware (auto commit/rollback)
+- [x] Mini App: форма подачи объявления (авто) — CreateCarAd
+- [x] Mini App: форма подачи объявления (номера) — CreatePlateAd
+- [ ] Бот: хендлер приёма данных из Mini App (web_app_data)
+- [ ] Бот: хендлер загрузки фото после отправки формы
 - [ ] Админ-хендлер модерации (approve/reject)
-- [ ] Mini App: форма подачи объявления (авто)
-- [ ] Mini App: форма подачи объявления (номера)
 - [ ] Mini App: каталог (марка → модель → объявления)
 - [ ] Mini App: страница объявления (фото-галерея + детали)
 - [ ] Фильтр по городу
+- [ ] Деплой Mini App (ngrok/сервер)
