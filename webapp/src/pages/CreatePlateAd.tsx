@@ -44,7 +44,10 @@ export default function CreatePlateAd() {
   }
 
   const handleSubmit = () => {
-    if (!plateNumber || !price || !city || !phone) return
+    if (!plateNumber || !price || !city || !phone) {
+      alert('Заполните обязательные поля: номер, цена, город, телефон')
+      return
+    }
 
     const data = JSON.stringify({
       type: 'plate_ad',
@@ -56,11 +59,17 @@ export default function CreatePlateAd() {
       contact_telegram: telegram || null,
     })
 
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.sendData(data)
+    const tg = window.Telegram?.WebApp
+    if (tg) {
+      try {
+        tg.sendData(data)
+        setSubmitted(true)
+      } catch (e: any) {
+        alert('Ошибка отправки: ' + e.message)
+      }
+    } else {
+      alert('Откройте приложение через Telegram')
     }
-
-    setSubmitted(true)
   }
 
   if (submitted) {

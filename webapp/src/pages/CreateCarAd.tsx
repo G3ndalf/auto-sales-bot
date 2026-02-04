@@ -51,7 +51,10 @@ export default function CreateCarAd() {
   }
 
   const handleSubmit = () => {
-    if (!brand || !model || !year || !price || !city || !phone) return
+    if (!brand || !model || !year || !price || !city || !phone) {
+      alert('Заполните обязательные поля: марка, модель, год, цена, город, телефон')
+      return
+    }
 
     const data = JSON.stringify({
       type: 'car_ad',
@@ -70,11 +73,19 @@ export default function CreateCarAd() {
       contact_telegram: telegram || null,
     })
 
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.sendData(data)
+    const tg = window.Telegram?.WebApp
+    if (tg) {
+      try {
+        tg.sendData(data)
+        // If sendData succeeds, the app closes automatically
+        // This line only runs if sendData doesn't close the app
+        setSubmitted(true)
+      } catch (e: any) {
+        alert('Ошибка отправки: ' + e.message)
+      }
+    } else {
+      alert('Откройте приложение через Telegram')
     }
-
-    setSubmitted(true)
   }
 
   if (submitted) {

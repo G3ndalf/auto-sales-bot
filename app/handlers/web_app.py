@@ -50,9 +50,11 @@ async def handle_web_app_data(
     bot: Bot,
 ):
     """Process data received from Telegram Mini App."""
+    logger.info(f"Received web_app_data: {message.web_app_data.data[:200]}")
     try:
         data = json.loads(message.web_app_data.data)
     except (json.JSONDecodeError, AttributeError):
+        logger.error(f"Invalid JSON in web_app_data")
         await message.answer(WEB_APP_INVALID_DATA)
         return
 
