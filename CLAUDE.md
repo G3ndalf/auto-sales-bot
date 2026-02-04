@@ -1,6 +1,57 @@
 # Auto Sales Bot
 
-Telegram-бот для объявлений о продаже автомобилей.
+Telegram-бот + Mini App — маркетплейс для продажи автомобилей и автомобильных номеров в Кабардино-Балкарской Республике.
+
+## Продукт
+
+### Для кого
+Жители КБР и Северного Кавказа, которые хотят продать/купить автомобиль или автомобильный номер. Альтернатива Avito и инстаграм-барахолкам.
+
+### Два типа объявлений
+
+**1. Автомобили:**
+- Марка (LADA, BMW, Mercedes…)
+- Модель (Granta, Vesta, X5…)
+- Год выпуска
+- Пробег (км)
+- Объём двигателя
+- Тип топлива (бензин, дизель, газ, электро, гибрид)
+- Тип КПП (механика, автомат, робот, вариатор)
+- Цвет
+- Цена (₽)
+- Описание (свободный текст — доп. детали от продавца)
+- До 10 фотографий
+- Регион/город (Нальчик, Баксан, Прохладный, Тырныауз и т.д.)
+- Контакт продавца (телефон и/или Telegram)
+
+**2. Автомобильные номера:**
+- Номер (текст, например "А777АА 07")
+- Цена (₽)
+- Описание
+- До 5 фотографий
+- Регион/город
+- Контакт продавца
+
+### Ключевые фичи
+
+**Подача объявления** — через Telegram Mini App:
+- Пользователь нажимает кнопку → открывается Mini App
+- Видит форму со всеми полями, загружает фотографии
+- Отправляет → объявление уходит на модерацию
+
+**Модерация (админ-панель):**
+- Астемир (владелец) лично проверяет каждое объявление
+- Одобрить / отклонить (с причиной)
+- Объявление публикуется только после одобрения
+
+**Каталог для покупателей:**
+- Выбор: Автомобили или Номера
+- Автомобили: Марка → Модель → Список объявлений
+- Номера: Список всех номеров
+- Фильтр по региону/городу
+- Каждое объявление — фотографии + полное описание + контакт
+
+**Размещение — БЕСПЛАТНОЕ**
 
 ## Tech Stack
 
@@ -24,18 +75,22 @@ app/
 ├── handlers/       # Aiogram routers (start, ads, search, admin)
 ├── keyboards/      # Inline & reply keyboards
 ├── middlewares/     # DB session, auth middlewares
-├── models/         # SQLAlchemy models
-├── services/       # Business logic
+├── models/         # SQLAlchemy models (user, car_ad, plate_ad, photo)
+├── services/       # Business logic (ad_service, moderation_service)
 └── utils/          # Helpers
 webapp/             # Telegram Mini App (React + Vite + TS)
 ├── src/
 │   ├── main.tsx    # Entry point
-│   ├── App.tsx     # Root component
+│   ├── App.tsx     # Root component with routing
+│   ├── pages/      # CreateAd, Catalog, AdDetail
+│   ├── components/ # Form fields, PhotoUpload, AdCard
+│   ├── api/        # Backend communication
+│   ├── constants/  # texts.ts, config.ts
 │   └── assets/     # Static assets
-├── public/         # Public static files
-├── index.html      # HTML entry
-├── vite.config.ts  # Vite config
-└── package.json    # Dependencies
+├── public/
+├── index.html
+├── vite.config.ts
+└── package.json
 migrations/         # Alembic migrations
 tests/              # Pytest tests
 ```
@@ -74,19 +129,70 @@ tests/              # Pytest tests
 - Никогда не хардкодить строки прямо в хендлерах, компонентах или сервисах
 - Пиши на русском в текстах для пользователя, код и имена переменных на английском
 
+## Модели (схема БД)
+
+### User
+- telegram_id (BigInt, unique)
+- username (nullable)
+- full_name
+- phone (nullable)
+- is_admin (bool, default false)
+- created_at, updated_at
+
+### CarAd
+- user_id (FK → User)
+- brand (str) — марка
+- model (str) — модель
+- year (int) — год выпуска
+- mileage (int) — пробег км
+- engine_volume (float) — объём двигателя
+- fuel_type (enum: бензин, дизель, газ, электро, гибрид)
+- transmission (enum: механика, автомат, робот, вариатор)
+- color (str)
+- price (int) — цена ₽
+- description (text) — свободное описание
+- city (str) — город КБР
+- contact_phone (str)
+- contact_telegram (str, nullable)
+- status (enum: pending, approved, rejected)
+- rejection_reason (nullable)
+- created_at, updated_at
+
+### PlateAd
+- user_id (FK → User)
+- plate_number (str) — номер
+- price (int)
+- description (text)
+- city (str)
+- contact_phone (str)
+- contact_telegram (str, nullable)
+- status (enum: pending, approved, rejected)
+- rejection_reason (nullable)
+- created_at, updated_at
+
+### AdPhoto
+- ad_type (enum: car, plate)
+- ad_id (int) — FK к CarAd или PlateAd
+- file_id (str) — Telegram file_id
+- position (int) — порядок фото
+- created_at
+
 ## Current State
 - Бот запускается, /start работает (`handlers/start.py`)
-- Структура папок создана (handlers, services, models, keyboards, middlewares, utils)
+- Структура папок создана
 - Модели ещё не созданы
 - Миграций нет
-- Mini App: базовый Vite + React проект в webapp/, без бизнес-логики
+- Mini App: базовый Vite + React проект в webapp/
 
 ## Next Steps
-- [x] Создать `app/texts.py` и `app/constants.py` — вынести тексты из start.py
+- [x] Создать `app/texts.py` и `app/constants.py`
 - [x] Создать `webapp/src/constants/texts.ts` и `webapp/src/constants/config.ts`
-- [ ] Модели: User, Ad, AdPhoto в models/
+- [ ] Модели: User, CarAd, PlateAd, AdPhoto в models/
 - [ ] Alembic init + первая миграция
-- [ ] CRUD-сервис для объявлений (services/ad_service.py)
-- [ ] FSM-хендлер создания объявления
-- [ ] Хендлер поиска / просмотра объявлений
-- [ ] Mini App: страница списка объявлений
+- [ ] CRUD-сервисы (car_ad_service, plate_ad_service)
+- [ ] Админ-хендлер модерации (approve/reject)
+- [ ] Mini App: форма подачи объявления (авто)
+- [ ] Mini App: форма подачи объявления (номера)
+- [ ] Mini App: каталог (марка → модель → объявления)
+- [ ] Mini App: страница объявления (фото-галерея + детали)
+- [ ] Фильтр по городу
