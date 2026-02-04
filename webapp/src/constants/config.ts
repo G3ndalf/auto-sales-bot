@@ -1,8 +1,10 @@
-// Числовые константы и конфигурация Mini App.
-// Не хардкодить магические числа в компонентах — всё сюда.
+// Конфигурационные константы Mini App
 
-// API
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
-
-// Пагинация
-export const ADS_PER_PAGE = 10;
+export const CONFIG = {
+  MAX_CAR_PHOTOS: 10,
+  MAX_PLATE_PHOTOS: 5,
+  MAX_DESCRIPTION_LENGTH: 1000,
+  MIN_YEAR: 1980,
+  MAX_YEAR: new Date().getFullYear() + 1,
+  MAX_PRICE: 999_999_999,
+} as const;
