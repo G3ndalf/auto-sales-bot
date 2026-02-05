@@ -18,16 +18,6 @@ import { useBackButton } from '../hooks/useBackButton'
 import { api } from '../api'
 import type { PlateAdFull } from '../api'
 
-/* Анимации формы: stagger-появление полей сверху вниз */
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
-}
-const fieldItem = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-}
-
 export default function EditPlateAd() {
   /** Назад ведёт на "Мои объявления" */
   useBackButton('/my-ads')
@@ -142,19 +132,12 @@ export default function EditPlateAd() {
   // ===== Рендер формы =====
   return (
     <div className="form-page">
-      <motion.h1
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
+      <h1>
         <Pen size={18} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> Редактирование — Номер
-      </motion.h1>
+      </h1>
 
       {/* ⚠️ Предупреждение о повторной модерации */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.06 }}
+      <div
         style={{
           padding: '12px 16px',
           marginBottom: '16px',
@@ -167,7 +150,7 @@ export default function EditPlateAd() {
         }}
       >
         <DangerTriangle size={16} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> После редактирования объявление будет отправлено на повторную модерацию
-      </motion.div>
+      </div>
 
       {/* Ошибки формы с анимацией slide-down / fade-in */}
       <AnimatePresence>
@@ -191,14 +174,14 @@ export default function EditPlateAd() {
         )}
       </AnimatePresence>
 
-      {/* Section: Номерной знак — stagger-появление полей */}
-      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
-        <motion.div variants={fieldItem} className="form-section__header">
+      {/* Section: Номерной знак */}
+      <div className="form-section">
+        <div className="form-section__header">
           <span className="form-section__icon"><Hashtag size={16} weight="BoldDuotone" /></span>
           <span>Номерной знак</span>
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_PLATE_NUMBER}</label>
           <input
             type="text"
@@ -207,9 +190,9 @@ export default function EditPlateAd() {
             placeholder="А777АА 07"
             className="plate-input"
           />
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_PRICE}</label>
           <input
             type="number"
@@ -217,9 +200,9 @@ export default function EditPlateAd() {
             onChange={e => setPrice(e.target.value)}
             placeholder="50000"
           />
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_DESCRIPTION}</label>
           <textarea
             value={description}
@@ -227,24 +210,22 @@ export default function EditPlateAd() {
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
             placeholder="Дополнительная информация о номере..."
           />
-          {/* Счётчик символов — плавная смена цвета через CSS transition */}
           <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
             description.length > 900 ? 'text-[#EF4444]' : description.length > 750 ? 'text-[#F59E0B]' : 'text-[#6B7280]'
           }`}>
             {description.length}/1000
           </span>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
-      {/* Section: Местоположение и контакты — stagger-появление полей */}
-      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
-        <motion.div variants={fieldItem} className="form-section__header">
+      {/* Section: Местоположение и контакты */}
+      <div className="form-section">
+        <div className="form-section__header">
           <span className="form-section__icon"><MapPoint size={16} weight="BoldDuotone" /></span>
           <span>Местоположение и контакты</span>
-        </motion.div>
+        </div>
 
-        {/* Выбор региона */}
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>Регион</label>
           <select
             value={region}
@@ -255,10 +236,9 @@ export default function EditPlateAd() {
               <option key={r.name} value={r.name}>{r.name}</option>
             ))}
           </select>
-        </motion.div>
+        </div>
 
-        {/* Выбор города (фильтруется по региону) */}
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_CITY}</label>
           <select
             value={city}
@@ -271,9 +251,9 @@ export default function EditPlateAd() {
             ))}
             {region && <option value="Другой">Другой</option>}
           </select>
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-row">
+        <div className="form-row">
           <div className="form-group">
             <label>{TEXTS.LABEL_PHONE}</label>
             <input
@@ -292,14 +272,13 @@ export default function EditPlateAd() {
               placeholder="@username"
             />
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Кнопка сохранения */}
       <div className="submit-section">
         <AnimatePresence mode="wait">
           {saved ? (
-            /* Анимация подтверждения сохранения */
             <motion.p
               key="saved"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -315,7 +294,6 @@ export default function EditPlateAd() {
               <CheckCircle size={16} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle', color: '#4CAF50' }} /> Изменения сохранены! Объявление отправлено на модерацию.
             </motion.p>
           ) : (
-            /* Тактильная обратная связь на кнопке сохранения */
             <motion.button
               key="submit"
               whileTap={{ scale: 0.95 }}

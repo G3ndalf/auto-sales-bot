@@ -7,16 +7,6 @@ import { useBackButton } from '../hooks/useBackButton'
 import { submitAd, SubmitError } from '../api'
 import PhotoUploader from '../components/PhotoUploader'
 
-/* Анимации формы: stagger-появление полей сверху вниз */
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
-}
-const fieldItem = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-}
-
 export default function CreatePlateAd() {
   const [plateNumber, setPlateNumber] = useState('')
   const [price, setPrice] = useState('')
@@ -117,7 +107,6 @@ export default function CreatePlateAd() {
           transition={{ type: 'spring', stiffness: 400, damping: 15 }}
           className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
         >
-          {/* Shake-анимация иконки предупреждения */}
           <motion.div
             animate={{ x: [0, -8, 8, -8, 8, 0] }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -147,7 +136,6 @@ export default function CreatePlateAd() {
             >
               ← Назад
             </button>
-            {/* Тактильная обратная связь на кнопке */}
             <motion.button
               whileTap={{ scale: 0.95 }}
               className="btn btn-gradient"
@@ -172,7 +160,6 @@ export default function CreatePlateAd() {
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
         >
-          {/* Scale-up анимация галочки */}
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -181,7 +168,6 @@ export default function CreatePlateAd() {
           >
             <CheckCircle size={64} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
           </motion.span>
-          {/* Fade-in для заголовка */}
           <motion.h2
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -190,7 +176,6 @@ export default function CreatePlateAd() {
           >
             {published ? 'Объявление опубликовано!' : 'Отправлено на модерацию!'}
           </motion.h2>
-          {/* Fade-in для описания */}
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -216,13 +201,7 @@ export default function CreatePlateAd() {
 
   return (
     <div className="form-page">
-      <motion.h1
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        {TEXTS.PLATE_FORM_TITLE}
-      </motion.h1>
+      <h1>{TEXTS.PLATE_FORM_TITLE}</h1>
 
       {/* Ошибки валидации с анимацией slide-down / fade-in */}
       <AnimatePresence>
@@ -255,14 +234,14 @@ export default function CreatePlateAd() {
         )}
       </AnimatePresence>
 
-      {/* Section: Номер — stagger-появление полей */}
-      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
-        <motion.div variants={fieldItem} className="form-section__header">
+      {/* Section: Номер */}
+      <div className="form-section">
+        <div className="form-section__header">
           <span className="form-section__icon"><Hashtag size={16} weight="BoldDuotone" /></span>
           <span>Номерной знак</span>
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_PLATE_NUMBER}</label>
           <input
             type="text"
@@ -271,9 +250,9 @@ export default function CreatePlateAd() {
             placeholder="А777АА 07"
             className="plate-input"
           />
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_PRICE}</label>
           <input
             type="number"
@@ -281,9 +260,9 @@ export default function CreatePlateAd() {
             onChange={e => setPrice(e.target.value)}
             placeholder="50000"
           />
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_DESCRIPTION}</label>
           <textarea
             value={description}
@@ -291,33 +270,30 @@ export default function CreatePlateAd() {
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
             placeholder="Дополнительная информация о номере..."
           />
-          {/* Счётчик символов — плавная смена цвета через CSS transition */}
           <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
             description.length > 900 ? 'text-[#EF4444]' : description.length > 750 ? 'text-[#F59E0B]' : 'text-[#6B7280]'
           }`}>
             {description.length}/1000
           </span>
-        </motion.div>
+        </div>
 
-        {/* PhotoUploader — не трогаем сам компонент, только оборачиваем */}
-        <motion.div variants={fieldItem}>
+        <div>
           <PhotoUploader
             maxPhotos={CONFIG.MAX_PLATE_PHOTOS}
             photoIds={photoIds}
             onPhotosChange={setPhotoIds}
           />
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
-      {/* Section: Местоположение и контакты — stagger-появление полей */}
-      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
-        <motion.div variants={fieldItem} className="form-section__header">
+      {/* Section: Местоположение и контакты */}
+      <div className="form-section">
+        <div className="form-section__header">
           <span className="form-section__icon"><MapPoint size={16} weight="BoldDuotone" /></span>
           <span>Местоположение и контакты</span>
-        </motion.div>
+        </div>
 
-        {/* Выбор региона */}
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>Регион</label>
           <select
             value={region}
@@ -328,10 +304,9 @@ export default function CreatePlateAd() {
               <option key={r.name} value={r.name}>{r.name}</option>
             ))}
           </select>
-        </motion.div>
+        </div>
 
-        {/* Выбор города (фильтруется по региону) */}
-        <motion.div variants={fieldItem} className="form-group">
+        <div className="form-group">
           <label>{TEXTS.LABEL_CITY}</label>
           <select
             value={city}
@@ -344,9 +319,9 @@ export default function CreatePlateAd() {
             ))}
             {region && <option value="Другой">Другой</option>}
           </select>
-        </motion.div>
+        </div>
 
-        <motion.div variants={fieldItem} className="form-row">
+        <div className="form-row">
           <div className="form-group">
             <label>{TEXTS.LABEL_PHONE}</label>
             <input
@@ -365,11 +340,10 @@ export default function CreatePlateAd() {
               placeholder="@username"
             />
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       <div className="submit-section">
-        {/* Тактильная обратная связь на кнопке отправки */}
         <motion.button
           whileTap={{ scale: 0.95 }}
           className="btn btn-gradient"
