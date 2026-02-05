@@ -5,10 +5,11 @@ import logging
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import MAX_CAR_PHOTOS, MAX_PLATE_PHOTOS
+from app.models.car_ad import AdStatus
 from app.models.photo import AdPhoto, AdType
 from app.texts import (
     PHOTOS_SAVED,
@@ -22,77 +23,94 @@ from app.texts import (
 logger = logging.getLogger(__name__)
 router = Router()
 
+PHOTOS_DONE_BTN = "✅ Готово"
+
 
 class PhotoCollectStates(StatesGroup):
     waiting_photos = State()
 
 
-async def _finish_and_notify(
+def _skip_keyboard() -> ReplyKeyboardMarkup:
+    """Keyboard with skip button (no photos yet)."""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=WEB_APP_SKIP_PHOTOS)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def _done_keyboard() -> ReplyKeyboardMarkup:
+    """Keyboard with done button (has photos)."""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=PHOTOS_DONE_BTN)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+async def _finish_and_publish(
     message: Message,
     state: FSMContext,
     bot: Bot,
     session: AsyncSession,
     photo_count: int,
 ) -> None:
-    """Clear FSM state and notify admins about the new ad."""
+    """Clear FSM, auto-approve ad, publish to channel."""
     data = await state.get_data()
     ad_id = data["ad_id"]
     ad_type = data["ad_type"]
+    await state.clear()
 
-    logger.info(
-        "[photos] _finish_and_notify: ad_type=%s, ad_id=%d, photos=%d",
-        ad_type, ad_id, photo_count,
-    )
+    # Send completion message
+    if photo_count > 0:
+        await message.answer(
+            PHOTOS_SAVED.format(count=photo_count),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+    else:
+        await message.answer(PHOTOS_SKIPPED, reply_markup=ReplyKeyboardRemove())
 
-    # Step 1: Clear FSM state
+    # Auto-approve and publish
     try:
-        await state.clear()
-        logger.info("[photos] FSM state cleared for user %d", message.from_user.id)
-    except Exception:
-        logger.exception("[photos] Failed to clear FSM state for user %d", message.from_user.id)
-
-    # Step 2: Send completion message to user
-    try:
-        if photo_count > 0:
-            await message.answer(
-                PHOTOS_SAVED.format(count=photo_count),
-                reply_markup=ReplyKeyboardRemove(),
-            )
-        else:
-            await message.answer(PHOTOS_SKIPPED, reply_markup=ReplyKeyboardRemove())
-        logger.info("[photos] Completion message sent to user %d", message.from_user.id)
-    except Exception:
-        logger.exception("[photos] Failed to send completion message to user %d", message.from_user.id)
-
-    # Step 3: Notify admins (AFTER photos are done)
-    try:
-        from app.utils.notify import notify_admins
-
-        logger.info("[photos] Importing ad services for notification...")
         from app.services.car_ad_service import get_car_ad
         from app.services.plate_ad_service import get_plate_ad
+        from app.utils.publish import publish_to_channel
 
-        logger.info("[photos] Fetching ad %s #%d from DB...", ad_type, ad_id)
         if ad_type == "car_ad":
             ad = await get_car_ad(session, ad_id)
         else:
             ad = await get_plate_ad(session, ad_id)
 
         if ad:
-            logger.info("[photos] Sending admin notification for %s #%d...", ad_type, ad_id)
-            await notify_admins(bot, ad, ad_type, photo_count=photo_count)
-            logger.info("[photos] Admin notification sent for %s #%d", ad_type, ad_id)
+            # Auto-approve
+            ad.status = AdStatus.APPROVED
+            logger.info("[photos] Auto-approved %s #%d with %d photos", ad_type, ad_id, photo_count)
+
+            # Publish to channel
+            cb_type = "car" if ad_type == "car_ad" else "plate"
+            await publish_to_channel(bot, ad, cb_type, session)
+
+            await message.answer("🎉 Объявление опубликовано!")
         else:
-            logger.error("[photos] Ad not found for notification: %s #%d", ad_type, ad_id)
+            logger.error("[photos] Ad not found: %s #%d", ad_type, ad_id)
     except Exception:
-        logger.exception("[photos] Failed to notify admins about %s #%d", ad_type, ad_id)
+        logger.exception("[photos] Failed to publish %s #%d", ad_type, ad_id)
 
 
 @router.message(PhotoCollectStates.waiting_photos, lambda m: m.text == WEB_APP_SKIP_PHOTOS)
 async def skip_photos(message: Message, state: FSMContext, bot: Bot, session: AsyncSession):
     """User chose to skip sending photos."""
     logger.info("[photos] User %d skipped photos", message.from_user.id)
-    await _finish_and_notify(message, state, bot, session, photo_count=0)
+    await _finish_and_publish(message, state, bot, session, photo_count=0)
+
+
+@router.message(PhotoCollectStates.waiting_photos, lambda m: m.text == PHOTOS_DONE_BTN)
+async def done_photos(message: Message, state: FSMContext, bot: Bot, session: AsyncSession):
+    """User pressed Done button."""
+    data = await state.get_data()
+    photo_count = data.get("photo_count", 0)
+    logger.info("[photos] User %d pressed Done with %d photos", message.from_user.id, photo_count)
+    await _finish_and_publish(message, state, bot, session, photo_count=photo_count)
 
 
 @router.message(PhotoCollectStates.waiting_photos, lambda m: m.photo is not None)
@@ -114,10 +132,9 @@ async def collect_photo(
         await message.answer(PHOTOS_LIMIT_REACHED.format(max=max_photos))
         return
 
-    # Take the largest photo size
+    # Save photo
     file_id = message.photo[-1].file_id
     photo_ad_type = AdType.CAR if ad_type == "car_ad" else AdType.PLATE
-
     photo = AdPhoto(
         ad_type=photo_ad_type,
         ad_id=ad_id,
@@ -128,28 +145,33 @@ async def collect_photo(
 
     photo_count += 1
     await state.update_data(photo_count=photo_count)
-    logger.info("[photos] Photo %d/%d collected for %s #%d", photo_count, max_photos, ad_type, ad_id)
+    logger.info("[photos] Photo %d/%d for %s #%d", photo_count, max_photos, ad_type, ad_id)
 
     if photo_count >= max_photos:
-        # Limit reached — finish
-        await _finish_and_notify(message, state, bot, session, photo_count=photo_count)
+        # Limit reached — auto-finish
+        await _finish_and_publish(message, state, bot, session, photo_count=photo_count)
     else:
+        # Show "✅ Готово" button instead of "⏭ Пропустить"
         await message.answer(
-            PHOTOS_COUNT.format(count=photo_count, max=max_photos)
+            PHOTOS_COUNT.format(count=photo_count, max=max_photos),
+            reply_markup=_done_keyboard(),
         )
 
 
 @router.message(PhotoCollectStates.waiting_photos, lambda m: m.text and m.text.lower() in ("готово", "done", "стоп"))
 async def finish_photos(message: Message, state: FSMContext, bot: Bot, session: AsyncSession):
-    """User finished sending photos."""
+    """User typed done/готово."""
     data = await state.get_data()
     photo_count = data.get("photo_count", 0)
-    logger.info("[photos] User %d finished with %d photos", message.from_user.id, photo_count)
-    await _finish_and_notify(message, state, bot, session, photo_count=photo_count)
+    logger.info("[photos] User %d typed done with %d photos", message.from_user.id, photo_count)
+    await _finish_and_publish(message, state, bot, session, photo_count=photo_count)
 
 
-# BUG 6 fix: Catch-all for unexpected messages during photo collection
+# Catch-all for unexpected messages during photo collection
 @router.message(PhotoCollectStates.waiting_photos)
-async def unknown_message_in_photos(message: Message):
-    """Handle unexpected messages (stickers, video, voice, random text)."""
-    await message.answer(PHOTOS_UNEXPECTED)
+async def unknown_message_in_photos(message: Message, state: FSMContext):
+    """Handle unexpected messages."""
+    data = await state.get_data()
+    photo_count = data.get("photo_count", 0)
+    kb = _done_keyboard() if photo_count > 0 else _skip_keyboard()
+    await message.answer(PHOTOS_UNEXPECTED, reply_markup=kb)
