@@ -10,6 +10,36 @@
     <meta http-equiv="Expires" content="0" />
     <title>Авто КБР</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!--
+      Inline error catcher — работает ДО React, ДО module-скриптов.
+      Если основной бандл не загрузится (404, parse error) — покажет ошибку.
+    -->
+    <script>
+      window.__APP_BUILD = '__BUILD_TS__';
+      window.onerror = function(msg, src, line, col) {
+        var el = document.getElementById('__pre_error');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = '__pre_error';
+          el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;padding:12px;font:12px monospace;word-break:break-all;';
+          document.body.prepend(el);
+        }
+        el.innerHTML += msg + '<br>' + (src||'') + ':' + line + '<br>';
+      };
+      // Если через 5 секунд #root пустой — значит бандл не загрузился
+      setTimeout(function() {
+        var root = document.getElementById('root');
+        if (root && !root.innerHTML.trim()) {
+          root.innerHTML = '<div style="padding:40px 20px;text-align:center;font-family:system-ui;color:#666;">' +
+            '<div style="font-size:48px;margin-bottom:16px;">⏳</div>' +
+            '<h2 style="color:#333;margin-bottom:8px;">Приложение не загрузилось</h2>' +
+            '<p style="margin-bottom:4px;">Build: ' + window.__APP_BUILD + '</p>' +
+            '<p style="margin-bottom:16px;">URL: ' + location.pathname + '</p>' +
+            '<button onclick="location.reload()" style="padding:10px 24px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;">🔄 Обновить</button>' +
+            '</div>';
+        }
+      }, 5000);
+    </script>
   </head>
   <body>
     <div id="root"></div>
