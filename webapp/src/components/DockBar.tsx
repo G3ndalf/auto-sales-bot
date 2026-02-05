@@ -11,7 +11,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 const tabs = [
   { path: '/catalog', icon: '🔍', activeIcon: '🔍', label: 'Каталог' },
   { path: '/sell', icon: '✚', activeIcon: '✚', label: 'Продать' },
-  { path: '/favorites', icon: '🤍', activeIcon: '❤️', label: 'Избранное' },
+  { path: '/favorites', icon: '☆', activeIcon: '⭐', label: 'Избранное' },
   { path: '/', icon: '👤', activeIcon: '👤', label: 'Профиль' },
 ]
 
