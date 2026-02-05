@@ -34,6 +34,7 @@ export default function EditCarAd() {
   const [color, setColor] = useState('')
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
+  const [region, setRegion] = useState('')
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
   const [telegram, setTelegram] = useState('')
@@ -66,7 +67,13 @@ export default function EditCarAd() {
         setColor(data.color || '')
         setPrice(data.price ? String(data.price) : '')
         setDescription(data.description || '')
-        setCity(data.city || '')
+        const loadedCity = data.city || ''
+        setCity(loadedCity)
+        // Автоопределение региона по загруженному городу
+        const foundRegion = TEXTS.REGIONS.find(r =>
+          (r.cities as readonly string[]).includes(loadedCity)
+        )
+        if (foundRegion) setRegion(foundRegion.name)
         setPhone(data.contact_phone || '')
         setTelegram(data.contact_telegram || '')
 
@@ -347,17 +354,35 @@ export default function EditCarAd() {
           <span>Город и контакты</span>
         </div>
 
+        {/* Выбор региона */}
+        <div className="form-group">
+          <label className="required">Регион</label>
+          <select
+            className={fc('region', region)}
+            value={region}
+            onChange={e => { setRegion(e.target.value); setCity(''); touch('region') }}
+          >
+            <option value="">Выберите регион...</option>
+            {TEXTS.REGIONS.map(r => (
+              <option key={r.name} value={r.name}>{r.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Выбор города (фильтруется по региону) */}
         <div className="form-group">
           <label className="required">{TEXTS.LABEL_CITY}</label>
           <select
             className={fc('city', city)}
             value={city}
             onChange={e => { setCity(e.target.value); touch('city') }}
+            disabled={!region}
           >
-            <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
-            {TEXTS.CITIES.map(c => (
+            <option value="">{region ? 'Выберите город...' : 'Сначала выберите регион'}</option>
+            {region && TEXTS.REGIONS.find(r => r.name === region)?.cities.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
+            {region && <option value="Другой">Другой</option>}
           </select>
         </div>
 

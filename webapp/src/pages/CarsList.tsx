@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import type { CarAdPreview, Brand, City } from '../api'
+import type { CarAdPreview, Brand } from '../api'
+import { TEXTS } from '../constants/texts'
 import { useBackButton } from '../hooks/useBackButton'
 
 interface Props {
@@ -28,7 +29,6 @@ export default function CarsList({ embedded }: Props) {
 
   // ─── Фильтры (марка, город) ────────────────────────────────
   const [brands, setBrands] = useState<Brand[]>([])
-  const [cities, setCities] = useState<City[]>([])
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedCity, setSelectedCity] = useState('')
 
@@ -48,10 +48,9 @@ export default function CarsList({ embedded }: Props) {
   // Варианты: date_new (default), date_old, price_asc, price_desc, mileage_asc
   const [sortOrder, setSortOrder] = useState('date_new')
 
-  // Загружаем справочники фильтров один раз при монтировании
+  // Загружаем справочник марок один раз при монтировании
   useEffect(() => {
     api.getBrands().then(setBrands).catch(() => {})
-    api.getCities().then(setCities).catch(() => {})
   }, [])
 
   /**
@@ -171,7 +170,7 @@ export default function CarsList({ embedded }: Props) {
   const formatPrice = (n: number) =>
     n.toLocaleString('ru-RU') + ' ₽'
 
-  if (loading && ads.length === 0 && brands.length === 0) {
+  if (loading && ads.length === 0) {
     return <div className="loading">Загрузка...</div>
   }
 
@@ -267,10 +266,12 @@ export default function CarsList({ embedded }: Props) {
           onChange={e => handleCityChange(e.target.value)}
         >
           <option value="">Все города</option>
-          {cities.map(c => (
-            <option key={c.city} value={c.city}>
-              {c.city} ({c.count})
-            </option>
+          {TEXTS.REGIONS.map(r => (
+            <optgroup key={r.name} label={r.name}>
+              {r.cities.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
 

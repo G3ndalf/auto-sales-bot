@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import type { PlateAdPreview, City } from '../api'
+import type { PlateAdPreview } from '../api'
+import { TEXTS } from '../constants/texts'
 import { useBackButton } from '../hooks/useBackButton'
 
 interface Props {
@@ -27,7 +28,6 @@ export default function PlatesList({ embedded }: Props) {
   const [error, setError] = useState(false)
 
   // ─── Фильтры (город) ──────────────────────────────────────
-  const [cities, setCities] = useState<City[]>([])
   const [selectedCity, setSelectedCity] = useState('')
 
   // ─── Поиск (debounce 400ms) ────────────────────────────────
@@ -46,10 +46,7 @@ export default function PlatesList({ embedded }: Props) {
   // Варианты: date_new (default), date_old, price_asc, price_desc
   const [sortOrder, setSortOrder] = useState('date_new')
 
-  // Загружаем справочник городов один раз при монтировании
-  useEffect(() => {
-    api.getCities().then(setCities).catch(() => {})
-  }, [])
+  // Города теперь берутся из статического справочника TEXTS.REGIONS
 
   /**
    * buildParams — собирает все query-параметры для API-запроса.
@@ -158,7 +155,7 @@ export default function PlatesList({ embedded }: Props) {
   const formatPrice = (n: number) =>
     n.toLocaleString('ru-RU') + ' ₽'
 
-  if (loading && ads.length === 0 && cities.length === 0) {
+  if (loading && ads.length === 0) {
     return <div className="loading">Загрузка...</div>
   }
 
@@ -241,10 +238,12 @@ export default function PlatesList({ embedded }: Props) {
           onChange={e => handleCityChange(e.target.value)}
         >
           <option value="">Все города</option>
-          {cities.map(c => (
-            <option key={c.city} value={c.city}>
-              {c.city} ({c.count})
-            </option>
+          {TEXTS.REGIONS.map(r => (
+            <optgroup key={r.name} label={r.name}>
+              {r.cities.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
 
