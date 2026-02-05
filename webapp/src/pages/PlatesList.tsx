@@ -42,6 +42,10 @@ export default function PlatesList({ embedded }: Props) {
     }
   }, [])
 
+  // ─── Фильтры цены ───────────────────────────────────────
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+
   // ─── Сортировка ────────────────────────────────────────────
   // Варианты: date_new (default), date_old, price_asc, price_desc
   const [sortOrder, setSortOrder] = useState('date_new')
@@ -50,7 +54,8 @@ export default function PlatesList({ embedded }: Props) {
 
   /**
    * buildParams — собирает все query-параметры для API-запроса.
-   * Включает offset, limit, city, q (поиск), sort (сортировка).
+   * Включает offset, limit, city, q (поиск), sort (сортировка),
+   * price_min, price_max (фильтры цены).
    */
   const buildParams = (
     newOffset: number,
@@ -64,6 +69,9 @@ export default function PlatesList({ embedded }: Props) {
     if (q.trim()) params.q = q.trim()
     // Сортировку передаём всегда
     if (sort) params.sort = sort
+    // Фильтры цены — передаём только непустые
+    if (priceMin) params.price_min = priceMin
+    if (priceMax) params.price_max = priceMax
     return params
   }
 
@@ -260,6 +268,27 @@ export default function PlatesList({ embedded }: Props) {
         </select>
       </div>
 
+      {/* ─── Фильтры цены ────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
+        <input type="number" placeholder="Цена от" value={priceMin}
+          onChange={e => setPriceMin(e.target.value)}
+          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
+        <input type="number" placeholder="Цена до" value={priceMax}
+          onChange={e => setPriceMax(e.target.value)}
+          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
+      </div>
+
+      {/* Кнопка применения фильтров цены */}
+      <div style={{ padding: '0 16px 8px' }}>
+        <button
+          className="btn btn-secondary"
+          onClick={() => { setOffset(0); setAds([]); loadAds(0) }}
+          style={{ width: '100%', padding: '10px', borderRadius: '12px', fontSize: '0.9em' }}
+        >
+          🔍 Применить фильтры
+        </button>
+      </div>
+
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
       {error && (
@@ -292,7 +321,7 @@ export default function PlatesList({ embedded }: Props) {
               <div className="plate-number-display">{ad.plate_number}</div>
               <div className="ad-card-info">
                 <div className="ad-card-price">{formatPrice(ad.price)}</div>
-                <div className="ad-card-location">📍 {ad.city}</div>
+                <div className="ad-card-location">📍 {ad.city} <span style={{ color: 'var(--hint, #999)', fontSize: '0.85em', marginLeft: '6px' }}>👁 {ad.view_count}</span></div>
               </div>
             </Link>
           ))}

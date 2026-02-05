@@ -28,6 +28,7 @@ const MyAds = lazy(() => import('./pages/MyAds'))
 const EditCarAd = lazy(() => import('./pages/EditCarAd'))
 const EditPlateAd = lazy(() => import('./pages/EditPlateAd'))
 const AdminPanel = lazy(() => import('./pages/AdminPanel'))
+const Favorites = lazy(() => import('./pages/Favorites'))
 
 /**
  * Fallback-компонент при загрузке lazy-модулей.
@@ -66,6 +67,7 @@ function App() {
           <Route path="/my-ads" element={<MyAds />} />
           <Route path="/car/:id/edit" element={<EditCarAd />} />
           <Route path="/plate/:id/edit" element={<EditPlateAd />} />
+          <Route path="/favorites" element={<Favorites />} />
           <Route path="/admin" element={<AdminPanel />} />
         </Routes>
       </Suspense>

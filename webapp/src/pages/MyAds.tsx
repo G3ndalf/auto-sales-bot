@@ -27,6 +27,7 @@ const STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: string; 
   pending: { label: 'На проверке', emoji: '🟡', bg: '#FFA50033', color: '#FFA500' },
   approved: { label: 'Активно', emoji: '🟢', bg: '#4CAF5033', color: '#4CAF50' },
   rejected: { label: 'Отклонено', emoji: '🔴', bg: '#F4433633', color: '#F44336' },
+  sold: { label: 'Продано', emoji: '🟣', bg: '#9C27B033', color: '#9C27B0' },
 }
 
 export default function MyAds() {
@@ -67,6 +68,17 @@ export default function MyAds() {
   useEffect(() => {
     loadAds()
   }, [loadAds])
+
+  /** Пометить объявление как проданное */
+  const markAsSold = async (adType: string, adId: number) => {
+    const uid = getUserId()
+    if (!uid) return
+    try {
+      await fetch(`/api/ads/${adType}/${adId}/sold?user_id=${uid}`, { method: 'POST' })
+      // Перезагрузить список
+      loadAds()
+    } catch {}
+  }
 
   /**
    * Удаление объявления с подтверждением.
@@ -342,7 +354,7 @@ export default function MyAds() {
                   </div>
                 </div>
 
-                {/* Кнопки действий: Редактировать / Удалить */}
+                {/* Кнопки действий */}
                 <div style={{
                   display: 'flex',
                   borderTop: '1px solid var(--tg-theme-bg-color)',
@@ -364,6 +376,26 @@ export default function MyAds() {
                   >
                     ✏️ Редактировать
                   </button>
+
+                  {/* Кнопка "Продано" — только для активных объявлений */}
+                  {ad.status === 'approved' && (
+                    <button
+                      onClick={() => markAsSold(ad.ad_type, ad.id)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        color: '#9C27B0',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        borderRight: '1px solid var(--tg-theme-bg-color)',
+                      }}
+                    >
+                      🏷️ Продано
+                    </button>
+                  )}
 
                   {/* Кнопка "Удалить" */}
                   <button

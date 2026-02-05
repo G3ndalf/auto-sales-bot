@@ -44,6 +44,12 @@ export default function CarsList({ embedded }: Props) {
     }
   }, [])
 
+  // ─── Фильтры цены и года ─────────────────────────────────
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+  const [yearMin, setYearMin] = useState('')
+  const [yearMax, setYearMax] = useState('')
+
   // ─── Сортировка ────────────────────────────────────────────
   // Варианты: date_new (default), date_old, price_asc, price_desc, mileage_asc
   const [sortOrder, setSortOrder] = useState('date_new')
@@ -55,7 +61,8 @@ export default function CarsList({ embedded }: Props) {
 
   /**
    * buildParams — собирает все query-параметры для API-запроса.
-   * Включает offset, limit, brand, city, q (поиск), sort (сортировка).
+   * Включает offset, limit, brand, city, q (поиск), sort (сортировка),
+   * price_min, price_max, year_min, year_max (фильтры цены и года).
    */
   const buildParams = (
     newOffset: number,
@@ -71,6 +78,11 @@ export default function CarsList({ embedded }: Props) {
     if (q.trim()) params.q = q.trim()
     // Сортировку передаём всегда (бэкенд использует default если не указана)
     if (sort) params.sort = sort
+    // Фильтры цены и года — передаём только непустые
+    if (priceMin) params.price_min = priceMin
+    if (priceMax) params.price_max = priceMax
+    if (yearMin) params.year_min = yearMin
+    if (yearMax) params.year_max = yearMax
     return params
   }
 
@@ -289,6 +301,37 @@ export default function CarsList({ embedded }: Props) {
         </select>
       </div>
 
+      {/* ─── Фильтры цены ────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
+        <input type="number" placeholder="Цена от" value={priceMin}
+          onChange={e => setPriceMin(e.target.value)}
+          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
+        <input type="number" placeholder="Цена до" value={priceMax}
+          onChange={e => setPriceMax(e.target.value)}
+          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
+      </div>
+
+      {/* ─── Фильтры года ────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
+        <input type="number" placeholder="Год от" value={yearMin}
+          onChange={e => setYearMin(e.target.value)}
+          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
+        <input type="number" placeholder="Год до" value={yearMax}
+          onChange={e => setYearMax(e.target.value)}
+          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
+      </div>
+
+      {/* Кнопка применения фильтров цены/года */}
+      <div style={{ padding: '0 16px 8px' }}>
+        <button
+          className="btn btn-secondary"
+          onClick={() => { setOffset(0); setAds([]); loadAds(0) }}
+          style={{ width: '100%', padding: '10px', borderRadius: '12px', fontSize: '0.9em' }}
+        >
+          🔍 Применить фильтры
+        </button>
+      </div>
+
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
       {error && (
@@ -331,7 +374,7 @@ export default function CarsList({ embedded }: Props) {
                 <div className="ad-card-details">
                   {ad.mileage.toLocaleString('ru-RU')} км • {ad.fuel_type} • {ad.transmission}
                 </div>
-                <div className="ad-card-location">📍 {ad.city}</div>
+                <div className="ad-card-location">📍 {ad.city} <span style={{ color: 'var(--hint, #999)', fontSize: '0.85em', marginLeft: '6px' }}>👁 {ad.view_count}</span></div>
                 <div className="ad-card-price">{formatPrice(ad.price)}</div>
               </div>
             </Link>

@@ -35,6 +35,7 @@ import json
 import logging
 import mimetypes
 import re
+from datetime import datetime, timezone, timedelta
 
 from aiohttp import ClientSession as HttpClientSession
 from aiohttp import web
@@ -46,6 +47,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.config import settings
 from app.handlers.photos import PhotoCollectStates
 from app.models.car_ad import AdStatus, CarAd, FuelType, Transmission
+from app.models.favorite import Favorite
 from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
 from app.models.user import User
@@ -188,6 +190,14 @@ def create_api_app(
     app.router.add_delete("/api/ads/car/{ad_id}", delete_car_ad_endpoint)
     app.router.add_delete("/api/ads/plate/{ad_id}", delete_plate_ad_endpoint)
 
+    # ── Избранное ────────────────────────────────────────────────
+    app.router.add_post("/api/favorites", add_favorite)
+    app.router.add_delete("/api/favorites", remove_favorite)
+    app.router.add_get("/api/favorites", get_favorites)
+
+    # ── Отметить как проданное ─────────────────────────────────
+    app.router.add_post("/api/ads/{ad_type}/{ad_id}/sold", mark_as_sold)
+
     # Admin routes
     app.router.add_get("/api/admin/pending", admin_get_pending)
     app.router.add_get("/api/admin/stats", admin_get_stats)
@@ -291,9 +301,35 @@ async def get_car_ads(request: web.Request) -> web.Response:
     offset = _safe_int(request.query.get("offset"), 0)
     limit = min(_safe_int(request.query.get("limit"), 20), 50)
 
+    # Фильтры по цене и году
+    price_min = _safe_int(request.query.get("price_min"), 0)
+    price_max = _safe_int(request.query.get("price_max"), 0)
+    year_min = _safe_int(request.query.get("year_min"), 0)
+    year_max = _safe_int(request.query.get("year_max"), 0)
+
     async with pool() as session:
         stmt = select(CarAd).where(CarAd.status == AdStatus.APPROVED)
         count_stmt = select(func.count()).select_from(CarAd).where(CarAd.status == AdStatus.APPROVED)
+
+        # ── Исключить просроченные (expires_at заполнен и в прошлом) ──
+        now = datetime.now(timezone.utc)
+        expired_filter = or_(CarAd.expires_at.is_(None), CarAd.expires_at > now)
+        stmt = stmt.where(expired_filter)
+        count_stmt = count_stmt.where(expired_filter)
+
+        # ── Фильтры по цене и году ────────────────────────────────
+        if price_min > 0:
+            stmt = stmt.where(CarAd.price >= price_min)
+            count_stmt = count_stmt.where(CarAd.price >= price_min)
+        if price_max > 0:
+            stmt = stmt.where(CarAd.price <= price_max)
+            count_stmt = count_stmt.where(CarAd.price <= price_max)
+        if year_min > 0:
+            stmt = stmt.where(CarAd.year >= year_min)
+            count_stmt = count_stmt.where(CarAd.year >= year_min)
+        if year_max > 0:
+            stmt = stmt.where(CarAd.year <= year_max)
+            count_stmt = count_stmt.where(CarAd.year <= year_max)
 
         # ── Exact filters ──────────────────────────────────────────
         if brand:
@@ -353,6 +389,7 @@ async def get_car_ads(request: web.Request) -> web.Response:
                 "fuel_type": ad.fuel_type.value,
                 "transmission": ad.transmission.value,
                 "photo": photos_map.get(ad.id),
+                "view_count": ad.view_count or 0,
             }
             for ad in ads
         ]
@@ -372,6 +409,10 @@ async def get_car_ad(request: web.Request) -> web.Response:
         ad = (await session.execute(stmt)).scalar_one_or_none()
         if not ad:
             raise web.HTTPNotFound()
+
+        # Инкремент счётчика просмотров
+        ad.view_count = (ad.view_count or 0) + 1
+        await session.commit()
 
         photo_stmt = (
             select(AdPhoto)
@@ -397,6 +438,7 @@ async def get_car_ad(request: web.Request) -> web.Response:
             "contact_telegram": ad.contact_telegram,
             "photos": [p.file_id for p in photos],
             "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            "view_count": ad.view_count,
         }
 
     return web.json_response(data)
@@ -419,9 +461,27 @@ async def get_plate_ads(request: web.Request) -> web.Response:
     offset = _safe_int(request.query.get("offset"), 0)
     limit = min(_safe_int(request.query.get("limit"), 20), 50)
 
+    # Фильтры по цене
+    price_min = _safe_int(request.query.get("price_min"), 0)
+    price_max = _safe_int(request.query.get("price_max"), 0)
+
     async with pool() as session:
         stmt = select(PlateAd).where(PlateAd.status == AdStatus.APPROVED)
         count_stmt = select(func.count()).select_from(PlateAd).where(PlateAd.status == AdStatus.APPROVED)
+
+        # ── Исключить просроченные (expires_at заполнен и в прошлом) ──
+        now = datetime.now(timezone.utc)
+        expired_filter = or_(PlateAd.expires_at.is_(None), PlateAd.expires_at > now)
+        stmt = stmt.where(expired_filter)
+        count_stmt = count_stmt.where(expired_filter)
+
+        # ── Фильтры по цене ───────────────────────────────────────
+        if price_min > 0:
+            stmt = stmt.where(PlateAd.price >= price_min)
+            count_stmt = count_stmt.where(PlateAd.price >= price_min)
+        if price_max > 0:
+            stmt = stmt.where(PlateAd.price <= price_max)
+            count_stmt = count_stmt.where(PlateAd.price <= price_max)
 
         # ── Exact filters ──────────────────────────────────────────
         if city:
@@ -468,6 +528,7 @@ async def get_plate_ads(request: web.Request) -> web.Response:
                 "price": ad.price,
                 "city": ad.city,
                 "photo": photos_map.get(ad.id),
+                "view_count": ad.view_count or 0,
             }
             for ad in ads
         ]
@@ -488,6 +549,10 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
         if not ad:
             raise web.HTTPNotFound()
 
+        # Инкремент счётчика просмотров
+        ad.view_count = (ad.view_count or 0) + 1
+        await session.commit()
+
         photo_stmt = (
             select(AdPhoto)
             .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id == ad_id)
@@ -505,6 +570,7 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
             "contact_telegram": ad.contact_telegram,
             "photos": [p.file_id for p in photos],
             "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            "view_count": ad.view_count,
         }
 
     return web.json_response(data)
@@ -1098,6 +1164,36 @@ async def handle_submit(request: web.Request) -> web.Response:
                 full_name=None,
             )
 
+            # ── Проверка дублей (та же марка+модель+год от того же пользователя за 7 дней) ──
+            week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+
+            if ad_type == "car_ad":
+                dupe = (await session.execute(
+                    select(CarAd).where(
+                        CarAd.user_id == user.id,
+                        CarAd.brand == str(data.get("brand", "")).strip(),
+                        CarAd.model == str(data.get("model", "")).strip(),
+                        CarAd.year == _safe_int(data.get("year")),
+                        CarAd.created_at > week_ago,
+                        CarAd.status != AdStatus.REJECTED,
+                    )
+                )).scalar_one_or_none()
+            else:
+                dupe = (await session.execute(
+                    select(PlateAd).where(
+                        PlateAd.user_id == user.id,
+                        PlateAd.plate_number == str(data.get("plate_number", "")).strip(),
+                        PlateAd.created_at > week_ago,
+                        PlateAd.status != AdStatus.REJECTED,
+                    )
+                )).scalar_one_or_none()
+
+            if dupe:
+                return web.json_response({
+                    "ok": False,
+                    "error": "Похожее объявление уже подано. Подождите или отредактируйте существующее.",
+                }, status=400)
+
             # Create ad
             contact_tg = data.get("contact_telegram")
             if isinstance(contact_tg, str):
@@ -1135,6 +1231,9 @@ async def handle_submit(request: web.Request) -> web.Response:
                     contact_phone=str(data.get("contact_phone", "")).strip(),
                     contact_telegram=contact_tg,
                 )
+
+            # ── Установить срок действия объявления (30 дней) ──
+            ad.expires_at = datetime.now(timezone.utc) + timedelta(days=30)
 
             # ── Обработка photo_ids (фото загруженные через /api/photos/upload) ──
             # Если Mini App отправил photo_ids — прикрепляем фото к объявлению
@@ -1210,6 +1309,179 @@ async def handle_submit(request: web.Request) -> web.Response:
     except Exception:
         logger.exception("[api/submit] Error creating ad")
         return web.json_response({"ok": False, "error": "Server error"}, status=500)
+
+
+# ---------------------------------------------------------------------------
+# Избранное — CRUD
+# ---------------------------------------------------------------------------
+
+
+async def add_favorite(request: web.Request) -> web.Response:
+    """POST /api/favorites — добавить в избранное."""
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    ad_type = request.query.get("ad_type")  # "car" или "plate"
+    ad_id = _safe_int(request.query.get("ad_id"), 0)
+
+    if not user_id_tg or not ad_id or ad_type not in ("car", "plate"):
+        return web.json_response({"ok": False, "error": "Missing params"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user = (await session.execute(
+            select(User).where(User.telegram_id == user_id_tg)
+        )).scalar_one_or_none()
+        if not user:
+            return web.json_response({"ok": False, "error": "User not found"}, status=404)
+
+        ad_type_enum = AdType.CAR if ad_type == "car" else AdType.PLATE
+
+        # Проверить дубликат
+        existing = (await session.execute(
+            select(Favorite).where(
+                Favorite.user_id == user.id,
+                Favorite.ad_type == ad_type_enum,
+                Favorite.ad_id == ad_id,
+            )
+        )).scalar_one_or_none()
+
+        if existing:
+            return web.json_response({"ok": True, "message": "Already in favorites"})
+
+        fav = Favorite(user_id=user.id, ad_type=ad_type_enum, ad_id=ad_id)
+        session.add(fav)
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def remove_favorite(request: web.Request) -> web.Response:
+    """DELETE /api/favorites — убрать из избранного."""
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    ad_type = request.query.get("ad_type")
+    ad_id = _safe_int(request.query.get("ad_id"), 0)
+
+    if not user_id_tg or not ad_id or ad_type not in ("car", "plate"):
+        return web.json_response({"ok": False, "error": "Missing params"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user = (await session.execute(
+            select(User).where(User.telegram_id == user_id_tg)
+        )).scalar_one_or_none()
+        if not user:
+            return web.json_response({"ok": False, "error": "User not found"}, status=404)
+
+        ad_type_enum = AdType.CAR if ad_type == "car" else AdType.PLATE
+
+        result = await session.execute(
+            select(Favorite).where(
+                Favorite.user_id == user.id,
+                Favorite.ad_type == ad_type_enum,
+                Favorite.ad_id == ad_id,
+            )
+        )
+        fav = result.scalar_one_or_none()
+        if fav:
+            await session.delete(fav)
+            await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def get_favorites(request: web.Request) -> web.Response:
+    """GET /api/favorites?user_id= — список избранного."""
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    if not user_id_tg:
+        return web.json_response({"ok": False, "error": "Missing user_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user = (await session.execute(
+            select(User).where(User.telegram_id == user_id_tg)
+        )).scalar_one_or_none()
+        if not user:
+            return web.json_response({"items": []})
+
+        # Загрузить все favorites
+        favs = (await session.execute(
+            select(Favorite).where(Favorite.user_id == user.id).order_by(Favorite.created_at.desc())
+        )).scalars().all()
+
+        items = []
+        for fav in favs:
+            if fav.ad_type == AdType.CAR:
+                ad = (await session.execute(
+                    select(CarAd).where(CarAd.id == fav.ad_id, CarAd.status == AdStatus.APPROVED)
+                )).scalar_one_or_none()
+                if ad:
+                    # Получить первое фото
+                    photo = (await session.execute(
+                        select(AdPhoto).where(
+                            AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id == ad.id
+                        ).order_by(AdPhoto.position).limit(1)
+                    )).scalar_one_or_none()
+                    items.append({
+                        "ad_type": "car",
+                        "id": ad.id,
+                        "title": f"{ad.brand} {ad.model} ({ad.year})",
+                        "price": ad.price,
+                        "city": ad.city,
+                        "photo": photo.file_id if photo else None,
+                        "view_count": ad.view_count or 0,
+                    })
+            else:
+                ad = (await session.execute(
+                    select(PlateAd).where(PlateAd.id == fav.ad_id, PlateAd.status == AdStatus.APPROVED)
+                )).scalar_one_or_none()
+                if ad:
+                    photo = (await session.execute(
+                        select(AdPhoto).where(
+                            AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id == ad.id
+                        ).order_by(AdPhoto.position).limit(1)
+                    )).scalar_one_or_none()
+                    items.append({
+                        "ad_type": "plate",
+                        "id": ad.id,
+                        "title": ad.plate_number,
+                        "price": ad.price,
+                        "city": ad.city,
+                        "photo": photo.file_id if photo else None,
+                        "view_count": ad.view_count or 0,
+                    })
+
+    return web.json_response({"items": items})
+
+
+# ---------------------------------------------------------------------------
+# Отметить как проданное
+# ---------------------------------------------------------------------------
+
+
+async def mark_as_sold(request: web.Request) -> web.Response:
+    """POST /api/ads/{ad_type}/{ad_id}/sold — отметить как проданное."""
+    ad_type = request.match_info["ad_type"]
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+
+    if ad_type not in ("car", "plate") or not ad_id or not user_id_tg:
+        return web.json_response({"error": "Invalid params"}, status=400)
+
+    model = CarAd if ad_type == "car" else PlateAd
+    pool = request.app["session_pool"]
+
+    async with pool() as session:
+        ad = (await session.execute(select(model).where(model.id == ad_id))).scalar_one_or_none()
+        if not ad:
+            return web.json_response({"error": "Not found"}, status=404)
+
+        owner = (await session.execute(select(User).where(User.id == ad.user_id))).scalar_one_or_none()
+        if not owner or owner.telegram_id != user_id_tg:
+            return web.json_response({"error": "Forbidden"}, status=403)
+
+        ad.status = AdStatus.SOLD
+        await session.commit()
+
+    return web.json_response({"ok": True})
 
 
 # --- Admin endpoints ---

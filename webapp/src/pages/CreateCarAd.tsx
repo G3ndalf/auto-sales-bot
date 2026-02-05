@@ -86,10 +86,7 @@ export default function CreateCarAd() {
       if (photoIds.length > 0 && (result as Record<string, unknown>).published) {
         setPublished(true)
       }
-      // Close Mini App after showing success
-      setTimeout(() => {
-        window.Telegram?.WebApp?.close()
-      }, 2000)
+      // Не закрываем автоматически — показываем success screen с кнопкой
     } catch (e: unknown) {
       setSubmitting(false)
       if (e instanceof SubmitError) {
@@ -112,6 +109,34 @@ export default function CreateCarAd() {
   const fc = (field: string, value: string) => {
     const s = fieldState(value, field)
     return `form-field ${s === 'valid' ? 'field-valid' : s === 'invalid' ? 'field-invalid' : ''}`
+  }
+
+  // Success screen — заменяет всю форму
+  if (sent) {
+    return (
+      <div className="form-page">
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', minHeight: '60vh', textAlign: 'center',
+          gap: '12px', padding: '16px', animation: 'scaleIn 0.4s ease-out',
+        }}>
+          <span style={{ fontSize: '64px' }}>✅</span>
+          <h2 style={{ fontSize: '1.4em' }}>
+            {published ? 'Объявление опубликовано!' : 'Отправлено на модерацию!'}
+          </h2>
+          <p style={{ color: 'var(--hint)' }}>
+            {published ? 'Ваше объявление уже в каталоге' : 'Мы проверим и опубликуем'}
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => window.Telegram?.WebApp?.close()}
+            style={{ marginTop: '16px' }}
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -279,6 +304,14 @@ export default function CreateCarAd() {
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
             placeholder="Дополнительная информация..."
           />
+          {/* Счётчик символов */}
+          <span style={{
+            display: 'block', textAlign: 'right', fontSize: '0.8em',
+            color: description.length > 900 ? 'var(--red, #ef4444)' : 'var(--hint, #6b7280)',
+            marginTop: '4px',
+          }}>
+            {description.length}/1000
+          </span>
         </div>
 
         <PhotoUploader
@@ -353,19 +386,13 @@ export default function CreateCarAd() {
       </div>
 
       <div className="submit-section">
-        {sent ? (
-          <p className="form-hint">
-            {published ? TEXTS.MSG_AD_PUBLISHED : (photoIds.length > 0 ? TEXTS.MSG_SENT : TEXTS.MSG_AD_PENDING_PHOTOS)}
-          </p>
-        ) : (
-          <button
-            className={`btn btn-gradient ${!allRequired ? 'btn-disabled' : ''}`}
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
-          </button>
-        )}
+        <button
+          className={`btn btn-gradient ${!allRequired ? 'btn-disabled' : ''}`}
+          onClick={handleSubmit}
+          disabled={submitting}
+        >
+          {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
+        </button>
       </div>
     </div>
   )

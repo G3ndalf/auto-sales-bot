@@ -9,13 +9,14 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 
 const tabs = [
-  { path: '/', icon: '👤', activeIcon: '👤', label: 'Профиль' },
   { path: '/catalog', icon: '🔍', activeIcon: '🔍', label: 'Каталог' },
   { path: '/sell', icon: '✚', activeIcon: '✚', label: 'Продать' },
+  { path: '/favorites', icon: '🤍', activeIcon: '❤️', label: 'Избранное' },
+  { path: '/', icon: '👤', activeIcon: '👤', label: 'Профиль' },
 ]
 
 /** Главные страницы, на которых виден док */
-const MAIN_PATHS = ['/', '/catalog', '/sell']
+const MAIN_PATHS = ['/', '/catalog', '/sell', '/favorites']
 
 export default function DockBar() {
   const location = useLocation()

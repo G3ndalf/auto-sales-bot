@@ -1,4 +1,6 @@
-from sqlalchemy import Enum, ForeignKey, Integer, String, Text
+from datetime import datetime
+
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -34,3 +36,8 @@ class PlateAd(Base, TimestampMixin):
         index=True,
     )
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Статистика
+    view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # Автоистечение (30 дней по умолчанию)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -11,6 +11,10 @@ export default function CarAdDetail() {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // ─── Избранное ─────────────────────────────────────────────
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
+
   useEffect(() => {
     if (!id) return
     api.getCarAd(Number(id)).then(data => {
@@ -18,6 +22,33 @@ export default function CarAdDetail() {
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
+
+  // Проверяем, есть ли объявление в избранном
+  useEffect(() => {
+    if (!id) return
+    api.getFavorites()
+      .then(data => {
+        const found = data.items.some(item => item.ad_type === 'car' && item.id === Number(id))
+        setIsFavorite(found)
+      })
+      .catch(() => {})
+  }, [id])
+
+  /** Переключить избранное */
+  const toggleFavorite = async () => {
+    if (!id) return
+    setFavoriteLoading(true)
+    try {
+      if (isFavorite) {
+        await api.removeFavorite('car', Number(id))
+        setIsFavorite(false)
+      } else {
+        await api.addFavorite('car', Number(id))
+        setIsFavorite(true)
+      }
+    } catch { /* ignore */ }
+    setFavoriteLoading(false)
+  }
 
   if (loading) return <div className="loading">Загрузка...</div>
   if (!ad) return <div className="loading">Объявление не найдено</div>
@@ -68,11 +99,29 @@ export default function CarAdDetail() {
         <div className="gallery-placeholder">🚗</div>
       )}
 
-      {/* Title & price */}
+      {/* Title & price & favorite */}
       <div className="detail-header">
         <h1>{ad.brand} {ad.model}</h1>
-        <div className="detail-price">{formatPrice(ad.price)}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="detail-price">{formatPrice(ad.price)}</div>
+          <button
+            onClick={toggleFavorite}
+            disabled={favoriteLoading}
+            style={{
+              background: 'none', border: 'none', fontSize: '1.5em', cursor: 'pointer',
+              color: isFavorite ? '#ef4444' : 'var(--hint)',
+              opacity: favoriteLoading ? 0.5 : 1,
+            }}
+          >
+            {isFavorite ? '❤️' : '🤍'}
+          </button>
+        </div>
       </div>
+
+      {/* Просмотры */}
+      <p style={{ color: 'var(--hint, #999)', fontSize: '0.85em', padding: '0 16px 8px', margin: 0 }}>
+        👁 {ad.view_count} просмотров
+      </p>
 
       {/* Specs */}
       <div className="detail-specs">

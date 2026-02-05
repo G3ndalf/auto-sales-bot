@@ -1,6 +1,7 @@
 import enum
+from datetime import datetime
 
-from sqlalchemy import Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -31,6 +32,7 @@ class AdStatus(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    SOLD = "sold"  # Отмечено продавцом как проданное
 
 
 class CarAd(Base, TimestampMixin):
@@ -75,3 +77,8 @@ class CarAd(Base, TimestampMixin):
         index=True,
     )
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Статистика
+    view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # Автоистечение (30 дней по умолчанию)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

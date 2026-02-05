@@ -18,7 +18,7 @@ export default function Home() {
           <div className="home-card__icon">📋</div>
           <div className="home-card__body">
             <div className="home-card__title">Каталог</div>
-            <div className="home-card__desc">Авто и номера в КБР</div>
+            <div className="home-card__desc">Авто и номера СКФО</div>
           </div>
           <div className="home-card__arrow">›</div>
         </Link>

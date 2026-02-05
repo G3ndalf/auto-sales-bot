@@ -59,6 +59,7 @@ export interface CarAdPreview {
   fuel_type: string;
   transmission: string;
   photo: string | null;
+  view_count: number;
 }
 
 export interface CarAdFull {
@@ -78,6 +79,7 @@ export interface CarAdFull {
   contact_telegram: string | null;
   photos: string[];
   created_at: string | null;
+  view_count: number;
 }
 
 export interface PlateAdPreview {
@@ -86,6 +88,7 @@ export interface PlateAdPreview {
   price: number;
   city: string;
   photo: string | null;
+  view_count: number;
 }
 
 export interface PlateAdFull {
@@ -98,6 +101,18 @@ export interface PlateAdFull {
   contact_telegram: string | null;
   photos: string[];
   created_at: string | null;
+  view_count: number;
+}
+
+/** Элемент списка избранных объявлений */
+export interface FavoriteItem {
+  ad_type: 'car' | 'plate';
+  id: number;
+  title: string;
+  price: number;
+  city: string;
+  photo: string | null;
+  view_count: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -349,6 +364,26 @@ export const api = {
     return fetchJSON<{ ok: boolean }>(`/api/ads/${adType}/${adId}?user_id=${uid}`, {
       method: 'DELETE',
     });
+  },
+
+  // ===== Избранное =====
+
+  /** Добавить объявление в избранное */
+  addFavorite: (adType: string, adId: number) => {
+    const uid = getUserId();
+    return fetchJSON<{ ok: boolean }>(`/api/favorites?user_id=${uid}&ad_type=${adType}&ad_id=${adId}`, { method: 'POST' });
+  },
+
+  /** Удалить объявление из избранного */
+  removeFavorite: (adType: string, adId: number) => {
+    const uid = getUserId();
+    return fetchJSON<{ ok: boolean }>(`/api/favorites?user_id=${uid}&ad_type=${adType}&ad_id=${adId}`, { method: 'DELETE' });
+  },
+
+  /** Получить список избранных объявлений текущего пользователя */
+  getFavorites: () => {
+    const uid = getUserId();
+    return fetchJSON<{ items: FavoriteItem[] }>(`/api/favorites?user_id=${uid}`);
   },
 
   // Admin
