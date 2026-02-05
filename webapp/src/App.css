@@ -642,16 +642,22 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
 }
 
 /* ─── Gallery: карусель-лента ─── */
-.gallery {
-  overflow: hidden;
-  position: relative;
+/* ─── Card gallery: нативный scroll-snap ─── */
+.gallery-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   background: #0B0F19;
 }
-.gallery-strip {
-  display: flex;
-  will-change: transform;
+.gallery-scroll::-webkit-scrollbar {
+  display: none;
 }
-.gallery-img {
+.gallery-scroll-img {
+  width: 100%;
+  flex-shrink: 0;
+  scroll-snap-align: start;
   aspect-ratio: 4/3;
   object-fit: cover;
   display: block;
@@ -733,16 +739,23 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
 .gallery-fs-close:active {
   background: rgba(255, 255, 255, 0.25);
 }
-.gallery-fs-strip {
+/* ─── Fullscreen: scroll-snap ─── */
+.gallery-fs-scroll {
   display: flex;
   align-items: center;
   height: 100%;
-  position: absolute;
-  left: 0;
-  top: 0;
-  will-change: transform;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
-.gallery-fs-img {
+.gallery-fs-scroll::-webkit-scrollbar {
+  display: none;
+}
+.gallery-fs-scroll-img {
+  width: 100vw;
+  flex-shrink: 0;
+  scroll-snap-align: start;
   max-height: 80vh;
   object-fit: contain;
   user-select: none;
