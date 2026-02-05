@@ -53,8 +53,10 @@ export default function MyAds() {
       setLoading(true)
       setError(null)
       const data = await api.getUserAds(uid)
-      setCars(data.cars || [])
-      setPlates(data.plates || [])
+      // API возвращает cars[] и plates[] отдельно, но без поля ad_type.
+      // Проставляем ad_type вручную — он нужен для навигации на edit/delete.
+      setCars((data.cars || []).map(ad => ({ ...ad, ad_type: 'car' as const })))
+      setPlates((data.plates || []).map(ad => ({ ...ad, ad_type: 'plate' as const })))
     } catch {
       setError('Ошибка загрузки объявлений')
     } finally {
@@ -244,10 +246,11 @@ export default function MyAds() {
             /** Конфигурация бейджа для текущего статуса */
             const status = STATUS_CONFIG[ad.status] || STATUS_CONFIG.pending
 
-            /** Название: марка+модель для авто, номер для номеров */
-            const title = ad.ad_type === 'car'
-              ? `${ad.brand || ''} ${ad.model || ''}`.trim() || 'Автомобиль'
-              : ad.plate_number || 'Номер'
+            /** Название: из поля title (API возвращает "brand model" для авто, plate_number для номеров) */
+            const title = (ad as unknown as Record<string, string>).title
+              || (ad.ad_type === 'car'
+                ? `${ad.brand || ''} ${ad.model || ''}`.trim() || 'Автомобиль'
+                : ad.plate_number || 'Номер')
 
             return (
               <div
