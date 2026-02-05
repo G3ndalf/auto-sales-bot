@@ -1,3 +1,5 @@
+import time
+
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import (
@@ -13,6 +15,14 @@ from app.texts import ADMIN_PANEL_BTN, START_WELCOME
 router = Router()
 
 
+def _webapp_url(path: str = "") -> str:
+    """Build webapp URL with cache-busting query param."""
+    base = settings.webapp_url.rstrip("/")
+    ts = int(time.time())
+    url = f"{base}{path}" if path else base
+    return f"{url}?v={ts}"
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message):
     kb = None
@@ -21,13 +31,13 @@ async def cmd_start(message: Message):
             [
                 KeyboardButton(
                     text="🚗 Подать объявление",
-                    web_app=WebAppInfo(url=settings.webapp_url),
+                    web_app=WebAppInfo(url=_webapp_url()),
                 ),
             ],
             [
                 KeyboardButton(
                     text="📋 Каталог",
-                    web_app=WebAppInfo(url=f"{settings.webapp_url}/catalog"),
+                    web_app=WebAppInfo(url=_webapp_url("/catalog")),
                 ),
             ],
         ]
@@ -36,7 +46,7 @@ async def cmd_start(message: Message):
             keyboard_rows.append([
                 KeyboardButton(
                     text=ADMIN_PANEL_BTN,
-                    web_app=WebAppInfo(url=f"{settings.webapp_url}/admin"),
+                    web_app=WebAppInfo(url=_webapp_url("/admin")),
                 ),
             ])
         kb = ReplyKeyboardMarkup(keyboard=keyboard_rows, resize_keyboard=True)
