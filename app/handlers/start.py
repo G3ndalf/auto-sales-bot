@@ -89,35 +89,39 @@ def _format_price(price: int) -> str:
 
 
 async def _send_start_menu(message: Message) -> None:
-    """Отправить главное меню бота.
+    """Отправить главное меню бота — одно сообщение с InlineKeyboard.
 
-    Отправляет два reply_markup:
-    1. Сообщение с ReplyKeyboard — устанавливает кнопку "🔄 Перезапустить" внизу
-    2. Сообщение с InlineKeyboard — кнопки "Открыть приложение" + "Админ панель"
+    Сначала устанавливаем ReplyKeyboard (кнопка "🔄 Перезапустить") тихим
+    сообщением, затем отправляем основное приветствие с inline-кнопками.
 
     Telegram позволяет только один reply_markup на сообщение,
-    поэтому нужны два сообщения.
+    поэтому ReplyKeyboard ставится отдельно (удаляется сразу).
     """
     uid = message.from_user.id if message.from_user else 0
     is_admin = message.from_user and message.from_user.id in settings.admin_ids
 
-    # ── 1. ReplyKeyboard с кнопкой перезапуска (устанавливается внизу чата) ──
+    # ── Установить ReplyKeyboard (кнопка перезапуска внизу чата) ──
     restart_kb = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text=RESTART_BTN_TEXT)]],
         resize_keyboard=True,
     )
-    await message.answer(START_WELCOME, reply_markup=restart_kb)
+    # Отправляем невидимое сообщение чтобы установить клавиатуру, затем удаляем
+    setup_msg = await message.answer("⏳", reply_markup=restart_kb)
+    try:
+        await setup_msg.delete()
+    except Exception:
+        pass  # Не критично если не удалилось
 
-    # ── 2. InlineKeyboard с web_app кнопками (в теле сообщения) ──────────
+    # ── Основное сообщение с приветствием + inline кнопками ──────────
+    inline_buttons: list[list[InlineKeyboardButton]] = []
+
     if settings.webapp_url:
-        inline_buttons: list[list[InlineKeyboardButton]] = [
-            [
-                InlineKeyboardButton(
-                    text="📱 Открыть приложение",
-                    web_app=WebAppInfo(url=_webapp_url(uid=uid)),
-                ),
-            ],
-        ]
+        inline_buttons.append([
+            InlineKeyboardButton(
+                text="📱 Открыть приложение",
+                web_app=WebAppInfo(url=_webapp_url(uid=uid)),
+            ),
+        ])
         # Кнопка админ-панели — только для администраторов
         if is_admin:
             inline_buttons.append([
@@ -127,8 +131,8 @@ async def _send_start_menu(message: Message) -> None:
                 ),
             ])
 
-        inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_buttons)
-        await message.answer("👇 Нажмите, чтобы открыть:", reply_markup=inline_kb)
+    inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_buttons) if inline_buttons else None
+    await message.answer(START_WELCOME, reply_markup=inline_kb)
 
 
 @router.message(CommandStart())
