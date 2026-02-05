@@ -1,3 +1,15 @@
+/**
+ * useBackButton — Хук для управления BackButton в Telegram Mini App.
+ *
+ * Все вызовы Telegram SDK обёрнуты в try-catch:
+ * - BackButton может быть не поддержан в текущей версии WebApp
+ * - SDK может выбросить исключение вместо предупреждения
+ * - Вне Telegram (обычный браузер) — graceful fallback
+ *
+ * @param fallbackPath — путь для навигации при нажатии BackButton.
+ *   Если не указан, используется navigate(-1) (browser history back).
+ */
+
 import { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
@@ -41,15 +53,14 @@ export function useBackButton(fallbackPath?: string) {
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp
-
-    if (!tg) return
+    if (!tg?.BackButton) return
 
     if (isHome) {
-      tg.BackButton.hide()
+      try { tg.BackButton.hide() } catch { /* ignore */ }
       return
     }
 
-    tg.BackButton.show()
+    try { tg.BackButton.show() } catch { /* ignore */ }
 
     const handler = () => {
       if (fallbackPath) {
@@ -59,11 +70,11 @@ export function useBackButton(fallbackPath?: string) {
       }
     }
 
-    tg.BackButton.onClick(handler)
+    try { tg.BackButton.onClick(handler) } catch { /* ignore */ }
 
     return () => {
-      tg.BackButton.offClick(handler)
-      tg.BackButton.hide()
+      try { tg.BackButton.offClick(handler) } catch { /* ignore */ }
+      try { tg.BackButton.hide() } catch { /* ignore */ }
     }
   }, [isHome, navigate, fallbackPath])
 }
