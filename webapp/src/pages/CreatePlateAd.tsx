@@ -4,7 +4,7 @@ import { Hashtag, MapPoint, CheckCircle, DangerTriangle, Refresh } from '@solar-
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
-import { submitAd, SubmitError } from '../api'
+import { submitAd, SubmitError, getUsername } from '../api'
 import PhotoUploader from '../components/PhotoUploader'
 
 export default function CreatePlateAd() {
@@ -14,7 +14,6 @@ export default function CreatePlateAd() {
   const [region, setRegion] = useState('')
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
-  const [telegram, setTelegram] = useState('')
   const [photoIds, setPhotoIds] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
@@ -39,7 +38,7 @@ export default function CreatePlateAd() {
     description: description.trim(),
     city,
     contact_phone: phone.trim(),
-    contact_telegram: telegram.trim() || null,
+    username: getUsername(),
     photo_ids: photoIds.length > 0 ? photoIds : undefined,
     ...(force ? { force: true } : {}),
   })
@@ -329,15 +328,6 @@ export default function CreatePlateAd() {
               value={phone}
               onChange={e => setPhone(e.target.value)}
               placeholder="+7..."
-            />
-          </div>
-          <div className="form-group">
-            <label>{TEXTS.LABEL_TELEGRAM}</label>
-            <input
-              type="text"
-              value={telegram}
-              onChange={e => setTelegram(e.target.value)}
-              placeholder="@username"
             />
           </div>
         </div>

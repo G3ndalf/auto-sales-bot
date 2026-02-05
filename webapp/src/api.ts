@@ -232,6 +232,15 @@ export function getUserId(): number | null {
   return null;
 }
 
+/**
+ * Получить Telegram username текущего пользователя.
+ */
+export function getUsername(): string | null {
+  try {
+    return window.Telegram?.WebApp?.initDataUnsafe?.user?.username || null;
+  } catch { return null; }
+}
+
 // Custom error class for submit errors
 export class SubmitError extends Error {
   type: 'validation' | 'rate_limit' | 'duplicate' | 'generic';

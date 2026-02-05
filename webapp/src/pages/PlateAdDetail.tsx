@@ -189,36 +189,22 @@ export default function PlateAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Кнопка «Позвонить» — основной CTA с subtle glow-пульсацией */}
-        <motion.a
+        {/* Кнопка «Позвонить» */}
+        <a
           href={`tel:${ad.contact_phone}`}
           className="btn btn-gradient detail-footer__btn"
-          animate={{
-            boxShadow: [
-              '0 0 0px rgba(99,102,241,0)',
-              '0 0 12px rgba(99,102,241,0.35)',
-              '0 0 0px rgba(99,102,241,0)',
-            ],
-          }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
         >
           <Phone size={16} weight="BoldDuotone" /> Позвонить
-        </motion.a>
-        <a
-          href={`https://t.me/autoskfo_bot?start=msg_plate_${ad.id}`}
-          className="btn btn-secondary detail-footer__btn"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <ChatSquare size={16} weight="BoldDuotone" /> Написать
         </a>
-        {ad.contact_telegram && (
+        {/* «Написать» — только если у автора есть username */}
+        {ad.author_username && (
           <a
-            href={`https://t.me/${ad.contact_telegram.replace('@', '')}`}
+            href={`https://t.me/${ad.author_username}`}
             className="btn btn-secondary detail-footer__btn"
             target="_blank"
+            rel="noopener noreferrer"
           >
-            <ChatRound size={14} weight="BoldDuotone" /> Telegram
+            <ChatSquare size={16} weight="BoldDuotone" /> Написать
           </a>
         )}
       </motion.div>

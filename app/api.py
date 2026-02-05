@@ -444,6 +444,11 @@ async def get_car_ad(request: web.Request) -> web.Response:
         )
         photos = (await session.execute(photo_stmt)).scalars().all()
 
+        # Подгружаем username автора
+        author = (await session.execute(
+            select(User).where(User.id == ad.user_id)
+        )).scalar_one_or_none()
+
         data = {
             "id": ad.id,
             "brand": ad.brand,
@@ -459,6 +464,7 @@ async def get_car_ad(request: web.Request) -> web.Response:
             "description": ad.description,
             "contact_phone": ad.contact_phone,
             "contact_telegram": ad.contact_telegram,
+            "author_username": author.username if author else None,
             "photos": [p.file_id for p in photos],
             "created_at": ad.created_at.isoformat() if ad.created_at else None,
             "view_count": ad.view_count,
@@ -600,6 +606,11 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
         )
         photos = (await session.execute(photo_stmt)).scalars().all()
 
+        # Подгружаем username автора
+        author = (await session.execute(
+            select(User).where(User.id == ad.user_id)
+        )).scalar_one_or_none()
+
         data = {
             "id": ad.id,
             "plate_number": ad.plate_number,
@@ -608,6 +619,7 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
             "description": ad.description,
             "contact_phone": ad.contact_phone,
             "contact_telegram": ad.contact_telegram,
+            "author_username": author.username if author else None,
             "photos": [p.file_id for p in photos],
             "created_at": ad.created_at.isoformat() if ad.created_at else None,
             "view_count": ad.view_count,
@@ -1194,8 +1206,8 @@ async def handle_submit(request: web.Request) -> web.Response:
             user = await get_or_create_user(
                 session,
                 telegram_id=user_id_tg,
-                username=None,
-                full_name=None,
+                username=data.get("username"),
+                full_name=data.get("full_name"),
             )
 
             # ── Проверка дублей (та же марка+модель+год от того же пользователя за 7 дней) ──
