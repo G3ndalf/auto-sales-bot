@@ -21,6 +21,7 @@ import CarAdDetail from './pages/CarAdDetail'
 import PlateAdDetail from './pages/PlateAdDetail'
 import Favorites from './pages/Favorites'
 import MyAds from './pages/MyAds'
+import AdminPanel from './pages/AdminPanel'
 
 /* ─── Lazy: редкие страницы ─── */
 const Sell = lazy(() => import('./pages/Sell'))
@@ -28,7 +29,6 @@ const CreateCarAd = lazy(() => import('./pages/CreateCarAd'))
 const CreatePlateAd = lazy(() => import('./pages/CreatePlateAd'))
 const EditCarAd = lazy(() => import('./pages/EditCarAd'))
 const EditPlateAd = lazy(() => import('./pages/EditPlateAd'))
-const AdminPanel = lazy(() => import('./pages/AdminPanel'))
 
 /** Быстрый fade-in без exit-задержки */
 function AnimatedPage({ children }: { children: React.ReactNode }) {
