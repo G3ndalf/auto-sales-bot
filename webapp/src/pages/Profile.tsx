@@ -6,6 +6,8 @@
  * - Дата регистрации
  * - Статистика объявлений: активные, на модерации, отклонённые, всего + разбивка авто/номера
  * - Кнопка "Мои объявления" (навигация на /my-ads)
+ *
+ * Анимации: scale-in аватар, stagger статистика (80ms), stagger кнопки
  */
 
 import { useState, useEffect } from 'react'
@@ -15,6 +17,18 @@ import { api, getUserId, ADMIN_IDS } from '../api'
 import type { UserProfile } from '../api'
 import { SkeletonProfile } from '../components/Skeleton'
 import { ClipboardList, Settings, CheckCircle, ClockCircle, CloseCircle, Chart, Garage, Hashtag } from '@solar-icons/react'
+
+/* Варианты анимаций для stagger-контейнеров */
+const staggerContainer = (staggerDelay = 0.08) => ({
+  hidden: {},
+  visible: { transition: { staggerChildren: staggerDelay } },
+})
+
+/* Элемент stagger — fade-in + slide-up */
+const staggerItem = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+}
 
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -62,8 +76,13 @@ export default function Profile() {
 
   return (
     <div className="profile-page">
-      {/* Hero — аватар, имя, дата регистрации */}
-      <div className="profile-hero">
+      {/* Hero — аватар, имя, дата регистрации (мягкий scale-in) */}
+      <motion.div
+        className="profile-hero"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
         <div className="profile-avatar">{avatar}</div>
         <h1 className="profile-name">{displayName}</h1>
         {profile.username && (
@@ -72,20 +91,23 @@ export default function Profile() {
         {profile.member_since && (
           <p className="profile-since">На платформе с {profile.member_since}</p>
         )}
-      </div>
+      </motion.div>
 
-      {/* Статистика объявлений */}
+      {/* Статистика объявлений — stagger появление с задержкой 80ms */}
       <div className="profile-section">
         <h2 style={{ fontSize: 15, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px 4px' }}>
           Мои объявления
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {stats.map((stat, i) => (
+        <motion.div
+          variants={staggerContainer(0.08)}
+          initial="hidden"
+          animate="visible"
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
+        >
+          {stats.map((stat) => (
             <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1, duration: 0.3 }}
+              key={String(stat.label)}
+              variants={staggerItem}
               style={{ background: stat.bg, borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4, border: `1px solid ${stat.color}22` }}
             >
               <span style={{ fontSize: 24, fontWeight: 700, color: stat.valueColor, lineHeight: 1.2 }}>
@@ -96,7 +118,7 @@ export default function Profile() {
               </span>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Разбивка по типу: авто / номера */}
         {profile.ads.total > 0 && (
@@ -116,10 +138,22 @@ export default function Profile() {
         )}
       </div>
 
-      {/* Кнопка — переход к объявлениям */}
+      {/* Кнопки — stagger fade-in после статистики */}
       <div className="profile-section">
-        <div className="profile-actions">
-          <div className="profile-action" onClick={() => navigate('/my-ads')}>
+        <motion.div
+          className="profile-actions"
+          variants={staggerContainer(0.1)}
+          initial="hidden"
+          animate="visible"
+          /* Задержка чтобы кнопки появились после статистики */
+          transition={{ delayChildren: 0.4 }}
+        >
+          <motion.div
+            className="profile-action"
+            variants={staggerItem}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate('/my-ads')}
+          >
             <ClipboardList size={20} weight="BoldDuotone" />
             <span>Мои объявления</span>
             {profile.ads.total > 0 && (
@@ -127,15 +161,20 @@ export default function Profile() {
                 {profile.ads.total}
               </span>
             )}
-          </div>
+          </motion.div>
           {/* Админ-панель — только для администраторов */}
           {ADMIN_IDS.includes(Number(getUserId())) && (
-            <div className="profile-action" onClick={() => navigate('/admin')}>
+            <motion.div
+              className="profile-action"
+              variants={staggerItem}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/admin')}
+            >
               <Settings size={20} weight="BoldDuotone" />
               <span>Админ-панель</span>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   )

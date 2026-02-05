@@ -1,9 +1,35 @@
+/**
+ * AdminPanel.tsx — Панель администратора.
+ *
+ * Анимации: stagger статистика, stagger карточки модерации,
+ * whileTap кнопки одобрить/отклонить
+ */
+
 import { useState, useEffect, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import { Chart, ClockCircle, CheckCircle, CloseCircle, Garage, Hashtag, MapPoint, Phone, ChatRound } from '@solar-icons/react'
 import { api } from '../api'
 import type { AdminPendingAd, AdminStats } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 import { TEXTS } from '../constants/texts'
+
+/* Stagger-контейнер для статистики */
+const statsContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+}
+
+/* Stagger-контейнер для карточек модерации */
+const adsContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
+}
+
+/* Элемент stagger — fade-in + slide-up */
+const fadeInUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+}
 
 export default function AdminPanel() {
   useBackButton('/')
@@ -75,30 +101,35 @@ export default function AdminPanel() {
     <div className="admin-page">
       <h1>{TEXTS.ADMIN_TITLE}</h1>
 
-      {/* Stats */}
+      {/* Статистика — stagger появление блоков */}
       {stats && (
-        <div className="admin-stats">
-          <div className="stat-card">
+        <motion.div
+          className="admin-stats"
+          variants={statsContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.div className="stat-card" variants={fadeInUp}>
             <Chart size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.total}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_TOTAL}</div>
-          </div>
-          <div className="stat-card stat-pending">
+          </motion.div>
+          <motion.div className="stat-card stat-pending" variants={fadeInUp}>
             <ClockCircle size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.pending}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_PENDING}</div>
-          </div>
-          <div className="stat-card stat-approved">
+          </motion.div>
+          <motion.div className="stat-card stat-approved" variants={fadeInUp}>
             <CheckCircle size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.approved}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_APPROVED}</div>
-          </div>
-          <div className="stat-card stat-rejected">
+          </motion.div>
+          <motion.div className="stat-card stat-rejected" variants={fadeInUp}>
             <CloseCircle size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.rejected}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_REJECTED}</div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {/* Error toast */}
@@ -114,12 +145,17 @@ export default function AdminPanel() {
           <p>{TEXTS.ADMIN_NO_PENDING}</p>
         </div>
       ) : (
-        <div className="admin-ads-list">
+        <motion.div
+          className="admin-ads-list"
+          variants={adsContainer}
+          initial="hidden"
+          animate="visible"
+        >
           {ads.map(ad => {
             const key = `${ad.ad_type}-${ad.id}`
             const isProcessing = actionLoading === key
             return (
-              <div className="admin-ad-card" key={key}>
+              <motion.div className="admin-ad-card" key={key} variants={fadeInUp}>
                 {/* Badge */}
                 <div className={`admin-ad-badge ${ad.ad_type === 'car' ? 'badge-car' : 'badge-plate'}`}>
                   {ad.ad_type === 'car' ? TEXTS.ADMIN_CAR_LABEL : TEXTS.ADMIN_PLATE_LABEL}
@@ -165,27 +201,29 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                {/* Actions */}
+                {/* Кнопки одобрить/отклонить — whileTap с визуальным feedback */}
                 <div className="admin-ad-actions">
-                  <button
+                  <motion.button
                     className="btn-approve"
                     onClick={() => handleApprove(ad)}
                     disabled={isProcessing}
+                    whileTap={{ scale: 0.9 }}
                   >
                     {isProcessing ? '...' : <><CheckCircle size={16} weight="BoldDuotone" /> {TEXTS.ADMIN_BTN_APPROVE}</>}
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     className="btn-reject"
                     onClick={() => handleReject(ad)}
                     disabled={isProcessing}
+                    whileTap={{ scale: 0.9 }}
                   >
                     {isProcessing ? '...' : <><CloseCircle size={16} weight="BoldDuotone" /> {TEXTS.ADMIN_BTN_REJECT}</>}
-                  </button>
+                  </motion.button>
                 </div>
-              </div>
+              </motion.div>
             )
           })}
-        </div>
+        </motion.div>
       )}
     </div>
   )

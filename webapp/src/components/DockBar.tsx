@@ -4,9 +4,12 @@
  * Показывается только на главных страницах: Профиль, Каталог, Продать.
  * Floating-стиль: скруглённый, с glassmorphism-эффектом, приподнят над краем.
  * Активный таб подсвечивается точкой-индикатором и увеличенной иконкой.
+ *
+ * Анимации: slide-up при загрузке, spring-анимация иконок при переключении
  */
 
 import { useLocation, useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { Magnifer, AddCircle, Star, User } from '@solar-icons/react'
 
 const tabs: { path: string; icon: React.ReactNode; activeIcon: React.ReactNode; label: string }[] = [
@@ -26,7 +29,13 @@ export default function DockBar() {
   if (!MAIN_PATHS.includes(location.pathname)) return null
 
   return (
-    <nav className="dock-bar">
+    /* Slide-up появление DockBar при загрузке */
+    <motion.nav
+      className="dock-bar"
+      initial={{ y: 60 }}
+      animate={{ y: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+    >
       <div className="dock-bar__inner">
         {tabs.map(tab => {
           const isActive = location.pathname === tab.path
@@ -38,14 +47,22 @@ export default function DockBar() {
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
             >
-              <span className="dock-tab__icon">
+              {/* Мягкая spring-анимация иконки при переключении */}
+              <motion.span
+                className="dock-tab__icon"
+                animate={{
+                  scale: isActive ? 1.15 : 1,
+                  y: isActive ? -2 : 0,
+                }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              >
                 {isActive ? tab.activeIcon : tab.icon}
-              </span>
+              </motion.span>
               <span className="dock-tab__label">{tab.label}</span>
             </button>
           )
         })}
       </div>
-    </nav>
+    </motion.nav>
   )
 }
