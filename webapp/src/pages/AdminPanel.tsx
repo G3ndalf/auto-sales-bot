@@ -250,7 +250,7 @@ export default function AdminPanel() {
 
   return (
     <div className="admin-page">
-      <h1>{TEXTS.ADMIN_TITLE}</h1>
+      <h1>{TEXTS.ADMIN_TITLE} <span style={{ fontSize: '12px', opacity: 0.5 }}>v4</span></h1>
 
       {/* Tabs */}
       <div
