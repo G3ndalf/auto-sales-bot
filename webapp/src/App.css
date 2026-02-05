@@ -566,44 +566,52 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
 .ads-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  background: var(--border);
+  gap: 8px;
+  padding: 0 12px;
 }
 
 .ad-card {
   display: flex;
   gap: 12px;
+  padding: 10px;
   background: var(--section-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   text-decoration: none;
   color: var(--text);
-  transition: background var(--transition);
+  transition: background var(--transition), transform 0.15s ease;
 }
-.ad-card:active { background: var(--secondary-bg); }
+.ad-card:active { background: var(--secondary-bg); transform: scale(0.98); }
 
 .ad-card-photo {
-  width: 120px; min-height: 110px;
+  width: 90px; height: 90px;
   flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
   background: var(--secondary-bg);
 }
-.ad-card-photo img { width: 100%; height: 100%; object-fit: cover; }
+.ad-card-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ad-card-photo .no-photo {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 2.2em; opacity: 0.25;
+  font-size: 2em; opacity: 0.3;
 }
 .ad-card-info {
-  padding: 12px 14px 12px 0;
+  padding: 2px 0;
   display: flex; flex-direction: column;
   justify-content: center; gap: 2px; min-width: 0;
+  flex: 1;
 }
 .ad-card-title {
-  font-weight: 700; font-size: 1em;
+  font-weight: 700; font-size: 0.95em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ad-card-details { font-size: 0.82em; color: var(--hint); }
+.ad-card-year { font-size: 0.82em; color: var(--hint); }
+.ad-card-details { font-size: 0.8em; color: var(--hint); }
 .ad-card-meta { font-size: 0.78em; color: var(--hint); }
+.ad-card-location { font-size: 0.8em; color: var(--hint); }
 .ad-card-price {
-  font-weight: 800; font-size: 1.1em;
+  font-weight: 800; font-size: 1.05em;
   color: var(--accent); margin-top: 2px;
 }
 

@@ -40,28 +40,29 @@ export default function Favorites() {
   if (loading) return <SkeletonList count={3} />
 
   if (items.length === 0) return (
-    <div className="text-center px-4 py-15 text-[#9CA3AF] bg-[#111827] rounded-2xl">
+    <div style={{ textAlign: 'center', padding: '60px 16px', color: '#9CA3AF' }}>
       <motion.p
-        className="text-5xl mb-3"
+        style={{ fontSize: '3em', marginBottom: 12 }}
         animate={floatAnimation}
       >
         💔
       </motion.p>
-      <p className="text-lg font-semibold">Нет избранных</p>
-      <p className="mt-2">Нажмите ☆ на объявлении чтобы сохранить</p>
+      <p style={{ fontSize: 18, fontWeight: 600 }}>Нет избранных</p>
+      <p style={{ marginTop: 8 }}>Нажмите ☆ на объявлении чтобы сохранить</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen pb-[100px]">
-      <h1 className="text-[1.4em] font-extrabold px-4 pt-5 pb-3">
+    <div style={{ minHeight: '100vh', paddingBottom: 100 }}>
+      <h1 style={{ fontSize: '1.4em', fontWeight: 800, padding: '20px 16px 12px' }}>
         ⭐ Избранное ({items.length})
       </h1>
       <div className="ads-list">
         {items.map((item, i) => (
           <motion.div
             key={`${item.ad_type}-${item.id}`}
-            className="ad-card cursor-pointer"
+            className="ad-card"
+            style={{ cursor: 'pointer' }}
             onClick={() => navigate(`/${item.ad_type}/${item.id}`)}
             custom={i}
             variants={cardVariants}
@@ -70,7 +71,7 @@ export default function Favorites() {
           >
             <div className="ad-card-photo">
               {item.photo ? (
-                <img src={api.photoUrl(item.photo)} alt="" />
+                <img src={api.photoUrl(item.photo)} alt="" loading="lazy" />
               ) : (
                 <div className="no-photo">{item.ad_type === 'car' ? '🚗' : '🔢'}</div>
               )}
