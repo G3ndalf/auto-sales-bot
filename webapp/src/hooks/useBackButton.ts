@@ -23,6 +23,7 @@ declare global {
           onClick: (cb: () => void) => void
           offClick: (cb: () => void) => void
         }
+        initData?: string
         initDataUnsafe?: {
           user?: {
             id: number

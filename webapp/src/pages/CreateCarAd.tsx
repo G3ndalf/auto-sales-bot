@@ -18,6 +18,7 @@ export default function CreateCarAd() {
   const [phone, setPhone] = useState('')
   const [telegram, setTelegram] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [sent, setSent] = useState(false)
 
   useBackButton('/')
 
@@ -32,7 +33,11 @@ export default function CreateCarAd() {
       return
     }
 
-    setSubmitting(true)
+    const tg = window.Telegram?.WebApp
+    if (!tg?.sendData) {
+      alert(TEXTS.MSG_OPEN_VIA_BOT)
+      return
+    }
 
     const data = JSON.stringify({
       type: 'car_ad',
@@ -51,17 +56,17 @@ export default function CreateCarAd() {
       contact_telegram: telegram.trim() || null,
     })
 
-    const tg = window.Telegram?.WebApp
-    if (tg?.sendData) {
-      try {
-        tg.sendData(data)
-      } catch (e: any) {
+    try {
+      tg.sendData(data)
+      // sendData() closes the Mini App immediately — code below is a fallback
+      setTimeout(() => {
+        setSent(true)
         setSubmitting(false)
-        alert('Ошибка отправки: ' + e.message)
-      }
-    } else {
+      }, 3000)
+    } catch (e: unknown) {
       setSubmitting(false)
-      alert('Откройте через кнопку в чате бота')
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(TEXTS.MSG_ERROR + '\n' + msg)
     }
   }
 
@@ -210,9 +215,13 @@ export default function CreateCarAd() {
       <p className="form-hint">{TEXTS.PHOTOS_HINT_AFTER_SUBMIT}</p>
 
       <div className="submit-section">
-        <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
-        </button>
+        {sent ? (
+          <p className="form-hint">{TEXTS.MSG_SEND_DATA_FALLBACK}</p>
+        ) : (
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
+          </button>
+        )}
       </div>
     </div>
   )
