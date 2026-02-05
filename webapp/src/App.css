@@ -650,14 +650,20 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   background: #0B0F19;
+  padding: 8px 0;
+  gap: 8px;
+  /* Отступы по краям чтобы были видны соседние фото */
+  scroll-padding-left: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 .gallery-scroll::-webkit-scrollbar {
   display: none;
 }
 .gallery-scroll-img {
-  width: 100%;
+  width: calc(100% - 48px);
   flex-shrink: 0;
-  scroll-snap-align: start;
+  scroll-snap-align: center;
   aspect-ratio: 4/3;
   object-fit: cover;
   display: block;
@@ -665,6 +671,7 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   -webkit-user-select: none;
   -webkit-user-drag: none;
   pointer-events: none;
+  border-radius: 14px;
 }
 
 /* Точки-индикаторы ПОД фото (не поверх) */

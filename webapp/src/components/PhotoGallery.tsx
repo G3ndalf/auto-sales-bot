@@ -52,7 +52,9 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
       ticking = true
       requestAnimationFrame(() => {
         ticking = false
-        const w = el.clientWidth
+        /* Ширина одного фото + gap (для Авито-стиля) */
+        const img = el.querySelector('img')
+        const w = img ? img.offsetWidth + 8 : el.clientWidth
         if (w > 0) setIndex(Math.round(el.scrollLeft / w))
       })
     }
@@ -197,7 +199,9 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
   const prevFullscreen = useRef(fullscreen)
   useEffect(() => {
     if (prevFullscreen.current && !fullscreen && scrollRef.current) {
-      scrollRef.current.scrollLeft = index * scrollRef.current.clientWidth
+      const img = scrollRef.current.querySelector('img')
+      const w = img ? img.offsetWidth + 8 : scrollRef.current.clientWidth
+      scrollRef.current.scrollLeft = index * w
     }
     prevFullscreen.current = fullscreen
   }, [fullscreen, index])
