@@ -137,63 +137,59 @@ export default function CarAdDetail() {
     })
   }
 
-  // ─── Характеристики ───────────────────────────────────────
+  // ─── Характеристики (только поля из формы) ─────────────────
   type SpecItem = {
     icon: React.ReactNode
     label: string
     value: string
-    highlight?: boolean
+    color: string       // цвет иконки и её фонового квадрата
+    colorDim: string    // полупрозрачный фон квадрата
   }
 
   const specs: SpecItem[] = []
 
   if (ad.year > 0) {
     specs.push({
-      icon: <CalendarMinimalistic size={18} weight="BoldDuotone" color={C.accent} />,
+      icon: <CalendarMinimalistic size={18} weight="BoldDuotone" color="#3B82F6" />,
       label: 'Год выпуска',
       value: String(ad.year),
+      color: '#3B82F6',
+      colorDim: 'rgba(59, 130, 246, 0.12)',
     })
   }
   if (ad.mileage > 0) {
     specs.push({
-      icon: <SpedometerMiddle size={18} weight="BoldDuotone" color={C.accent} />,
+      icon: <SpedometerMiddle size={18} weight="BoldDuotone" color="#F59E0B" />,
       label: 'Пробег',
       value: ad.mileage.toLocaleString('ru-RU') + ' км',
-    })
-  }
-  if (ad.engine_volume > 0) {
-    specs.push({
-      icon: <GasStation size={18} weight="BoldDuotone" color={C.accent} />,
-      label: 'Двигатель',
-      value: ad.engine_volume + ' л' + (ad.fuel_type ? ' / ' + ad.fuel_type : ''),
+      color: '#F59E0B',
+      colorDim: 'rgba(245, 158, 11, 0.12)',
     })
   }
   if (ad.transmission) {
     specs.push({
-      icon: <Transmission size={18} weight="BoldDuotone" color={C.accent} />,
+      icon: <Transmission size={18} weight="BoldDuotone" color="#8B5CF6" />,
       label: 'КПП',
       value: ad.transmission,
+      color: '#8B5CF6',
+      colorDim: 'rgba(139, 92, 246, 0.12)',
     })
   }
   if (ad.color) {
     specs.push({
-      icon: <Palette size={18} weight="BoldDuotone" color={C.accent} />,
+      icon: <Palette size={18} weight="BoldDuotone" color="#EC4899" />,
       label: 'Цвет',
       value: ad.color,
-    })
-  }
-  if (ad.has_gbo) {
-    specs.push({
-      icon: <GasStation size={18} weight="BoldDuotone" color={C.green} />,
-      label: 'ГБО',
-      value: 'Установлено',
-      highlight: true,
+      color: '#EC4899',
+      colorDim: 'rgba(236, 72, 153, 0.12)',
     })
   }
   specs.push({
-    icon: <MapPoint size={18} weight="BoldDuotone" color={C.accent} />,
+    icon: <MapPoint size={18} weight="BoldDuotone" color="#14B8A6" />,
     label: 'Город',
     value: ad.region ? `${ad.city}, ${ad.region}` : ad.city,
+    color: '#14B8A6',
+    colorDim: 'rgba(20, 184, 166, 0.12)',
   })
 
   // Cast ad для доступа к author_username и is_sold (приходят из API)
@@ -358,10 +354,8 @@ export default function CarAdDetail() {
               <div
                 key={i}
                 style={{
-                  background: spec.highlight
-                    ? `linear-gradient(135deg, ${C.greenDim} 0%, rgba(52,211,153,0.04) 100%)`
-                    : `linear-gradient(135deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%)`,
-                  border: `1px solid ${spec.highlight ? 'rgba(52,211,153,0.15)' : C.border}`,
+                  background: `linear-gradient(135deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%)`,
+                  border: `1px solid ${C.border}`,
                   borderRadius: 14,
                   padding: '12px 14px',
                   display: 'flex',
@@ -377,7 +371,7 @@ export default function CarAdDetail() {
                     width: 34,
                     height: 34,
                     borderRadius: 10,
-                    background: spec.highlight ? C.greenDim : C.accentDim,
+                    background: spec.colorDim,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -403,7 +397,7 @@ export default function CarAdDetail() {
                     style={{
                       fontSize: 14,
                       fontWeight: 700,
-                      color: spec.highlight ? C.green : C.text,
+                      color: C.text,
                       marginTop: 2,
                       lineHeight: 1.25,
                     }}
@@ -414,6 +408,33 @@ export default function CarAdDetail() {
               </div>
             ))}
           </div>
+
+          {/* ГБО — отдельный блок под сеткой */}
+          {ad.has_gbo && (
+            <div style={{
+              marginTop: 10,
+              background: `linear-gradient(135deg, ${C.greenDim} 0%, rgba(52,211,153,0.04) 100%)`,
+              border: `1px solid rgba(52,211,153,0.15)`,
+              borderRadius: 14,
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: C.greenDim,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <GasStation size={18} weight="BoldDuotone" color={C.green} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: C.textMuted, letterSpacing: '0.02em', textTransform: 'uppercase' as const }}>ГБО</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.green, marginTop: 2 }}>Установлено</div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* ═══════════════════════════════════════════════════
