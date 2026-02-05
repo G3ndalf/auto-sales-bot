@@ -40,7 +40,6 @@ export default function DockBar() {
                 {isActive ? tab.activeIcon : tab.icon}
               </span>
               <span className="dock-tab__label">{tab.label}</span>
-              {isActive && <span className="dock-tab__indicator" />}
             </button>
           )
         })}
