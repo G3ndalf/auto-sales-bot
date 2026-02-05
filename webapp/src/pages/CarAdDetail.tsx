@@ -256,11 +256,11 @@ export default function CarAdDetail() {
               gap: 12,
             }}
           >
-            {/* Название + цена */}
+            {/* Название + цена в одну строку */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1
                 style={{
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: 800,
                   margin: 0,
                   lineHeight: 1.15,
@@ -270,25 +270,12 @@ export default function CarAdDetail() {
               >
                 {ad.brand} {ad.model}
               </h1>
-              {ad.year > 0 && (
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: C.textSecondary,
-                    marginTop: 2,
-                    display: 'inline-block',
-                  }}
-                >
-                  {ad.year} г.
-                </span>
-              )}
               <div
                 style={{
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: 800,
                   color: C.accent,
-                  marginTop: 8,
+                  marginTop: 6,
                   letterSpacing: '-0.01em',
                   lineHeight: 1,
                   textShadow: `0 0 30px ${C.accentGlow}`,
