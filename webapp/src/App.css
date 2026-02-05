@@ -655,9 +655,10 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   user-select: none;
   -webkit-user-select: none;
 }
-.gallery-tap-area {
+.gallery-swipe-area {
   cursor: pointer;
   position: relative;
+  overflow: hidden;
 }
 
 /* Точки-индикаторы ПОД фото (не поверх) */

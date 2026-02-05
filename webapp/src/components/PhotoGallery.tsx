@@ -1,16 +1,22 @@
 /**
- * PhotoGallery.tsx — Компонент галереи фотографий для карточек объявлений.
+ * PhotoGallery.tsx — Галерея фотографий с поддержкой свайпов.
  *
- * Управление:
- * - Нажатие на левые 30% фото → предыдущее фото
- * - Нажатие на правые 30% фото → следующее фото
- * - Нажатие на центральные 40% фото → полноэкранный просмотр
- * - В полноэкранном режиме те же зоны: лево/право листают, центр закрывает
- * - Кнопка ✕ в правом верхнем углу полноэкранного режима
- * - Точки-индикаторы ПОД фото (не поверх)
+ * Управление в карточке:
+ * - Свайп влево/вправо → листание фото (с анимацией слайда)
+ * - Тап по фото → полноэкранный просмотр
+ * - Точки-индикаторы ПОД фото
+ *
+ * Управление в полноэкранном режиме:
+ * - Свайп влево/вправо → листание фото
+ * - Свайп вверх/вниз → закрытие полноэкранного режима
+ * - Кнопка ✕ → закрытие
+ * - Тап → закрытие
+ *
+ * Используем framer-motion drag API (не raw touch events) —
+ * безопасно для iOS WebKit, без конфликтов с React.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Props {
@@ -22,9 +28,42 @@ interface Props {
   fallbackIcon: React.ReactNode
 }
 
+/** Порог смещения (px) для срабатывания свайпа */
+const SWIPE_OFFSET = 50
+/** Порог скорости (px/s) для быстрого свайпа */
+const SWIPE_VELOCITY = 300
+/** Порог вертикального смещения для закрытия фуллскрина */
+const VERTICAL_CLOSE = 80
+/** Минимальное смещение, чтобы считать жест свайпом (а не тапом) */
+const TAP_THRESHOLD = 10
+
+/**
+ * Варианты анимации слайда — направление зависит от custom (direction).
+ * direction > 0: листаем вперёд (enter справа, exit влево)
+ * direction < 0: листаем назад (enter слева, exit вправо)
+ */
+const slideVariants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? '25%' : '-25%',
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? '-25%' : '25%',
+    opacity: 0,
+  }),
+}
+
 export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) {
   const [index, setIndex] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
+  /** Направление слайда: 1 = вперёд, -1 = назад */
+  const [direction, setDirection] = useState(0)
+  /** Флаг: был ли значимый drag (чтобы отличить свайп от тапа) */
+  const didDrag = useRef(false)
 
   /** Блокируем скролл body в полноэкранном режиме */
   useEffect(() => {
@@ -36,32 +75,68 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
     return () => { document.body.style.overflow = '' }
   }, [fullscreen])
 
-  const prev = useCallback(() => setIndex(i => Math.max(0, i - 1)), [])
-  const next = useCallback(() => setIndex(i => Math.min(photos.length - 1, i + 1)), [photos.length])
+  const goPrev = useCallback(() => {
+    setDirection(-1)
+    setIndex(i => Math.max(0, i - 1))
+  }, [])
+
+  const goNext = useCallback(() => {
+    setDirection(1)
+    setIndex(i => Math.min(photos.length - 1, i + 1))
+  }, [photos.length])
 
   /**
-   * Определяет зону нажатия и выполняет соответствующее действие.
-   * Три зоны: левые 30% (prev), центр 40% (centerAction), правые 30% (next).
-   * Если фото одно — любое нажатие = centerAction.
+   * Обработчик окончания горизонтального свайпа.
+   * Если смещение или скорость превышают порог — листаем фото.
+   * Возвращает true если свайп сработал (для подавления тапа).
    */
-  const handleTap = useCallback((
-    e: React.MouseEvent<HTMLDivElement>,
-    centerAction: () => void,
-  ) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const ratio = x / rect.width
+  const handleHorizontalDragEnd = useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
+    const { offset, velocity } = info
 
-    if (photos.length <= 1) {
-      centerAction()
-    } else if (ratio < 0.3) {
-      prev()
-    } else if (ratio > 0.7) {
-      next()
-    } else {
-      centerAction()
+    if (offset.x > SWIPE_OFFSET || velocity.x > SWIPE_VELOCITY) {
+      goPrev()
+      didDrag.current = true
+    } else if (offset.x < -SWIPE_OFFSET || velocity.x < -SWIPE_VELOCITY) {
+      goNext()
+      didDrag.current = true
+    } else if (Math.abs(offset.x) > TAP_THRESHOLD) {
+      // Был drag но не достаточный для свайпа — подавляем тап
+      didDrag.current = true
     }
-  }, [photos.length, prev, next])
+
+    // Сбрасываем флаг после обработки click
+    requestAnimationFrame(() => { didDrag.current = false })
+  }, [goPrev, goNext])
+
+  /**
+   * Обработчик окончания свайпа в полноэкранном режиме.
+   * Горизонтальный свайп → листание, вертикальный → закрытие.
+   * dragDirectionLock блокирует ось после начала жеста.
+   */
+  const handleFullscreenDragEnd = useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
+    const { offset, velocity } = info
+    const isHorizontal = Math.abs(offset.x) > Math.abs(offset.y)
+
+    if (isHorizontal) {
+      // Горизонтальный свайп → листание фото
+      if (offset.x > SWIPE_OFFSET || velocity.x > SWIPE_VELOCITY) {
+        goPrev()
+      } else if (offset.x < -SWIPE_OFFSET || velocity.x < -SWIPE_VELOCITY) {
+        goNext()
+      }
+    } else {
+      // Вертикальный свайп → закрытие фуллскрина
+      if (Math.abs(offset.y) > VERTICAL_CLOSE || Math.abs(velocity.y) > SWIPE_VELOCITY) {
+        setFullscreen(false)
+      }
+    }
+
+    // Любой значимый drag подавляет тап
+    if (Math.abs(offset.x) > TAP_THRESHOLD || Math.abs(offset.y) > TAP_THRESHOLD) {
+      didDrag.current = true
+    }
+    requestAnimationFrame(() => { didDrag.current = false })
+  }, [goPrev, goNext])
 
   /* Если фото нет — показываем заглушку */
   if (photos.length === 0) {
@@ -70,28 +145,37 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
 
   return (
     <>
-      {/* ─── Обычная галерея ──────────────────────────────── */}
+      {/* ─── Обычная галерея (в карточке) ─────────────────── */}
       <div className="gallery">
-        <div
-          className="gallery-tap-area"
-          onClick={(e) => handleTap(e, () => setFullscreen(true))}
+        <motion.div
+          className="gallery-swipe-area"
+          drag={photos.length > 1 ? 'x' : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.15}
+          onDragEnd={handleHorizontalDragEnd}
+          onClick={() => {
+            if (!didDrag.current) setFullscreen(true)
+          }}
+          style={{ touchAction: photos.length > 1 ? 'pan-y' : 'auto' }}
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" custom={direction}>
             <motion.img
               key={index}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               src={photos[index]}
               alt={alt}
               className="gallery-img"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
               draggable={false}
             />
           </AnimatePresence>
-        </div>
+        </motion.div>
 
-        {/* Точки-индикаторы ПОД фото (не поверх) */}
+        {/* Точки-индикаторы ПОД фото */}
         {photos.length > 1 && (
           <div className="gallery-dots-below">
             {photos.map((_, i) => (
@@ -114,7 +198,7 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            {/* Счётчик фото сверху по центру */}
+            {/* Счётчик фото */}
             {photos.length > 1 && (
               <div className="gallery-fs-counter">
                 {index + 1} / {photos.length}
@@ -129,27 +213,37 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
               ✕
             </button>
 
-            {/* Фото с зонами нажатия: лево/центр/право */}
-            <div
+            {/* Фото: свайп лево/право = листание, вверх/вниз = закрыть */}
+            <motion.div
               className="gallery-fs-photo"
-              onClick={(e) => handleTap(e, () => setFullscreen(false))}
+              drag
+              dragDirectionLock
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              dragElastic={0.3}
+              onDragEnd={handleFullscreenDragEnd}
+              onClick={() => {
+                if (!didDrag.current) setFullscreen(false)
+              }}
+              style={{ touchAction: 'none' }}
             >
-              <AnimatePresence mode="wait">
+              <AnimatePresence mode="wait" custom={direction}>
                 <motion.img
                   key={index}
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
                   src={photos[index]}
                   alt={alt}
                   className="gallery-fs-img"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
                   draggable={false}
                 />
               </AnimatePresence>
-            </div>
+            </motion.div>
 
-            {/* Точки внизу полноэкранного режима */}
+            {/* Точки внизу */}
             {photos.length > 1 && (
               <div className="gallery-fs-dots">
                 {photos.map((_, i) => (
