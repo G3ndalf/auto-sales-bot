@@ -189,32 +189,25 @@ export default function PlateAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Кнопка «Позвонить» — копирует номер + пытается открыть tel: */}
+        {/* Кнопка «Показать номер» — popup с номером + копирование */}
         <button
           className="btn btn-gradient detail-footer__btn"
           onClick={() => {
             const phone = ad.contact_phone
-            /* Пытаемся скопировать номер в буфер обмена */
             navigator.clipboard?.writeText(phone).catch(() => {})
-            /* Показываем нативный Telegram popup с номером */
             const wa = window.Telegram?.WebApp
             if (wa?.showPopup) {
               wa.showPopup({
-                title: 'Телефон',
+                title: 'Номер скопирован',
                 message: phone,
-                buttons: [
-                  { id: 'call', type: 'default', text: 'Позвонить' },
-                  { id: 'close', type: 'cancel' },
-                ],
-              }, (btnId: string) => {
-                if (btnId === 'call') window.location.href = `tel:${phone.replace(/[^+\d]/g, '')}`
+                buttons: [{ id: 'ok', type: 'default', text: 'OK' }],
               })
             } else {
-              window.location.href = `tel:${phone.replace(/[^+\d]/g, '')}`
+              alert(phone)
             }
           }}
         >
-          <Phone size={16} weight="BoldDuotone" /> Позвонить
+          <Phone size={16} weight="BoldDuotone" /> Показать номер
         </button>
         {/* «Написать» — только если у автора есть username */}
         {ad.author_username && (
