@@ -16,19 +16,19 @@ import { TEXTS } from '../constants/texts'
 /* Stagger-контейнер для статистики */
 const statsContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.03 } },
 }
 
 /* Stagger-контейнер для карточек модерации */
 const adsContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.07 } },
+  visible: { transition: { staggerChildren: 0.03 } },
 }
 
 /* Элемент stagger — fade-in + slide-up */
 const fadeInUp = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
 }
 
 export default function AdminPanel() {

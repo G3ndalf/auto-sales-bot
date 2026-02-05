@@ -13,12 +13,12 @@ import { useBackButton } from '../hooks/useBackButton'
 /* Stagger-контейнер для карточек */
 const cardsContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.3 } },
+  visible: { transition: { staggerChildren: 0.03 } },
 }
 
 const cardItem = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
 }
 
 export default function Home() {
@@ -29,9 +29,9 @@ export default function Home() {
       {/* Hero — fade-in + slide-up */}
       <motion.div
         className="home-hero"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
       >
         <div className="home-logo"><Garage size={48} weight="BoldDuotone" /></div>
         <h1>{TEXTS.HOME_TITLE}</h1>

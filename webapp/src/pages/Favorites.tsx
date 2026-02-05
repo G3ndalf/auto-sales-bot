@@ -17,17 +17,17 @@ const listContainerVariants = {
   visible: {
     transition: {
       when: 'beforeChildren' as const,
-      staggerChildren: 0.07, // 70ms между карточками
+      staggerChildren: 0.03, // 30ms между карточками (быстрый stagger)
     },
   },
 }
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: 'easeOut' },
+    transition: { duration: 0.2, ease: 'easeOut' },
   },
 }
 
@@ -57,7 +57,7 @@ export default function Favorites() {
       style={{ textAlign: 'center', padding: '60px 16px', color: '#9CA3AF' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.2 }}
     >
       <motion.div
         style={{ marginBottom: 12 }}
@@ -82,13 +82,14 @@ export default function Favorites() {
         initial="hidden"
         animate="visible"
       >
-        {items.map((item) => (
+        {items.map((item, i) => (
           <motion.div
             key={`${item.ad_type}-${item.id}`}
             className="ad-card"
             style={{ cursor: 'pointer' }}
             onClick={() => navigate(`/${item.ad_type}/${item.id}`)}
             variants={cardVariants}
+            initial={i < 6 ? 'hidden' : false}
           >
             <div className="ad-card-photo">
               {item.photo ? (

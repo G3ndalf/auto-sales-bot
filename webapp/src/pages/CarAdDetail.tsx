@@ -12,26 +12,26 @@ import PhotoGallery from '../components/PhotoGallery'
 /** Stagger-контейнер: дочерние элементы появляются последовательно */
 const staggerContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.04 } },
 }
 
 /** Каждый инфо-блок плавно появляется снизу */
 const fadeUpItem = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 10 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.3, ease: 'easeOut' },
+    transition: { duration: 0.2, ease: 'easeOut' },
   },
 }
 
 /** Мягкое spring-появление футера с контактами */
 const footerVariants = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 16 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 24, delay: 0.35 },
+    transition: { type: 'spring', stiffness: 300, damping: 24, delay: 0.15 },
   },
 }
 

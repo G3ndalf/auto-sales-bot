@@ -39,13 +39,13 @@ const STATUS_CONFIG: Record<string, { label: string; icon: JSX.Element; bg: stri
 /* Stagger-контейнер для списка карточек */
 const listContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
+  visible: { transition: { staggerChildren: 0.03 } },
 }
 
 /* Элемент списка — fade-in + slide-up */
 const listItem = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
 }
 
 export default function MyAds() {
@@ -213,7 +213,7 @@ export default function MyAds() {
       )}
 
       {/* Карточки объявлений — stagger fade-in + slide-up */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {!loading && !error && currentAds.length > 0 && (
           <motion.div
             key={tab}
@@ -221,9 +221,9 @@ export default function MyAds() {
             variants={listContainer}
             initial="hidden"
             animate="visible"
-            exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            exit={{ opacity: 0, transition: { duration: 0.1 } }}
           >
-            {currentAds.map((ad) => {
+            {currentAds.map((ad, i) => {
               const status = STATUS_CONFIG[ad.status] || STATUS_CONFIG.pending
               const title = (ad as unknown as Record<string, string>).title
                 || (ad.ad_type === 'car'
@@ -234,6 +234,7 @@ export default function MyAds() {
                 <motion.div
                   key={`${ad.ad_type}-${ad.id}`}
                   variants={listItem}
+                  initial={i < 6 ? 'hidden' : false}
                   style={{ background: 'var(--section-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflow: 'hidden' }}
                 >
                   {/* Верхняя часть: фото 90×90 + инфо (как в каталоге) */}

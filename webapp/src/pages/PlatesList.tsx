@@ -36,17 +36,17 @@ const listContainerVariants = {
   visible: {
     transition: {
       when: 'beforeChildren' as const,
-      staggerChildren: 0.06, // 60ms между карточками
+      staggerChildren: 0.03, // 30ms между карточками (быстрый stagger)
     },
   },
 }
 
 const listCardVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.3, ease: 'easeOut' },
+    transition: { duration: 0.2, ease: 'easeOut' },
   },
 }
 
@@ -386,7 +386,7 @@ export default function PlatesList({ embedded }: Props) {
           className="empty-state"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.2 }}
         >
           <div className="empty-icon"><Hashtag size={48} weight="BoldDuotone" /></div>
           <p>Пока нет объявлений</p>
@@ -398,10 +398,11 @@ export default function PlatesList({ embedded }: Props) {
           initial={restoredCache ? false : 'hidden'}
           animate="visible"
         >
-          {ads.map((ad) => (
+          {ads.map((ad, i) => (
             <motion.div
               key={ad.id}
               variants={listCardVariants}
+              initial={i < 6 ? 'hidden' : false}
             >
               <Link to={`/plate/${ad.id}`} className="ad-card plate-card">
                 <div className="plate-number-display">{ad.plate_number}</div>

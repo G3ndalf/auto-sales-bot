@@ -29,12 +29,9 @@ export default function DockBar() {
   if (!MAIN_PATHS.includes(location.pathname)) return null
 
   return (
-    /* Slide-up появление DockBar при загрузке */
+    /* DockBar виден сразу, без задержки */
     <motion.nav
       className="dock-bar"
-      initial={{ y: 60 }}
-      animate={{ y: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
     >
       <div className="dock-bar__inner">
         {tabs.map(tab => {

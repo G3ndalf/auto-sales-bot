@@ -19,15 +19,15 @@ import { SkeletonProfile } from '../components/Skeleton'
 import { ClipboardList, Settings, CheckCircle, ClockCircle, CloseCircle, Chart, Garage, Hashtag } from '@solar-icons/react'
 
 /* Варианты анимаций для stagger-контейнеров */
-const staggerContainer = (staggerDelay = 0.08) => ({
+const staggerContainer = (staggerDelay = 0.03) => ({
   hidden: {},
   visible: { transition: { staggerChildren: staggerDelay } },
 })
 
 /* Элемент stagger — fade-in + slide-up */
 const staggerItem = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
 }
 
 export default function Profile() {
@@ -79,9 +79,9 @@ export default function Profile() {
       {/* Hero — аватар, имя, дата регистрации (мягкий scale-in) */}
       <motion.div
         className="profile-hero"
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
       >
         <div className="profile-avatar">{avatar}</div>
         <h1 className="profile-name">{displayName}</h1>
@@ -99,7 +99,7 @@ export default function Profile() {
           Мои объявления
         </h2>
         <motion.div
-          variants={staggerContainer(0.08)}
+          variants={staggerContainer(0.03)}
           initial="hidden"
           animate="visible"
           style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
@@ -125,7 +125,7 @@ export default function Profile() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.3 }}
+            transition={{ delay: 0.15, duration: 0.2 }}
             style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}
           >
             <span style={{ fontSize: 13, color: '#9CA3AF', background: '#1A2332', borderRadius: 10, padding: '6px 14px' }}>
@@ -142,11 +142,9 @@ export default function Profile() {
       <div className="profile-section">
         <motion.div
           className="profile-actions"
-          variants={staggerContainer(0.1)}
+          variants={staggerContainer(0.03)}
           initial="hidden"
           animate="visible"
-          /* Задержка чтобы кнопки появились после статистики */
-          transition={{ delayChildren: 0.4 }}
         >
           <motion.div
             className="profile-action"
