@@ -1,28 +1,17 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 /**
- * Vite config для Авто СКФО Mini App.
- *
- * cacheBustPlugin — вставляет HTML-комментарий с timestamp билда
- * в dist/index.html. Это заставляет Telegram iOS WebView
- * перезагружать страницу, потому что содержимое HTML меняется
- * при каждом билде (даже если код не изменился).
+ * cacheBustPlugin — вставляет timestamp билда в HTML.
+ * Заставляет Telegram iOS WebView перезагружать при каждом деплое.
  */
-function cacheBustPlugin() {
+function cacheBustPlugin(): Plugin {
   return {
     name: 'cache-bust',
-    closeBundle() {
-      // Добавляем timestamp в собранный index.html после билда
-      const fs = require('fs')
-      const path = require('path')
-      const htmlPath = path.resolve(__dirname, 'dist/index.html')
-      if (fs.existsSync(htmlPath)) {
-        let html = fs.readFileSync(htmlPath, 'utf-8')
-        const buildId = `<!-- build: ${Date.now()} -->`
-        html = html.replace('</head>', `${buildId}\n</head>`)
-        fs.writeFileSync(htmlPath, html)
-      }
+    transformIndexHtml(html) {
+      // Вставляем timestamp прямо в HTML при сборке
+      const buildId = `<!-- build: ${Date.now()} -->`
+      return html.replace('</head>', `  ${buildId}\n  </head>`)
     },
   }
 }
