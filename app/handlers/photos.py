@@ -38,31 +38,50 @@ async def _finish_and_notify(
     data = await state.get_data()
     ad_id = data["ad_id"]
     ad_type = data["ad_type"]
-    await state.clear()
 
-    # Send completion message
-    if photo_count > 0:
-        await message.answer(
-            PHOTOS_SAVED.format(count=photo_count),
-            reply_markup=ReplyKeyboardRemove(),
-        )
-    else:
-        await message.answer(PHOTOS_SKIPPED, reply_markup=ReplyKeyboardRemove())
+    logger.info(
+        "[photos] _finish_and_notify: ad_type=%s, ad_id=%d, photos=%d",
+        ad_type, ad_id, photo_count,
+    )
 
-    # Notify admins (AFTER photos are done)
-    logger.info("[photos] Notifying admins: ad_type=%s, ad_id=%d, photos=%d", ad_type, ad_id, photo_count)
+    # Step 1: Clear FSM state
+    try:
+        await state.clear()
+        logger.info("[photos] FSM state cleared for user %d", message.from_user.id)
+    except Exception:
+        logger.exception("[photos] Failed to clear FSM state for user %d", message.from_user.id)
+
+    # Step 2: Send completion message to user
+    try:
+        if photo_count > 0:
+            await message.answer(
+                PHOTOS_SAVED.format(count=photo_count),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+        else:
+            await message.answer(PHOTOS_SKIPPED, reply_markup=ReplyKeyboardRemove())
+        logger.info("[photos] Completion message sent to user %d", message.from_user.id)
+    except Exception:
+        logger.exception("[photos] Failed to send completion message to user %d", message.from_user.id)
+
+    # Step 3: Notify admins (AFTER photos are done)
     try:
         from app.utils.notify import notify_admins
+
+        logger.info("[photos] Importing ad services for notification...")
         from app.services.car_ad_service import get_car_ad
         from app.services.plate_ad_service import get_plate_ad
 
+        logger.info("[photos] Fetching ad %s #%d from DB...", ad_type, ad_id)
         if ad_type == "car_ad":
             ad = await get_car_ad(session, ad_id)
         else:
             ad = await get_plate_ad(session, ad_id)
 
         if ad:
+            logger.info("[photos] Sending admin notification for %s #%d...", ad_type, ad_id)
             await notify_admins(bot, ad, ad_type, photo_count=photo_count)
+            logger.info("[photos] Admin notification sent for %s #%d", ad_type, ad_id)
         else:
             logger.error("[photos] Ad not found for notification: %s #%d", ad_type, ad_id)
     except Exception:
