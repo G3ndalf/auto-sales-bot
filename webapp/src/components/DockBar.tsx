@@ -16,11 +16,11 @@ const tabs: { path: string; icon: React.ReactNode; activeIcon: React.ReactNode; 
   { path: '/catalog', icon: <Magnifer size={22} weight="BoldDuotone" />, activeIcon: <Magnifer size={22} weight="BoldDuotone" />, label: 'Каталог' },
   { path: '/sell', icon: <AddCircle size={22} weight="BoldDuotone" />, activeIcon: <AddCircle size={22} weight="BoldDuotone" />, label: 'Продать' },
   { path: '/favorites', icon: <Star size={22} weight="BoldDuotone" />, activeIcon: <Star size={22} weight="BoldDuotone" />, label: 'Избранное' },
-  { path: '/', icon: <User size={22} weight="BoldDuotone" />, activeIcon: <User size={22} weight="BoldDuotone" />, label: 'Профиль' },
+  { path: '/profile', icon: <User size={22} weight="BoldDuotone" />, activeIcon: <User size={22} weight="BoldDuotone" />, label: 'Профиль' },
 ]
 
 /** Главные страницы, на которых виден док */
-const MAIN_PATHS = ['/', '/catalog', '/sell', '/favorites']
+const MAIN_PATHS = ['/', '/catalog', '/sell', '/favorites', '/profile']
 
 export default function DockBar() {
   const location = useLocation()
