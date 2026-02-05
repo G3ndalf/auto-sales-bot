@@ -43,8 +43,10 @@ export default function CreatePlateAd() {
     })
 
     try {
+    setSubmitting(true)
+    try {
       tg.sendData(data)
-      // sendData() closes the Mini App immediately — code below is a fallback
+      // sendData() normally closes the Mini App instantly.
       setTimeout(() => {
         setSent(true)
         setSubmitting(false)

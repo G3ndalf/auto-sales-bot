@@ -34,13 +34,13 @@ async def cmd_start(message: Message):
             [
                 KeyboardButton(
                     text="🚗 Подать объявление",
-                    web_app=WebAppInfo(url=_webapp_url()),
+                    web_app=WebAppInfo(url=settings.webapp_url),
                 ),
             ],
             [
                 KeyboardButton(
                     text="📋 Каталог",
-                    web_app=WebAppInfo(url=_webapp_url("/catalog")),
+                    web_app=WebAppInfo(url=f"{settings.webapp_url}/catalog"),
                 ),
             ],
         ]

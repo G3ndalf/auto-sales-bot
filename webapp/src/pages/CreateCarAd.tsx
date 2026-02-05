@@ -56,9 +56,11 @@ export default function CreateCarAd() {
       contact_telegram: telegram.trim() || null,
     })
 
+    setSubmitting(true)
     try {
       tg.sendData(data)
-      // sendData() closes the Mini App immediately — code below is a fallback
+      // sendData() normally closes the Mini App instantly.
+      // If still alive after 3s — show fallback message.
       setTimeout(() => {
         setSent(true)
         setSubmitting(false)
