@@ -17,6 +17,7 @@ import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
+import { BRANDS } from '../data/brands'
 
 export default function EditCarAd() {
   /** Назад ведёт на "Мои объявления" */
@@ -27,6 +28,7 @@ export default function EditCarAd() {
   // ===== Состояние формы (аналогично CreateCarAd) =====
   const [brand, setBrand] = useState('')
   const [model, setModel] = useState('')
+  const [isOtherBrand, setIsOtherBrand] = useState(false)
   const [year, setYear] = useState('')
   const [mileage, setMileage] = useState('')
   const [engineVolume, setEngineVolume] = useState('')
@@ -59,8 +61,12 @@ export default function EditCarAd() {
     api.getCarAd(parseInt(id, 10))
       .then((data: CarAdFull) => {
         // Pre-fill все поля из существующего объявления
-        setBrand(data.brand || '')
+        const loadedBrand = data.brand || ''
+        setBrand(loadedBrand)
         setModel(data.model || '')
+        if (loadedBrand && !BRANDS.some(b => b.name === loadedBrand)) {
+          setIsOtherBrand(true)
+        }
         setYear(data.year ? String(data.year) : '')
         setMileage(data.mileage ? String(data.mileage) : '')
         setEngineVolume(data.engine_volume ? String(data.engine_volume) : '')
@@ -228,25 +234,65 @@ export default function EditCarAd() {
         <div className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_BRAND}</label>
-            <input
+            <select
               className={fc('brand', brand)}
-              type="text"
-              value={brand}
-              onChange={e => setBrand(e.target.value)}
-              onBlur={() => touch('brand')}
-              placeholder="LADA, BMW..."
-            />
+              value={isOtherBrand ? '__other' : brand}
+              onChange={e => {
+                const v = e.target.value
+                if (v === '__other') {
+                  setIsOtherBrand(true)
+                  setBrand('')
+                  setModel('')
+                } else {
+                  setIsOtherBrand(false)
+                  setBrand(v)
+                  setModel('')
+                }
+                touch('brand')
+              }}
+            >
+              <option value="">Выберите марку</option>
+              {BRANDS.map(b => (
+                <option key={b.name} value={b.name}>{b.name}</option>
+              ))}
+              <option value="__other">Другая</option>
+            </select>
+            {isOtherBrand && (
+              <input
+                className={fc('brand', brand)}
+                type="text"
+                value={brand}
+                onChange={e => setBrand(e.target.value)}
+                onBlur={() => touch('brand')}
+                placeholder="Введите марку..."
+                style={{ marginTop: 8 }}
+              />
+            )}
           </div>
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_MODEL}</label>
-            <input
-              className={fc('model', model)}
-              type="text"
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              onBlur={() => touch('model')}
-              placeholder="Vesta, X5..."
-            />
+            {isOtherBrand ? (
+              <input
+                className={fc('model', model)}
+                type="text"
+                value={model}
+                onChange={e => setModel(e.target.value)}
+                onBlur={() => touch('model')}
+                placeholder="Введите модель..."
+              />
+            ) : (
+              <select
+                className={fc('model', model)}
+                value={model}
+                onChange={e => { setModel(e.target.value); touch('model') }}
+                disabled={!brand}
+              >
+                <option value="">{brand ? 'Выберите модель' : 'Сначала выберите марку'}</option>
+                {(BRANDS.find(b => b.name === brand)?.models ?? []).map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
