@@ -1188,11 +1188,12 @@ async def handle_submit(request: web.Request) -> web.Response:
                     )
                 )).scalar_one_or_none()
 
-            if dupe:
+            if dupe and not data.get("force"):
                 return web.json_response({
                     "ok": False,
                     "error": "Похожее объявление уже подано. Подождите или отредактируйте существующее.",
-                }, status=400)
+                    "error_type": "duplicate",
+                }, status=409)
 
             # Create ad
             contact_tg = data.get("contact_telegram")

@@ -231,12 +231,12 @@ export function getUserId(): number | null {
 
 // Custom error class for submit errors
 export class SubmitError extends Error {
-  type: 'validation' | 'rate_limit' | 'generic';
+  type: 'validation' | 'rate_limit' | 'duplicate' | 'generic';
   errors?: string[];
 
   constructor(
     message: string,
-    type: 'validation' | 'rate_limit' | 'generic',
+    type: 'validation' | 'rate_limit' | 'duplicate' | 'generic',
     errors?: string[],
   ) {
     super(message);
@@ -258,6 +258,13 @@ export async function submitAd(data: Record<string, unknown>): Promise<{ ok: boo
   });
   if (!res.ok) {
     const payload = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+
+    if (res.status === 409 && payload.error_type === 'duplicate') {
+      throw new SubmitError(
+        payload.error || 'Похожее объявление уже существует',
+        'duplicate',
+      );
+    }
 
     if (res.status === 400 && Array.isArray(payload.errors)) {
       throw new SubmitError(

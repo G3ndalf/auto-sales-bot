@@ -18,7 +18,8 @@ export default function CreatePlateAd() {
   const [sent, setSent] = useState(false)
   const [published, setPublished] = useState(false)
   const [formErrors, setFormErrors] = useState<string[]>([])
-  const [errorType, setErrorType] = useState<'validation' | 'rate_limit' | 'generic' | null>(null)
+  const [errorType, setErrorType] = useState<'validation' | 'rate_limit' | 'duplicate' | 'generic' | null>(null)
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
   const errorsRef = useRef<HTMLDivElement>(null)
 
   useBackButton('/')
@@ -28,42 +29,39 @@ export default function CreatePlateAd() {
     window.Telegram?.WebApp?.disableClosingConfirmation?.()
   }, [])
 
-  const handleSubmit = async () => {
-    if (!plateNumber || !price || !city || !phone) {
-      setErrorType('validation')
-      setFormErrors(['Заполните все обязательные поля: номер, цена, город, телефон'])
-      setTimeout(() => {
-        errorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 50)
-      return
-    }
+  /** Собирает данные формы */
+  const buildAdData = (force = false) => ({
+    type: 'plate_ad',
+    plate_number: plateNumber.trim(),
+    price: parseInt(price),
+    description: description.trim(),
+    city,
+    contact_phone: phone.trim(),
+    contact_telegram: telegram.trim() || null,
+    photo_ids: photoIds.length > 0 ? photoIds : undefined,
+    ...(force ? { force: true } : {}),
+  })
 
-    const adData = {
-      type: 'plate_ad',
-      plate_number: plateNumber.trim(),
-      price: parseInt(price),
-      description: description.trim(),
-      city,
-      contact_phone: phone.trim(),
-      contact_telegram: telegram.trim() || null,
-      photo_ids: photoIds.length > 0 ? photoIds : undefined,
-    }
-
+  /** Отправка на сервер */
+  const doSubmit = async (adData: Record<string, unknown>) => {
     setSubmitting(true)
     setFormErrors([])
     setErrorType(null)
+    setShowDuplicateWarning(false)
 
     try {
       const result = await submitAd(adData)
       setSent(true)
-      // Если фото были загружены, сервер может опубликовать сразу
       if (photoIds.length > 0 && (result as Record<string, unknown>).published) {
         setPublished(true)
       }
-      // Не закрываем автоматически — показываем success screen с кнопкой
     } catch (e: unknown) {
       setSubmitting(false)
       if (e instanceof SubmitError) {
+        if (e.type === 'duplicate') {
+          setShowDuplicateWarning(true)
+          return
+        }
         setErrorType(e.type)
         if (e.type === 'validation' && e.errors) {
           setFormErrors(e.errors)
@@ -78,6 +76,58 @@ export default function CreatePlateAd() {
         errorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }, 50)
     }
+  }
+
+  const handleSubmit = async () => {
+    if (!plateNumber || !price || !city || !phone) {
+      setErrorType('validation')
+      setFormErrors(['Заполните все обязательные поля: номер, цена, город, телефон'])
+      setTimeout(() => {
+        errorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 50)
+      return
+    }
+    await doSubmit(buildAdData(false))
+  }
+
+  /** Повторная отправка с force=true */
+  const handleForceSubmit = async () => {
+    await doSubmit(buildAdData(true))
+  }
+
+  // Duplicate warning screen
+  if (showDuplicateWarning) {
+    return (
+      <div className="form-page">
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', minHeight: '60vh', textAlign: 'center',
+          gap: '12px', padding: '16px', animation: 'scaleIn 0.4s ease-out',
+        }}>
+          <span style={{ fontSize: '64px' }}>⚠️</span>
+          <h2 style={{ fontSize: '1.3em' }}>Похожее объявление уже существует</h2>
+          <p style={{ color: 'var(--hint)', maxWidth: '280px', lineHeight: 1.5 }}>
+            Вы уже подавали похожее объявление за последние 7 дней. Возможно, стоит отредактировать существующее.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+            <button
+              className="btn"
+              onClick={() => setShowDuplicateWarning(false)}
+              style={{ background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text)' }}
+            >
+              ← Назад
+            </button>
+            <button
+              className="btn btn-gradient"
+              onClick={handleForceSubmit}
+              disabled={submitting}
+            >
+              {submitting ? 'Отправка...' : 'Всё равно опубликовать'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Success screen — заменяет всю форму
