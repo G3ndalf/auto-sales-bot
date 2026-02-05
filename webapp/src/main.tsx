@@ -63,6 +63,11 @@ window.addEventListener('unhandledrejection', (event) => {
   )
 })
 
+// ─── Telegram WebApp: раскрыть на полный экран ───
+try {
+  window.Telegram?.WebApp?.expand()
+} catch { /* ignore */ }
+
 // ─── Рендер приложения ───
 const rootEl = document.getElementById('root')
 
