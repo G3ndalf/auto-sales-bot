@@ -954,6 +954,7 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
 
 .dock-tab--active {
   color: var(--accent);
+  background: var(--accent-light);
 }
 
 /* ─── Icon ─── */
