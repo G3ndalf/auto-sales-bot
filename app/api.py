@@ -10,6 +10,7 @@ from app.config import settings
 from app.models.car_ad import AdStatus, CarAd
 from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
+from app.utils.publish import publish_to_channel
 
 logger = logging.getLogger(__name__)
 
@@ -506,6 +507,9 @@ async def admin_approve(request: web.Request) -> web.Response:
         if not ad:
             raise web.HTTPNotFound(text="Ad not found")
 
+        # Commit first so approve persists even if publish/notify fails
+        await session.commit()
+
         # Notify user
         try:
             from app.models.user import User
@@ -521,9 +525,7 @@ async def admin_approve(request: web.Request) -> web.Response:
         # Publish to channel
         bot = request.app.get("bot")
         if bot:
-            await _api_publish_to_channel(bot, ad, ad_type, session)
-
-        await session.commit()
+            await publish_to_channel(bot, ad, ad_type, session)
 
     return web.json_response({"ok": True})
 
@@ -560,6 +562,9 @@ async def admin_reject(request: web.Request) -> web.Response:
         if not ad:
             raise web.HTTPNotFound(text="Ad not found")
 
+        # Commit first so rejection persists even if notify fails
+        await session.commit()
+
         # Notify user
         try:
             from app.models.user import User
@@ -572,70 +577,8 @@ async def admin_reject(request: web.Request) -> web.Response:
         except Exception:
             logger.exception("Failed to notify user about rejection")
 
-        await session.commit()
-
     return web.json_response({"ok": True})
 
 
-async def _api_publish_to_channel(bot, ad, ad_type: str, session):
-    """Publish approved ad to the channel (called from API endpoints)."""
-    channel_id = settings.channel_id
-    if not channel_id:
-        return
 
-    from aiogram.types import InputMediaPhoto
-
-    # Get photos
-    photo_type = AdType.CAR if ad_type == "car" else AdType.PLATE
-    photo_stmt = (
-        select(AdPhoto)
-        .where(AdPhoto.ad_type == photo_type, AdPhoto.ad_id == ad.id)
-        .order_by(AdPhoto.position)
-    )
-    photos = (await session.execute(photo_stmt)).scalars().all()
-
-    def _fmt_number(n: int) -> str:
-        return f"{n:,}".replace(",", " ")
-
-    if ad_type == "car":
-        text = (
-            f"🚗 <b>{ad.brand} {ad.model}</b> ({ad.year})\n\n"
-            f"💰 {_fmt_number(ad.price)} ₽\n"
-            f"🛣 {_fmt_number(ad.mileage)} км\n"
-            f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
-            f"🎨 {ad.color} | 🏎 {ad.engine_volume}л\n"
-            f"📍 {ad.city}\n"
-        )
-        if ad.description:
-            text += f"\n📝 {ad.description[:500]}\n"
-        text += f"\n📞 {ad.contact_phone}"
-        if ad.contact_telegram:
-            text += f"\n📱 {ad.contact_telegram}"
-    else:
-        text = (
-            f"🔢 <b>{ad.plate_number}</b>\n\n"
-            f"💰 {_fmt_number(ad.price)} ₽\n"
-            f"📍 {ad.city}\n"
-        )
-        if ad.description:
-            text += f"\n📝 {ad.description[:500]}\n"
-        text += f"\n📞 {ad.contact_phone}"
-        if ad.contact_telegram:
-            text += f"\n📱 {ad.contact_telegram}"
-
-    try:
-        if photos:
-            media = []
-            for i, photo in enumerate(photos[:10]):
-                media.append(
-                    InputMediaPhoto(
-                        media=photo.file_id,
-                        caption=text if i == 0 else None,
-                        parse_mode="HTML" if i == 0 else None,
-                    )
-                )
-            await bot.send_media_group(chat_id=channel_id, media=media)
-        else:
-            await bot.send_message(chat_id=channel_id, text=text)
-    except Exception:
-        logger.exception("Failed to publish to channel")
+# _api_publish_to_channel removed — using shared app.utils.publish.publish_to_channel

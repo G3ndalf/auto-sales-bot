@@ -136,22 +136,24 @@ async def get_pending_car_ads(session: AsyncSession) -> list[CarAd]:
 
 
 async def approve_car_ad(session: AsyncSession, ad_id: int) -> CarAd | None:
-    """Approve a car ad."""
+    """Approve a car ad. Returns None if not found or not PENDING."""
     ad = await get_car_ad(session, ad_id)
-    if ad:
+    if ad and ad.status == AdStatus.PENDING:
         ad.status = AdStatus.APPROVED
-    return ad
+        return ad
+    return None
 
 
 async def reject_car_ad(
     session: AsyncSession, ad_id: int, reason: str | None = None
 ) -> CarAd | None:
-    """Reject a car ad with optional reason."""
+    """Reject a car ad. Returns None if not found or not PENDING."""
     ad = await get_car_ad(session, ad_id)
-    if ad:
+    if ad and ad.status == AdStatus.PENDING:
         ad.status = AdStatus.REJECTED
         ad.rejection_reason = reason
-    return ad
+        return ad
+    return None
 
 
 async def get_user_car_ads(session: AsyncSession, user_id: int) -> list[CarAd]:

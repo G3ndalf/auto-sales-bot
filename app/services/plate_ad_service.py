@@ -93,22 +93,24 @@ async def get_pending_plate_ads(session: AsyncSession) -> list[PlateAd]:
 
 
 async def approve_plate_ad(session: AsyncSession, ad_id: int) -> PlateAd | None:
-    """Approve a plate ad."""
+    """Approve a plate ad. Returns None if not found or not PENDING."""
     ad = await get_plate_ad(session, ad_id)
-    if ad:
+    if ad and ad.status == AdStatus.PENDING:
         ad.status = AdStatus.APPROVED
-    return ad
+        return ad
+    return None
 
 
 async def reject_plate_ad(
     session: AsyncSession, ad_id: int, reason: str | None = None
 ) -> PlateAd | None:
-    """Reject a plate ad with optional reason."""
+    """Reject a plate ad. Returns None if not found or not PENDING."""
     ad = await get_plate_ad(session, ad_id)
-    if ad:
+    if ad and ad.status == AdStatus.PENDING:
         ad.status = AdStatus.REJECTED
         ad.rejection_reason = reason
-    return ad
+        return ad
+    return None
 
 
 async def get_user_plate_ads(session: AsyncSession, user_id: int) -> list[PlateAd]:
