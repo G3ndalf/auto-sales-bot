@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
+import { submitAd } from '../api'
 
 export default function CreatePlateAd() {
   const [plateNumber, setPlateNumber] = useState('')
@@ -20,19 +21,13 @@ export default function CreatePlateAd() {
     window.Telegram?.WebApp?.disableClosingConfirmation?.()
   }, [])
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!plateNumber || !price || !city || !phone) {
       alert(TEXTS.VALIDATION_REQUIRED_PLATE)
       return
     }
 
-    const tg = window.Telegram?.WebApp
-    if (!tg?.sendData) {
-      alert(TEXTS.MSG_OPEN_VIA_BOT)
-      return
-    }
-
-    const data = JSON.stringify({
+    const adData = {
       type: 'plate_ad',
       plate_number: plateNumber.trim(),
       price: parseInt(price),
@@ -40,16 +35,16 @@ export default function CreatePlateAd() {
       city,
       contact_phone: phone.trim(),
       contact_telegram: telegram.trim() || null,
-    })
+    }
 
     setSubmitting(true)
+
     try {
-      tg.sendData(data)
-      // sendData() normally closes the Mini App instantly.
+      await submitAd(adData)
+      setSent(true)
       setTimeout(() => {
-        setSent(true)
-        setSubmitting(false)
-      }, 3000)
+        window.Telegram?.WebApp?.close()
+      }, 1500)
     } catch (e: unknown) {
       setSubmitting(false)
       const msg = e instanceof Error ? e.message : String(e)

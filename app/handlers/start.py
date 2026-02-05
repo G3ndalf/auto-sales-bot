@@ -30,17 +30,19 @@ def _webapp_url(path: str = "", admin: bool = False) -> str:
 async def cmd_start(message: Message):
     kb = None
     if settings.webapp_url:
+        base = settings.webapp_url.rstrip("/")
+        uid = message.from_user.id if message.from_user else 0
         keyboard_rows = [
             [
                 KeyboardButton(
                     text="🚗 Подать объявление",
-                    web_app=WebAppInfo(url=settings.webapp_url),
+                    web_app=WebAppInfo(url=f"{base}?uid={uid}"),
                 ),
             ],
             [
                 KeyboardButton(
                     text="📋 Каталог",
-                    web_app=WebAppInfo(url=f"{settings.webapp_url}/catalog"),
+                    web_app=WebAppInfo(url=f"{base}/catalog"),
                 ),
             ],
         ]

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
+import { submitAd } from '../api'
 
 export default function CreateCarAd() {
   const [brand, setBrand] = useState('')
@@ -40,22 +41,16 @@ export default function CreateCarAd() {
 
   const allRequired = brand && model && year && price && city && phone
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Touch all required fields to show validation
     setTouched({ brand: true, model: true, year: true, price: true, city: true, phone: true })
 
     if (!allRequired) return
 
-    const tg = window.Telegram?.WebApp
-    if (!tg?.sendData) {
-      alert(TEXTS.MSG_OPEN_VIA_BOT)
-      return
-    }
-
     // If gas checkbox is on, append to fuel type
     const finalFuel = hasGas && fuelType ? `${fuelType}` : fuelType
 
-    const data = JSON.stringify({
+    const adData = {
       type: 'car_ad',
       brand: brand.trim(),
       model: model.trim(),
@@ -70,15 +65,17 @@ export default function CreateCarAd() {
       city,
       contact_phone: phone.trim(),
       contact_telegram: telegram.trim() || null,
-    })
+    }
 
     setSubmitting(true)
+
     try {
-      tg.sendData(data)
+      await submitAd(adData)
+      setSent(true)
+      // Close Mini App after showing success
       setTimeout(() => {
-        setSent(true)
-        setSubmitting(false)
-      }, 3000)
+        window.Telegram?.WebApp?.close()
+      }, 1500)
     } catch (e: unknown) {
       setSubmitting(false)
       const msg = e instanceof Error ? e.message : String(e)

@@ -1,22 +1,50 @@
 """REST API for Mini App catalog (aiohttp)."""
 
+import json
 import logging
 
 from aiohttp import web
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.storage.base import StorageKey
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.config import settings
-from app.models.car_ad import AdStatus, CarAd
+from app.handlers.photos import PhotoCollectStates
+from app.models.car_ad import AdStatus, CarAd, FuelType, Transmission
 from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
+from app.services.car_ad_service import create_car_ad
+from app.services.plate_ad_service import create_plate_ad
+from app.services.user_service import get_or_create_user
+from app.texts import (
+    WEB_APP_CAR_CREATED,
+    WEB_APP_PLATE_CREATED,
+    WEB_APP_SEND_PHOTOS,
+    WEB_APP_SKIP_PHOTOS,
+)
 from app.utils.publish import publish_to_channel
 
 logger = logging.getLogger(__name__)
 
+FUEL_TYPE_MAP = {
+    "бензин": FuelType.PETROL,
+    "дизель": FuelType.DIESEL,
+    "газ": FuelType.GAS,
+    "электро": FuelType.ELECTRIC,
+    "гибрид": FuelType.HYBRID,
+}
+
+TRANSMISSION_MAP = {
+    "механика": Transmission.MANUAL,
+    "автомат": Transmission.AUTOMATIC,
+    "робот": Transmission.ROBOT,
+    "вариатор": Transmission.VARIATOR,
+}
+
 
 def create_api_app(
-    session_pool: async_sessionmaker, bot_token: str, bot=None,
+    session_pool: async_sessionmaker, bot_token: str, bot=None, storage=None,
 ) -> web.Application:
     """Create aiohttp app with API routes."""
     app = web.Application(
@@ -26,6 +54,11 @@ def create_api_app(
     app["bot_token"] = bot_token
     if bot:
         app["bot"] = bot
+    if storage:
+        app["storage"] = storage
+
+    # Submit endpoint (sendData fallback)
+    app.router.add_post("/api/submit", handle_submit)
 
     # Public routes
     app.router.add_get("/api/brands", get_brands)
@@ -390,6 +423,131 @@ async def proxy_photo(request: web.Request) -> web.Response:
             "Cache-Control": "public, max-age=86400",
         },
     )
+
+
+# --- Submit endpoint (sendData fallback) ---
+
+
+async def handle_submit(request: web.Request) -> web.Response:
+    """POST /api/submit — create ad from Mini App (fallback for sendData).
+
+    Body: {type: "car_ad"|"plate_ad", user_id: int, ...ad fields...}
+    """
+    try:
+        data = await request.json()
+    except (json.JSONDecodeError, Exception):
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    ad_type = data.get("type")
+    user_id_tg = data.get("user_id")
+
+    if ad_type not in ("car_ad", "plate_ad"):
+        return web.json_response({"ok": False, "error": "Invalid ad type"}, status=400)
+    if not user_id_tg:
+        return web.json_response({"ok": False, "error": "Missing user_id"}, status=400)
+
+    try:
+        user_id_tg = int(user_id_tg)
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "Invalid user_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    bot = request.app.get("bot")
+    storage = request.app.get("storage")
+
+    try:
+        async with pool() as session:
+            # Get or create user
+            user = await get_or_create_user(
+                session,
+                telegram_id=user_id_tg,
+                username=None,
+                full_name=None,
+            )
+            logger.info("[api/submit] User ready: id=%d, tg=%d", user.id, user_id_tg)
+
+            # Create ad
+            if ad_type == "car_ad":
+                contact_tg = data.get("contact_telegram")
+                if isinstance(contact_tg, str):
+                    contact_tg = contact_tg.strip() or None
+
+                fuel = FUEL_TYPE_MAP.get(data.get("fuel_type", ""), FuelType.PETROL)
+                trans = TRANSMISSION_MAP.get(data.get("transmission", ""), Transmission.MANUAL)
+
+                ad = await create_car_ad(
+                    session,
+                    user_id=user.id,
+                    brand=data.get("brand", "").strip(),
+                    model=data.get("model", "").strip(),
+                    year=int(data.get("year", 2020)),
+                    mileage=int(data.get("mileage", 0) or 0),
+                    engine_volume=float(data.get("engine_volume", 0) or 0),
+                    fuel_type=fuel,
+                    transmission=trans,
+                    color=data.get("color", "").strip(),
+                    price=int(data.get("price", 0)),
+                    description=data.get("description", "").strip(),
+                    city=data.get("city", "").strip(),
+                    contact_phone=data.get("contact_phone", "").strip(),
+                    contact_telegram=contact_tg,
+                )
+                logger.info("[api/submit] Car ad created: id=%d", ad.id)
+            else:
+                contact_tg = data.get("contact_telegram")
+                if isinstance(contact_tg, str):
+                    contact_tg = contact_tg.strip() or None
+
+                ad = await create_plate_ad(
+                    session,
+                    user_id=user.id,
+                    plate_number=data.get("plate_number", "").strip(),
+                    price=int(data.get("price", 0)),
+                    description=data.get("description", "").strip(),
+                    city=data.get("city", "").strip(),
+                    contact_phone=data.get("contact_phone", "").strip(),
+                    contact_telegram=contact_tg,
+                )
+                logger.info("[api/submit] Plate ad created: id=%d", ad.id)
+
+            await session.commit()
+
+        # Send message to user asking for photos
+        if bot:
+            if ad_type == "car_ad":
+                await bot.send_message(user_id_tg, WEB_APP_CAR_CREATED)
+            else:
+                await bot.send_message(user_id_tg, WEB_APP_PLATE_CREATED)
+
+            skip_kb = ReplyKeyboardMarkup(
+                keyboard=[[KeyboardButton(text=WEB_APP_SKIP_PHOTOS)]],
+                resize_keyboard=True,
+                one_time_keyboard=True,
+            )
+            await bot.send_message(user_id_tg, WEB_APP_SEND_PHOTOS, reply_markup=skip_kb)
+            logger.info("[api/submit] Photo request sent to user %d", user_id_tg)
+
+        # Set FSM state for photo collection
+        if storage and bot:
+            bot_id = int(settings.bot_token.split(":")[0])
+            key = StorageKey(
+                bot_id=bot_id,
+                chat_id=user_id_tg,
+                user_id=user_id_tg,
+            )
+            await storage.set_state(key=key, state=PhotoCollectStates.waiting_photos)
+            await storage.set_data(key=key, data={
+                "ad_id": ad.id,
+                "ad_type": ad_type,
+                "photo_count": 0,
+            })
+            logger.info("[api/submit] FSM state set: waiting_photos, ad_id=%d", ad.id)
+
+        return web.json_response({"ok": True, "ad_id": ad.id})
+
+    except Exception:
+        logger.exception("[api/submit] Error creating ad")
+        return web.json_response({"ok": False, "error": "Server error"}, status=500)
 
 
 # --- Admin endpoints ---

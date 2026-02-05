@@ -139,6 +139,36 @@ export interface AdminStats {
   rejected: number;
 }
 
+// Get user_id from URL (set by bot in KeyboardButton: ?uid=12345)
+export function getUserId(): number | null {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const uid = params.get('uid');
+    if (uid) return parseInt(uid, 10);
+    // Fallback to Telegram SDK
+    const tgUid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (tgUid) return tgUid;
+  } catch { /* ignore */ }
+  return null;
+}
+
+// Submit ad via API (sendData fallback)
+export async function submitAd(data: Record<string, unknown>): Promise<{ ok: boolean; ad_id?: number }> {
+  const uid = getUserId();
+  if (!uid) throw new Error('user_id not available');
+  const body = { ...data, user_id: uid };
+  const res = await fetch(`${API_BASE}/api/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 // API calls
 export const api = {
   getBrands: () => fetchJSON<Brand[]>('/api/brands'),

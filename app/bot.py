@@ -36,8 +36,8 @@ async def main():
     dp.include_router(web_app.router)
     dp.include_router(start.router)
 
-    # Start API server for Mini App catalog (pass bot for admin notifications)
-    api_app = create_api_app(async_session, settings.bot_token, bot=bot)
+    # Start API server for Mini App catalog (pass bot + FSM storage for submit fallback)
+    api_app = create_api_app(async_session, settings.bot_token, bot=bot, storage=dp.storage)
     runner = web.AppRunner(api_app)
     await runner.setup()
     site = web.TCPSite(runner, settings.api_host, settings.api_port)
