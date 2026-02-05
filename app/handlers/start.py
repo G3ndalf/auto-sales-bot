@@ -39,22 +39,24 @@ _DEEP_LINK_RE = re.compile(r"^msg_(car|plate)_(\d+)$")
 
 
 def _webapp_url(path: str = "", admin: bool = False, uid: int = 0) -> str:
-    """Build webapp URL with cache-busting query param.
+    """Build webapp URL with HashRouter path and cache-busting query param.
 
-    Каждый вызов генерирует уникальный URL с ?v={timestamp},
-    чтобы Telegram iOS WebView не кэшировал старый HTML.
-    Без этого WebView может загрузить старый index.html,
-    который ссылается на JS-бандл, которого уже нет → чёрный экран.
+    Используем HashRouter (/#/path) вместо BrowserRouter (/path),
+    т.к. Telegram iOS WebView плохо обрабатывает pushState —
+    при client-side навигации экран становится пустым.
+
+    С HashRouter все маршруты через hash-fragment, WebView не вмешивается.
     """
     base = settings.webapp_url.rstrip("/")
     ts = int(time.time())
-    url = f"{base}{path}" if path else base
     params = f"v={ts}"
     if uid:
         params += f"&uid={uid}"
     if admin and settings.admin_token:
         params += f"&token={settings.admin_token}"
-    return f"{url}?{params}"
+    # HashRouter: пути через #/, query params ПЕРЕД hash
+    hash_path = f"#/{path.lstrip('/')}" if path else ""
+    return f"{base}?{params}{hash_path}"
 
 
 def _format_price(price: int) -> str:

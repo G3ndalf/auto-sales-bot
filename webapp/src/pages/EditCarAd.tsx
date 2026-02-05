@@ -155,10 +155,11 @@ export default function EditCarAd() {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '60vh',
-        color: 'var(--tg-theme-hint-color)',
+        color: '#6b7280',
         fontSize: '16px',
+        backgroundColor: '#f5f5f5',
       }}>
-        Загрузка...
+        ⏳ Загрузка объявления...
       </div>
     )
   }

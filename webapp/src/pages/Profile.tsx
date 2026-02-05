@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api, getUserId } from '../api'
 import type { UserProfile } from '../api'
 
@@ -29,6 +30,8 @@ export default function Profile() {
       }))
       .finally(() => setLoading(false))
   }, [])
+
+  const navigate = useNavigate()
 
   if (loading) return <div className="loading">Загрузка...</div>
   if (!profile) return null
@@ -84,22 +87,23 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — используем navigate() для client-side навигации.
+          <a href> делает полную перезагрузку → теряет uid query param → ломает контекст. */}
       <div className="profile-section">
         <div className="profile-section__header">Быстрые действия</div>
         <div className="profile-actions">
-          <a href="/my-ads" className="profile-action">
+          <div className="profile-action" onClick={() => navigate('/my-ads')}>
             <span className="profile-action__icon">📋</span>
             <span>Мои объявления</span>
-          </a>
-          <a href="/car/new" className="profile-action">
+          </div>
+          <div className="profile-action" onClick={() => navigate('/car/new')}>
             <span className="profile-action__icon">🚗</span>
             <span>Продать авто</span>
-          </a>
-          <a href="/plate/new" className="profile-action">
+          </div>
+          <div className="profile-action" onClick={() => navigate('/plate/new')}>
             <span className="profile-action__icon">🔢</span>
             <span>Продать номер</span>
-          </a>
+          </div>
         </div>
       </div>
     </div>
