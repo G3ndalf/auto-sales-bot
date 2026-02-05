@@ -7,20 +7,39 @@ export default function Home() {
 
   return (
     <div className="home">
-      <div className="home-icon">🚘</div>
-      <h1>{TEXTS.HOME_TITLE}</h1>
-      <p>{TEXTS.HOME_SUBTITLE}</p>
+      <div className="home-hero">
+        <div className="home-logo">🚘</div>
+        <h1>{TEXTS.HOME_TITLE}</h1>
+        <p className="home-subtitle">{TEXTS.HOME_SUBTITLE}</p>
+      </div>
 
-      <div className="home-buttons">
-        <Link to="/catalog" className="btn btn-primary">
-          {TEXTS.BTN_CATALOG}
+      <div className="home-cards">
+        <Link to="/catalog" className="home-card home-card--catalog">
+          <div className="home-card__icon">📋</div>
+          <div className="home-card__body">
+            <div className="home-card__title">Каталог</div>
+            <div className="home-card__desc">Авто и номера в КБР</div>
+          </div>
+          <div className="home-card__arrow">›</div>
         </Link>
-        <Link to="/car/new" className="btn btn-secondary">
-          {TEXTS.BTN_POST_CAR}
-        </Link>
-        <Link to="/plate/new" className="btn btn-secondary">
-          {TEXTS.BTN_POST_PLATE}
-        </Link>
+
+        <div className="home-cards-row">
+          <Link to="/car/new" className="home-card home-card--car">
+            <div className="home-card__icon">🚗</div>
+            <div className="home-card__body">
+              <div className="home-card__title">Продать авто</div>
+              <div className="home-card__desc">Бесплатно</div>
+            </div>
+          </Link>
+
+          <Link to="/plate/new" className="home-card home-card--plate">
+            <div className="home-card__icon">🔢</div>
+            <div className="home-card__body">
+              <div className="home-card__title">Продать номер</div>
+              <div className="home-card__desc">Бесплатно</div>
+            </div>
+          </Link>
+        </div>
       </div>
     </div>
   )

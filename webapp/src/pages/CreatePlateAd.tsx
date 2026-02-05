@@ -42,7 +42,6 @@ export default function CreatePlateAd() {
       contact_telegram: telegram.trim() || null,
     })
 
-    try {
     setSubmitting(true)
     try {
       tg.sendData(data)
@@ -62,65 +61,81 @@ export default function CreatePlateAd() {
     <div className="form-page">
       <h1>{TEXTS.PLATE_FORM_TITLE}</h1>
 
-      <div className="form-group">
-        <label>{TEXTS.LABEL_PLATE_NUMBER}</label>
-        <input
-          type="text"
-          value={plateNumber}
-          onChange={e => setPlateNumber(e.target.value.toUpperCase())}
-          placeholder="А777АА 07"
-          style={{ fontSize: '1.3em', fontWeight: 700, letterSpacing: '0.05em' }}
-        />
-      </div>
-
-      <div className="form-group">
-        <label>{TEXTS.LABEL_PRICE}</label>
-        <input
-          type="number"
-          value={price}
-          onChange={e => setPrice(e.target.value)}
-          placeholder="50000"
-        />
-      </div>
-
-      <div className="form-group">
-        <label>{TEXTS.LABEL_DESCRIPTION}</label>
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
-          placeholder="Дополнительная информация о номере..."
-        />
-      </div>
-
-      <div className="form-group">
-        <label>{TEXTS.LABEL_CITY}</label>
-        <select value={city} onChange={e => setCity(e.target.value)}>
-          <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
-          {TEXTS.CITIES.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label>{TEXTS.LABEL_PHONE}</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="+7..."
-          />
+      {/* Section: Номер */}
+      <div className="form-section">
+        <div className="form-section__header">
+          <span className="form-section__icon">🔢</span>
+          <span>Номерной знак</span>
         </div>
+
         <div className="form-group">
-          <label>{TEXTS.LABEL_TELEGRAM}</label>
+          <label>{TEXTS.LABEL_PLATE_NUMBER}</label>
           <input
             type="text"
-            value={telegram}
-            onChange={e => setTelegram(e.target.value)}
-            placeholder="@username"
+            value={plateNumber}
+            onChange={e => setPlateNumber(e.target.value.toUpperCase())}
+            placeholder="А777АА 07"
+            className="plate-input"
           />
+        </div>
+
+        <div className="form-group">
+          <label>{TEXTS.LABEL_PRICE}</label>
+          <input
+            type="number"
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+            placeholder="50000"
+          />
+        </div>
+
+        <div className="form-group">
+          <label>{TEXTS.LABEL_DESCRIPTION}</label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
+            placeholder="Дополнительная информация о номере..."
+          />
+        </div>
+      </div>
+
+      {/* Section: Местоположение и контакты */}
+      <div className="form-section">
+        <div className="form-section__header">
+          <span className="form-section__icon">📍</span>
+          <span>Местоположение и контакты</span>
+        </div>
+
+        <div className="form-group">
+          <label>{TEXTS.LABEL_CITY}</label>
+          <select value={city} onChange={e => setCity(e.target.value)}>
+            <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
+            {TEXTS.CITIES.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>{TEXTS.LABEL_PHONE}</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+7..."
+            />
+          </div>
+          <div className="form-group">
+            <label>{TEXTS.LABEL_TELEGRAM}</label>
+            <input
+              type="text"
+              value={telegram}
+              onChange={e => setTelegram(e.target.value)}
+              placeholder="@username"
+            />
+          </div>
         </div>
       </div>
 
@@ -130,7 +145,7 @@ export default function CreatePlateAd() {
         {sent ? (
           <p className="form-hint">{TEXTS.MSG_SEND_DATA_FALLBACK}</p>
         ) : (
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+          <button className="btn btn-gradient" onClick={handleSubmit} disabled={submitting}>
             {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
           </button>
         )}

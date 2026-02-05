@@ -46,11 +46,22 @@ export default function CarAdDetail() {
             className="gallery-img"
           />
           {ad.photos.length > 1 && (
-            <div className="gallery-nav">
-              <button onClick={prevPhoto} disabled={photoIndex === 0}>‹</button>
-              <span>{photoIndex + 1} / {ad.photos.length}</span>
-              <button onClick={nextPhoto} disabled={photoIndex === ad.photos.length - 1}>›</button>
-            </div>
+            <>
+              <div className="gallery-nav">
+                <button onClick={prevPhoto} disabled={photoIndex === 0}>‹</button>
+                <span>{photoIndex + 1} / {ad.photos.length}</span>
+                <button onClick={nextPhoto} disabled={photoIndex === ad.photos.length - 1}>›</button>
+              </div>
+              <div className="gallery-dots">
+                {ad.photos.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`gallery-dot${i === photoIndex ? ' active' : ''}`}
+                    onClick={() => setPhotoIndex(i)}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
       ) : (
@@ -99,25 +110,25 @@ export default function CarAdDetail() {
         </div>
       )}
 
-      {/* Contacts */}
-      <div className="detail-contacts">
-        <a href={`tel:${ad.contact_phone}`} className="btn btn-primary">
-          📞 {ad.contact_phone}
+      {ad.created_at && (
+        <p className="detail-date">Опубликовано: {formatDate(ad.created_at)}</p>
+      )}
+
+      {/* Sticky contact footer */}
+      <div className="detail-footer">
+        <a href={`tel:${ad.contact_phone}`} className="btn btn-gradient detail-footer__btn">
+          📞 Позвонить
         </a>
         {ad.contact_telegram && (
           <a
             href={`https://t.me/${ad.contact_telegram.replace('@', '')}`}
-            className="btn btn-secondary"
+            className="btn btn-secondary detail-footer__btn"
             target="_blank"
           >
-            📱 {ad.contact_telegram}
+            📱 Telegram
           </a>
         )}
       </div>
-
-      {ad.created_at && (
-        <p className="detail-date">Опубликовано: {formatDate(ad.created_at)}</p>
-      )}
     </div>
   )
 }

@@ -76,141 +76,165 @@ export default function CreateCarAd() {
     <div className="form-page">
       <h1>{TEXTS.CAR_FORM_TITLE}</h1>
 
-      <div className="form-row">
+      {/* Section: Основное */}
+      <div className="form-section">
+        <div className="form-section__header">
+          <span className="form-section__icon">🚗</span>
+          <span>Основное</span>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>{TEXTS.LABEL_BRAND}</label>
+            <input
+              type="text"
+              value={brand}
+              onChange={e => setBrand(e.target.value)}
+              placeholder="LADA, BMW..."
+            />
+          </div>
+          <div className="form-group">
+            <label>{TEXTS.LABEL_MODEL}</label>
+            <input
+              type="text"
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              placeholder="Vesta, X5..."
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>{TEXTS.LABEL_YEAR}</label>
+            <input
+              type="number"
+              value={year}
+              onChange={e => setYear(e.target.value)}
+              min={CONFIG.MIN_YEAR}
+              max={CONFIG.MAX_YEAR}
+              placeholder="2020"
+            />
+          </div>
+          <div className="form-group">
+            <label>{TEXTS.LABEL_MILEAGE}</label>
+            <input
+              type="number"
+              value={mileage}
+              onChange={e => setMileage(e.target.value)}
+              placeholder="50000"
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>{TEXTS.LABEL_ENGINE}</label>
+            <input
+              type="number"
+              step="0.1"
+              value={engineVolume}
+              onChange={e => setEngineVolume(e.target.value)}
+              placeholder="1.6"
+            />
+          </div>
+          <div className="form-group">
+            <label>{TEXTS.LABEL_COLOR}</label>
+            <input
+              type="text"
+              value={color}
+              onChange={e => setColor(e.target.value)}
+              placeholder="Чёрный"
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>{TEXTS.LABEL_FUEL}</label>
+            <select value={fuelType} onChange={e => setFuelType(e.target.value)}>
+              <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
+              {TEXTS.FUEL_TYPES.map(ft => (
+                <option key={ft.value} value={ft.value}>{ft.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>{TEXTS.LABEL_TRANSMISSION}</label>
+            <select value={transmission} onChange={e => setTransmission(e.target.value)}>
+              <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
+              {TEXTS.TRANSMISSIONS.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Цена и описание */}
+      <div className="form-section">
+        <div className="form-section__header">
+          <span className="form-section__icon">💰</span>
+          <span>Цена и описание</span>
+        </div>
+
         <div className="form-group">
-          <label>{TEXTS.LABEL_BRAND}</label>
+          <label>{TEXTS.LABEL_PRICE}</label>
           <input
-            type="text"
-            value={brand}
-            onChange={e => setBrand(e.target.value)}
-            placeholder="LADA, BMW..."
+            type="number"
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+            placeholder="500000"
           />
         </div>
+
         <div className="form-group">
-          <label>{TEXTS.LABEL_MODEL}</label>
-          <input
-            type="text"
-            value={model}
-            onChange={e => setModel(e.target.value)}
-            placeholder="Vesta, X5..."
+          <label>{TEXTS.LABEL_DESCRIPTION}</label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
+            placeholder="Дополнительная информация об автомобиле..."
           />
         </div>
       </div>
 
-      <div className="form-row">
-        <div className="form-group">
-          <label>{TEXTS.LABEL_YEAR}</label>
-          <input
-            type="number"
-            value={year}
-            onChange={e => setYear(e.target.value)}
-            min={CONFIG.MIN_YEAR}
-            max={CONFIG.MAX_YEAR}
-            placeholder="2020"
-          />
+      {/* Section: Местоположение и контакты */}
+      <div className="form-section">
+        <div className="form-section__header">
+          <span className="form-section__icon">📍</span>
+          <span>Местоположение и контакты</span>
         </div>
-        <div className="form-group">
-          <label>{TEXTS.LABEL_MILEAGE}</label>
-          <input
-            type="number"
-            value={mileage}
-            onChange={e => setMileage(e.target.value)}
-            placeholder="50000"
-          />
-        </div>
-      </div>
 
-      <div className="form-row">
         <div className="form-group">
-          <label>{TEXTS.LABEL_ENGINE}</label>
-          <input
-            type="number"
-            step="0.1"
-            value={engineVolume}
-            onChange={e => setEngineVolume(e.target.value)}
-            placeholder="1.6"
-          />
-        </div>
-        <div className="form-group">
-          <label>{TEXTS.LABEL_COLOR}</label>
-          <input
-            type="text"
-            value={color}
-            onChange={e => setColor(e.target.value)}
-            placeholder="Чёрный"
-          />
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label>{TEXTS.LABEL_FUEL}</label>
-          <select value={fuelType} onChange={e => setFuelType(e.target.value)}>
+          <label>{TEXTS.LABEL_CITY}</label>
+          <select value={city} onChange={e => setCity(e.target.value)}>
             <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
-            {TEXTS.FUEL_TYPES.map(ft => (
-              <option key={ft.value} value={ft.value}>{ft.label}</option>
+            {TEXTS.CITIES.map(c => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
         </div>
-        <div className="form-group">
-          <label>{TEXTS.LABEL_TRANSMISSION}</label>
-          <select value={transmission} onChange={e => setTransmission(e.target.value)}>
-            <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
-            {TEXTS.TRANSMISSIONS.map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      <div className="form-group">
-        <label>{TEXTS.LABEL_PRICE}</label>
-        <input
-          type="number"
-          value={price}
-          onChange={e => setPrice(e.target.value)}
-          placeholder="500000"
-        />
-      </div>
-
-      <div className="form-group">
-        <label>{TEXTS.LABEL_DESCRIPTION}</label>
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
-          placeholder="Дополнительная информация об автомобиле..."
-        />
-      </div>
-
-      <div className="form-group">
-        <label>{TEXTS.LABEL_CITY}</label>
-        <select value={city} onChange={e => setCity(e.target.value)}>
-          <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
-          {TEXTS.CITIES.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label>{TEXTS.LABEL_PHONE}</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="+7..."
-          />
-        </div>
-        <div className="form-group">
-          <label>{TEXTS.LABEL_TELEGRAM}</label>
-          <input
-            type="text"
-            value={telegram}
-            onChange={e => setTelegram(e.target.value)}
-            placeholder="@username"
-          />
+        <div className="form-row">
+          <div className="form-group">
+            <label>{TEXTS.LABEL_PHONE}</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+7..."
+            />
+          </div>
+          <div className="form-group">
+            <label>{TEXTS.LABEL_TELEGRAM}</label>
+            <input
+              type="text"
+              value={telegram}
+              onChange={e => setTelegram(e.target.value)}
+              placeholder="@username"
+            />
+          </div>
         </div>
       </div>
 
@@ -220,7 +244,7 @@ export default function CreateCarAd() {
         {sent ? (
           <p className="form-hint">{TEXTS.MSG_SEND_DATA_FALLBACK}</p>
         ) : (
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+          <button className="btn btn-gradient" onClick={handleSubmit} disabled={submitting}>
             {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
           </button>
         )}
