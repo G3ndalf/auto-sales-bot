@@ -4,18 +4,26 @@ Handles:
   /start              — main menu with webapp buttons
   /start msg_car_N    — deep link to view car ad #N with seller contacts
   /start msg_plate_N  — deep link to view plate ad #N with seller contacts
+  "🔄 Перезапустить"  — text button, triggers the same /start flow
 
 Deep links are used in "contact seller" buttons shared from the catalog,
 allowing users to open the bot and immediately see the ad card + contacts.
+
+Keyboard layout:
+  - ReplyKeyboard (bottom): one button "🔄 Перезапустить" (sends text)
+  - InlineKeyboard (in message): "📱 Открыть приложение" + "⚙️ Админ панель"
+    Both are web_app buttons that open the Mini App with HashRouter URLs.
 """
 
 import logging
 import re
 import time
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
@@ -28,11 +36,15 @@ from app.config import settings
 from app.models.car_ad import AdStatus, CarAd
 from app.models.plate_ad import PlateAd
 from app.models.photo import AdPhoto, AdType
-from app.texts import START_WELCOME, ADMIN_PANEL_BTN
+from app.texts import START_WELCOME
 
 logger = logging.getLogger(__name__)
 
 router = Router()
+
+# ── Константы ─────────────────────────────────────────────────────
+# Текст кнопки "Перезапустить" в ReplyKeyboard (должен совпадать с фильтром)
+RESTART_BTN_TEXT = "🔄 Перезапустить"
 
 # Regex для парсинга deep link аргументов вида msg_car_5 / msg_plate_3
 _DEEP_LINK_RE = re.compile(r"^msg_(car|plate)_(\d+)$")
@@ -46,6 +58,14 @@ def _webapp_url(path: str = "", admin: bool = False, uid: int = 0) -> str:
     при client-side навигации экран становится пустым.
 
     С HashRouter все маршруты через hash-fragment, WebView не вмешивается.
+
+    Каждый вызов генерирует уникальный URL с ?v={timestamp},
+    чтобы Telegram iOS WebView не кэшировал старый HTML.
+
+    Args:
+        path: маршрут внутри приложения (e.g. "/catalog", "/admin")
+        admin: если True, добавляет admin_token в query params
+        uid: Telegram user_id для API-вызовов внутри Mini App
     """
     base = settings.webapp_url.rstrip("/")
     ts = int(time.time())
@@ -68,6 +88,49 @@ def _format_price(price: int) -> str:
     return f"{price:,}".replace(",", " ") + " ₽"
 
 
+async def _send_start_menu(message: Message) -> None:
+    """Отправить главное меню бота.
+
+    Отправляет два reply_markup:
+    1. Сообщение с ReplyKeyboard — устанавливает кнопку "🔄 Перезапустить" внизу
+    2. Сообщение с InlineKeyboard — кнопки "Открыть приложение" + "Админ панель"
+
+    Telegram позволяет только один reply_markup на сообщение,
+    поэтому нужны два сообщения.
+    """
+    uid = message.from_user.id if message.from_user else 0
+    is_admin = message.from_user and message.from_user.id in settings.admin_ids
+
+    # ── 1. ReplyKeyboard с кнопкой перезапуска (устанавливается внизу чата) ──
+    restart_kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=RESTART_BTN_TEXT)]],
+        resize_keyboard=True,
+    )
+    await message.answer(START_WELCOME, reply_markup=restart_kb)
+
+    # ── 2. InlineKeyboard с web_app кнопками (в теле сообщения) ──────────
+    if settings.webapp_url:
+        inline_buttons: list[list[InlineKeyboardButton]] = [
+            [
+                InlineKeyboardButton(
+                    text="📱 Открыть приложение",
+                    web_app=WebAppInfo(url=_webapp_url(uid=uid)),
+                ),
+            ],
+        ]
+        # Кнопка админ-панели — только для администраторов
+        if is_admin:
+            inline_buttons.append([
+                InlineKeyboardButton(
+                    text="⚙️ Админ панель",
+                    web_app=WebAppInfo(url=_webapp_url("/admin", admin=True, uid=uid)),
+                ),
+            ])
+
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_buttons)
+        await message.answer("👇 Нажмите, чтобы открыть:", reply_markup=inline_kb)
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, session: AsyncSession):
     """Handle /start command.
@@ -81,43 +144,25 @@ async def cmd_start(message: Message, session: AsyncSession):
     The `session` parameter is injected by DbSessionMiddleware.
     """
     # ── Проверяем deep link аргумент ───────────────────────────────
-    # message.text для /start msg_car_5 будет "/start msg_car_5"
     args = _extract_deep_link_arg(message.text or "")
     if args:
         await _handle_deep_link(message, session, args)
         return
 
     # ── Стандартное меню /start ─────────────────────────────────────
-    kb = None
-    if settings.webapp_url:
-        uid = message.from_user.id if message.from_user else 0
-        # ВСЕ кнопки используют _webapp_url() для cache-busting.
-        # Каждый /start генерирует уникальные URL с ?v={timestamp},
-        # чтобы Telegram WebView не использовал кэшированную версию.
-        keyboard_rows = [
-            [
-                KeyboardButton(
-                    text="🚗 Подать объявление",
-                    web_app=WebAppInfo(url=_webapp_url(uid=uid)),
-                ),
-            ],
-            [
-                KeyboardButton(
-                    text="📋 Каталог",
-                    web_app=WebAppInfo(url=_webapp_url("/catalog")),
-                ),
-            ],
-        ]
-        # Admin button — only for admins
-        if message.from_user and message.from_user.id in settings.admin_ids:
-            keyboard_rows.append([
-                KeyboardButton(
-                    text=ADMIN_PANEL_BTN,
-                    web_app=WebAppInfo(url=_webapp_url("/admin", admin=True)),
-                ),
-            ])
-        kb = ReplyKeyboardMarkup(keyboard=keyboard_rows, resize_keyboard=True)
-    await message.answer(START_WELCOME, reply_markup=kb)
+    await _send_start_menu(message)
+
+
+@router.message(F.text == RESTART_BTN_TEXT)
+async def handle_restart_button(message: Message, session: AsyncSession):
+    """Обработчик текстовой кнопки "🔄 Перезапустить".
+
+    Когда пользователь нажимает ReplyKeyboard кнопку, Telegram
+    отправляет текст кнопки как обычное сообщение.
+    Ловим этот текст и показываем меню заново — с обновлёнными
+    cache-busting URL для Mini App кнопок.
+    """
+    await _send_start_menu(message)
 
 
 def _extract_deep_link_arg(text: str) -> re.Match | None:
@@ -178,14 +223,11 @@ async def _show_car_contact_card(
         await message.answer("❌ Объявление не найдено или снято.")
         return
 
-    # Контакт Telegram — форматируем как ссылку если есть
     tg_contact = "—"
     if ad.contact_telegram:
-        # Убираем @ если есть, формируем ссылку
         username = ad.contact_telegram.lstrip("@")
         tg_contact = f"@{username}"
 
-    # Форматируем карточку
     card_text = (
         f"🚗 <b>{ad.brand} {ad.model}</b> ({ad.year})\n"
         f"━━━━━━━━━━━━━━━\n"
@@ -201,7 +243,6 @@ async def _show_car_contact_card(
     if ad.description:
         card_text += f"\n📝 {ad.description}"
 
-    # Попробовать отправить с фото (если есть)
     await _send_card_with_optional_photo(
         message, session, card_text, ad_id, AdType.CAR,
     )
@@ -212,10 +253,7 @@ async def _show_plate_contact_card(
     session: AsyncSession,
     ad_id: int,
 ) -> None:
-    """Показать карточку номер-объявления с контактами продавца.
-
-    Аналогично _show_car_contact_card, но для PlateAd.
-    """
+    """Показать карточку номер-объявления с контактами продавца."""
     stmt = select(PlateAd).where(PlateAd.id == ad_id, PlateAd.status == AdStatus.APPROVED)
     ad = (await session.execute(stmt)).scalar_one_or_none()
 
@@ -259,7 +297,6 @@ async def _send_card_with_optional_photo(
     Если фото нет — отправляем просто текстовое сообщение.
     При ошибке отправки фото (например, file_id протух) — fallback на текст.
     """
-    # Загружаем первое фото
     photo_stmt = (
         select(AdPhoto)
         .where(AdPhoto.ad_type == ad_type, AdPhoto.ad_id == ad_id)
@@ -270,15 +307,12 @@ async def _send_card_with_optional_photo(
 
     if photo:
         try:
-            # Отправляем фото с подписью (caption)
             await message.answer_photo(photo=photo.file_id, caption=card_text)
             return
         except Exception:
-            # file_id мог протухнуть — fallback на текст
             logger.warning(
                 "Failed to send photo for ad %s/%d, falling back to text",
                 ad_type.value, ad_id,
             )
 
-    # Без фото или при ошибке — отправляем текст
     await message.answer(card_text)

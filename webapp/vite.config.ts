@@ -23,4 +23,18 @@ function cacheBustPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [react(), cacheBustPlugin()],
+  build: {
+    /**
+     * НЕ удалять старые файлы при сборке!
+     *
+     * React.lazy использует динамический import() для загрузки чанков.
+     * Если Telegram WebView или браузер закэшировал основной бандл,
+     * он будет пытаться загрузить чанки ИЗ ТОЙ СБОРКИ.
+     * Если старые чанки удалены (emptyOutDir: true) → 404 → краш.
+     *
+     * С emptyOutDir: false старые чанки остаются на сервере,
+     * и кэшированные бандлы продолжают работать.
+     */
+    emptyOutDir: false,
+  },
 })

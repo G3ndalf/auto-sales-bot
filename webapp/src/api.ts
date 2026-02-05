@@ -170,16 +170,47 @@ export interface UserProfile {
   };
 }
 
-// Get user_id from URL (set by bot in KeyboardButton: ?uid=12345)
+/**
+ * Кэш user_id на уровне модуля.
+ *
+ * При первом вызове getUserId() считывается из URL (?uid=) или Telegram SDK,
+ * затем кэшируется. Это гарантирует, что uid не теряется при навигации
+ * внутри HashRouter (hash меняется, но search params остаются — однако
+ * для надёжности кэшируем явно).
+ */
+let _cachedUid: number | null = null;
+
+/**
+ * Получить Telegram user_id текущего пользователя.
+ *
+ * Приоритет:
+ * 1. Кэшированное значение (из предыдущего вызова)
+ * 2. URL query param ?uid=12345 (устанавливается ботом в web_app URL)
+ * 3. Telegram WebApp SDK initDataUnsafe.user.id
+ *
+ * Результат кэшируется — безопасно вызывать многократно.
+ */
 export function getUserId(): number | null {
+  // Возвращаем кэш если есть
+  if (_cachedUid) return _cachedUid;
+
   try {
+    // 1. Из URL query params (?uid=12345)
     const params = new URLSearchParams(window.location.search);
     const uid = params.get('uid');
-    if (uid) return parseInt(uid, 10);
-    // Fallback to Telegram SDK
+    if (uid) {
+      _cachedUid = parseInt(uid, 10);
+      return _cachedUid;
+    }
+
+    // 2. Fallback: Telegram SDK (работает когда Mini App открыт через бот)
     const tgUid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    if (tgUid) return tgUid;
+    if (tgUid) {
+      _cachedUid = tgUid;
+      return _cachedUid;
+    }
   } catch { /* ignore */ }
+
   return null;
 }
 
