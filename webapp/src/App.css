@@ -1,7 +1,6 @@
 /* ═══════════════════════════════════════════════
    Tailwind CSS v4 — только утилиты (без preflight reset)
    ═══════════════════════════════════════════════ */
-@import "tailwindcss/theme" layer(theme);
 @import "tailwindcss/utilities" layer(utilities);
 
 /* ═══════════════════════════════════════════════
@@ -46,6 +45,18 @@
 
   --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
   --spring: 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* ─── Touch Target Minimums (Apple HIG: 44px) ─── */
+button, a, select, [role="button"] {
+  min-height: 44px;
+}
+input, textarea {
+  min-height: 44px;
+  font-size: 16px; /* предотвращает zoom на iOS */
+}
+.filter-select {
+  min-height: 44px;
 }
 
 /* ─── Reset ─── */
