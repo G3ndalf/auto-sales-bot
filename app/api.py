@@ -14,6 +14,7 @@ from app.handlers.photos import PhotoCollectStates
 from app.models.car_ad import AdStatus, CarAd, FuelType, Transmission
 from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
+from app.models.user import User
 from app.services.car_ad_service import create_car_ad
 from app.services.plate_ad_service import create_plate_ad
 from app.services.user_service import get_or_create_user
@@ -71,6 +72,7 @@ def create_api_app(
     app.router.add_get("/api/plates/{ad_id}", get_plate_ad_detail)
     app.router.add_get("/api/cities", get_cities)
     app.router.add_get("/api/photos/{file_id}", proxy_photo)
+    app.router.add_get("/api/profile/{telegram_id}", get_profile)
 
     # Admin routes
     app.router.add_get("/api/admin/pending", admin_get_pending)
@@ -425,6 +427,63 @@ async def proxy_photo(request: web.Request) -> web.Response:
             "Cache-Control": "public, max-age=86400",
         },
     )
+
+
+# --- Profile endpoint ---
+
+
+async def get_profile(request: web.Request) -> web.Response:
+    """GET /api/profile/{telegram_id} — user profile with ad stats."""
+    telegram_id = _safe_int(request.match_info.get("telegram_id"), 0)
+    if not telegram_id:
+        return web.json_response({"error": "Invalid telegram_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user_stmt = select(User).where(User.telegram_id == telegram_id)
+        user = (await session.execute(user_stmt)).scalar_one_or_none()
+
+        if not user:
+            return web.json_response({
+                "name": "Пользователь",
+                "username": None,
+                "ads": {"total": 0, "active": 0, "pending": 0, "rejected": 0},
+            })
+
+        # Count ads by status
+        car_counts = {}
+        plate_counts = {}
+        for label, status in [
+            ("active", AdStatus.APPROVED),
+            ("pending", AdStatus.PENDING),
+            ("rejected", AdStatus.REJECTED),
+        ]:
+            cc = (await session.execute(
+                select(func.count()).select_from(CarAd)
+                .where(CarAd.user_id == user.id, CarAd.status == status)
+            )).scalar_one()
+            pc = (await session.execute(
+                select(func.count()).select_from(PlateAd)
+                .where(PlateAd.user_id == user.id, PlateAd.status == status)
+            )).scalar_one()
+            car_counts[label] = cc
+            plate_counts[label] = pc
+
+        total = sum(car_counts.values()) + sum(plate_counts.values())
+
+        return web.json_response({
+            "name": user.full_name,
+            "username": user.username,
+            "member_since": user.created_at.strftime("%d.%m.%Y") if user.created_at else None,
+            "ads": {
+                "total": total,
+                "active": car_counts["active"] + plate_counts["active"],
+                "pending": car_counts["pending"] + plate_counts["pending"],
+                "rejected": car_counts["rejected"] + plate_counts["rejected"],
+                "cars": sum(car_counts.values()),
+                "plates": sum(plate_counts.values()),
+            },
+        })
 
 
 # --- Submit endpoint (sendData fallback) ---

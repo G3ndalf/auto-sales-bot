@@ -139,6 +139,20 @@ export interface AdminStats {
   rejected: number;
 }
 
+export interface UserProfile {
+  name: string;
+  username: string | null;
+  member_since: string | null;
+  ads: {
+    total: number;
+    active: number;
+    pending: number;
+    rejected: number;
+    cars: number;
+    plates: number;
+  };
+}
+
 // Get user_id from URL (set by bot in KeyboardButton: ?uid=12345)
 export function getUserId(): number | null {
   try {
@@ -185,6 +199,7 @@ export const api = {
   getPlateAd: (id: number) => fetchJSON<PlateAdFull>(`/api/plates/${id}`),
   getCities: () => fetchJSON<City[]>('/api/cities'),
   photoUrl: (fileId: string) => `${API_BASE}/api/photos/${fileId}`,
+  getProfile: (telegramId: number) => fetchJSON<UserProfile>(`/api/profile/${telegramId}`),
 
   // Admin
   adminGetPending: () => {
