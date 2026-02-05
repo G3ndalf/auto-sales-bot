@@ -8,10 +8,26 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+function getAdminUserId(): string | null {
+  const tg = window.Telegram?.WebApp;
+  const userId = tg?.initDataUnsafe?.user?.id;
+  if (userId) return String(userId);
+  // Fallback: try to extract from initData
+  try {
+    const params = new URLSearchParams(tg?.initData || '');
+    const userJson = params.get('user');
+    if (userJson) {
+      const user = JSON.parse(userJson);
+      if (user.id) return String(user.id);
+    }
+  } catch {}
+  return null;
+}
+
 function adminHeaders(): Record<string, string> {
-  const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  const userId = getAdminUserId();
   if (!userId) return {};
-  return { 'X-Telegram-User-Id': String(userId) };
+  return { 'X-Telegram-User-Id': userId };
 }
 
 // Types
@@ -134,21 +150,32 @@ export const api = {
   photoUrl: (fileId: string) => `${API_BASE}/api/photos/${fileId}`,
 
   // Admin
-  adminGetPending: () =>
-    fetchJSON<PaginatedResponse<AdminPendingAd>>('/api/admin/pending', {
+  adminGetPending: () => {
+    const uid = getAdminUserId();
+    const q = uid ? `?user_id=${uid}` : '';
+    return fetchJSON<PaginatedResponse<AdminPendingAd>>(`/api/admin/pending${q}`, {
       headers: adminHeaders(),
-    }),
-  adminGetStats: () =>
-    fetchJSON<AdminStats>('/api/admin/stats', {
+    });
+  },
+  adminGetStats: () => {
+    const uid = getAdminUserId();
+    const q = uid ? `?user_id=${uid}` : '';
+    return fetchJSON<AdminStats>(`/api/admin/stats${q}`, {
       headers: adminHeaders(),
-    }),
-  adminApprove: (adType: string, adId: number) =>
-    fetchJSON<{ ok: boolean }>(`/api/admin/approve/${adType}/${adId}`, {
+    });
+  },
+  adminApprove: (adType: string, adId: number) => {
+    const uid = getAdminUserId();
+    const q = uid ? `?user_id=${uid}` : '';
+    return fetchJSON<{ ok: boolean }>(`/api/admin/approve/${adType}/${adId}${q}`, {
       method: 'POST',
       headers: adminHeaders(),
-    }),
-  adminReject: (adType: string, adId: number, reason?: string) =>
-    fetchJSON<{ ok: boolean }>(`/api/admin/reject/${adType}/${adId}`, {
+    });
+  },
+  adminReject: (adType: string, adId: number, reason?: string) => {
+    const uid = getAdminUserId();
+    const q = uid ? `?user_id=${uid}` : '';
+    return fetchJSON<{ ok: boolean }>(`/api/admin/reject/${adType}/${adId}${q}`, {
       method: 'POST',
       headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: reason || 'Не прошло модерацию' }),
