@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Car, Star, Eye, Phone, MessageCircle, MessageSquare } from 'lucide-react'
+import { Garage, Star, Eye, Phone, ChatRound, ChatSquare } from '@solar-icons/react'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
@@ -103,7 +103,7 @@ export default function CarAdDetail() {
           )}
         </div>
       ) : (
-        <div className="gallery-placeholder"><Car size={48} className="opacity-30" /></div>
+        <div className="gallery-placeholder"><Garage size={48} weight="BoldDuotone" className="opacity-30" /></div>
       )}
 
       {/* Title & price & favorite */}
@@ -119,14 +119,14 @@ export default function CarAdDetail() {
             className="bg-transparent border-none text-2xl cursor-pointer"
             style={{ color: isFavorite ? '#F59E0B' : '#9CA3AF', opacity: favoriteLoading ? 0.5 : 1 }}
           >
-            {isFavorite ? <Star size={22} fill="#F59E0B" stroke="#F59E0B" /> : <Star size={22} stroke="#9CA3AF" />}
+            {isFavorite ? <Star size={22} weight="Bold" color="#F59E0B" /> : <Star size={22} weight="Linear" color="#9CA3AF" />}
           </motion.button>
         </div>
       </div>
 
       {/* Просмотры */}
       <p className="text-[#9CA3AF] text-sm px-4 pb-2 m-0">
-        <Eye size={14} /> {ad.view_count} просмотров
+        <Eye size={14} weight="BoldDuotone" /> {ad.view_count} просмотров
       </p>
 
       {/* Specs */}
@@ -182,7 +182,7 @@ export default function CarAdDetail() {
       {/* Sticky contact footer — Позвонить, Написать через бота, Telegram */}
       <div className="detail-footer">
         <a href={`tel:${ad.contact_phone}`} className="btn btn-gradient detail-footer__btn">
-          <Phone size={16} /> Позвонить
+          <Phone size={16} weight="BoldDuotone" /> Позвонить
         </a>
         <a
           href={`https://t.me/autoskfo_bot?start=msg_car_${ad.id}`}
@@ -190,7 +190,7 @@ export default function CarAdDetail() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <MessageSquare size={16} /> Написать
+          <ChatSquare size={16} weight="BoldDuotone" /> Написать
         </a>
         {ad.contact_telegram && (
           <a
@@ -198,7 +198,7 @@ export default function CarAdDetail() {
             className="btn btn-secondary detail-footer__btn"
             target="_blank"
           >
-            <MessageCircle size={14} /> Telegram
+            <ChatRound size={14} weight="BoldDuotone" /> Telegram
           </a>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Car, MapPin, Eye, AlertCircle, X, SlidersHorizontal, ChevronUp, ChevronDown } from 'lucide-react'
+import { Magnifer, Garage, MapPoint, Eye, DangerCircle, CloseCircle, Tuning2, AltArrowUp, AltArrowDown } from '@solar-icons/react'
 import { api } from '../api'
 import type { CarAdPreview, Brand } from '../api'
 import { TEXTS } from '../constants/texts'
@@ -195,14 +195,14 @@ export default function CarsList({ embedded }: Props) {
   return (
     <div className={embedded ? 'catalog-content' : 'list-page'}>
       {!embedded && (
-        <h1><Car size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Все авто</h1>
+        <h1><Garage size={20} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Все авто</h1>
       )}
 
       {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}
       <div style={{ position: 'relative', marginBottom: 10 }}>
         {/* Иконка поиска слева */}
         <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9CA3AF', display: 'flex', alignItems: 'center' }}>
-          <Search size={16} />
+          <Magnifer size={16} weight="BoldDuotone" />
         </span>
         <input
           type="text"
@@ -218,7 +218,7 @@ export default function CarsList({ embedded }: Props) {
             style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9CA3AF', padding: 4, lineHeight: 1 }}
             aria-label="Очистить поиск"
           >
-            <X size={18} />
+            <CloseCircle size={18} weight="BoldDuotone" />
           </button>
         )}
       </div>
@@ -234,14 +234,14 @@ export default function CarsList({ embedded }: Props) {
             onClick={() => setFiltersOpen(prev => !prev)}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: 10, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#F9FAFB', fontSize: '0.95em', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', background: filtersOpen ? 'rgba(245,158,11,0.15)' : '#1A2332' }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><SlidersHorizontal size={16} /> Фильтры</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Tuning2 size={16} weight="BoldDuotone" /> Фильтры</span>
             {activeCount > 0 && (
               <span style={{ background: '#F59E0B', color: '#0B0F19', borderRadius: 10, padding: '1px 7px', fontSize: '0.8em', fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
                 {activeCount}
               </span>
             )}
             <span style={{ marginLeft: 'auto', opacity: 0.6, display: 'inline-flex', alignItems: 'center' }}>
-              {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {filtersOpen ? <AltArrowUp size={14} weight="BoldDuotone" /> : <AltArrowDown size={14} weight="BoldDuotone" />}
             </span>
           </motion.button>
         )
@@ -332,7 +332,7 @@ export default function CarsList({ embedded }: Props) {
 
       {error && (
         <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF' }}>
-          <p style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><AlertCircle size={48} /></p>
+          <p style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><DangerCircle size={48} weight="BoldDuotone" /></p>
           <p style={{ marginBottom: 16 }}>Не удалось загрузить объявления</p>
           <button
             className="btn btn-secondary block mx-auto"
@@ -345,7 +345,7 @@ export default function CarsList({ embedded }: Props) {
 
       {!loading && !error && ads.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon"><Car size={48} /></div>
+          <div className="empty-icon"><Garage size={48} weight="BoldDuotone" /></div>
           <p>Пока нет объявлений</p>
         </div>
       ) : (
@@ -362,7 +362,7 @@ export default function CarsList({ embedded }: Props) {
                   {ad.photo ? (
                     <img src={api.photoUrl(ad.photo)} alt="" loading="lazy" />
                   ) : (
-                    <div className="no-photo"><Car size={24} /></div>
+                    <div className="no-photo"><Garage size={24} weight="BoldDuotone" /></div>
                   )}
                 </div>
                 <div className="ad-card-info">
@@ -371,7 +371,7 @@ export default function CarsList({ embedded }: Props) {
                   <div className="ad-card-details">
                     {ad.mileage.toLocaleString('ru-RU')} км • {ad.fuel_type} • {ad.transmission}
                   </div>
-                  <div className="ad-card-location"><MapPin size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={14} /> {ad.view_count}</span></div>
+                  <div className="ad-card-location"><MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={14} weight="BoldDuotone" /> {ad.view_count}</span></div>
                   <div className="ad-card-price">{formatPrice(ad.price)}</div>
                 </div>
               </Link>

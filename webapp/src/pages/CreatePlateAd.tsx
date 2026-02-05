@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Hash, MapPin, CheckCircle, AlertTriangle, Loader } from 'lucide-react'
+import { Hashtag, MapPoint, CheckCircle, DangerTriangle, Refresh } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
@@ -111,7 +111,7 @@ export default function CreatePlateAd() {
             animate={{ x: [0, -8, 8, -8, 8, 0] }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <AlertTriangle size={48} style={{ color: '#F59E0B' }} />
+            <DangerTriangle size={48} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
           </motion.div>
           <h2 className="text-[1.3em] text-[#F59E0B]">Похожее объявление уже существует</h2>
           <p className="text-[#9CA3AF] max-w-[280px] leading-normal">
@@ -148,7 +148,7 @@ export default function CreatePlateAd() {
           className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
         >
           <span style={{ filter: 'drop-shadow(0 4px 16px rgba(245, 158, 11, 0.4))' }}>
-            <CheckCircle size={64} style={{ color: '#F59E0B' }} />
+            <CheckCircle size={64} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
           </span>
           <h2 className="text-[1.4em]">
             {published ? 'Объявление опубликовано!' : 'Отправлено на модерацию!'}
@@ -177,7 +177,7 @@ export default function CreatePlateAd() {
           className={`form-errors ${errorType === 'rate_limit' ? 'form-errors--rate-limit' : ''}`}
         >
           {errorType === 'rate_limit' ? (
-            <div className="form-errors__title"><Loader size={16} /> {formErrors[0]}</div>
+            <div className="form-errors__title"><Refresh size={16} weight="BoldDuotone" className="animate-spin" /> {formErrors[0]}</div>
           ) : (
             <>
               <div className="form-errors__title">Исправьте ошибки:</div>
@@ -194,7 +194,7 @@ export default function CreatePlateAd() {
       {/* Section: Номер */}
       <div className="form-section">
         <div className="form-section__header">
-          <span className="form-section__icon"><Hash size={16} /></span>
+          <span className="form-section__icon"><Hashtag size={16} weight="BoldDuotone" /></span>
           <span>Номерной знак</span>
         </div>
 
@@ -245,7 +245,7 @@ export default function CreatePlateAd() {
       {/* Section: Местоположение и контакты */}
       <div className="form-section">
         <div className="form-section__header">
-          <span className="form-section__icon"><MapPin size={16} /></span>
+          <span className="form-section__icon"><MapPoint size={16} weight="BoldDuotone" /></span>
           <span>Местоположение и контакты</span>
         </div>
 

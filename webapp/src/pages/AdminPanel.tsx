@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { BarChart3, Clock, CheckCircle, XCircle, Check, X, Car, Hash, MapPin, Phone, MessageCircle } from 'lucide-react'
+import { Chart, ClockCircle, CheckCircle, CloseCircle, Garage, Hashtag, MapPoint, Phone, ChatRound } from '@solar-icons/react'
 import { api } from '../api'
 import type { AdminPendingAd, AdminStats } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
@@ -79,22 +79,22 @@ export default function AdminPanel() {
       {stats && (
         <div className="admin-stats">
           <div className="stat-card">
-            <BarChart3 size={20} style={{ marginBottom: 4 }} />
+            <Chart size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.total}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_TOTAL}</div>
           </div>
           <div className="stat-card stat-pending">
-            <Clock size={20} style={{ marginBottom: 4 }} />
+            <ClockCircle size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.pending}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_PENDING}</div>
           </div>
           <div className="stat-card stat-approved">
-            <CheckCircle size={20} style={{ marginBottom: 4 }} />
+            <CheckCircle size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.approved}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_APPROVED}</div>
           </div>
           <div className="stat-card stat-rejected">
-            <XCircle size={20} style={{ marginBottom: 4 }} />
+            <CloseCircle size={20} weight="BoldDuotone" style={{ marginBottom: 4 }} />
             <div className="stat-value">{stats.rejected}</div>
             <div className="stat-label">{TEXTS.ADMIN_STATS_REJECTED}</div>
           </div>
@@ -130,7 +130,7 @@ export default function AdminPanel() {
                   {ad.photo ? (
                     <img src={api.photoUrl(ad.photo)} alt="" />
                   ) : (
-                    <div className="no-photo">{ad.ad_type === 'car' ? <Car size={24} /> : <Hash size={24} />}</div>
+                    <div className="no-photo">{ad.ad_type === 'car' ? <Garage size={24} weight="BoldDuotone" /> : <Hashtag size={24} weight="BoldDuotone" />}</div>
                   )}
                 </div>
 
@@ -149,7 +149,7 @@ export default function AdminPanel() {
                     </div>
                   )}
 
-                  <div className="admin-ad-meta"><MapPin size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city}</div>
+                  <div className="admin-ad-meta"><MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city}</div>
 
                   {ad.description && (
                     <div className="admin-ad-desc">
@@ -160,8 +160,8 @@ export default function AdminPanel() {
                   )}
 
                   <div className="admin-ad-contacts">
-                    <Phone size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.contact_phone}
-                    {ad.contact_telegram && <> · <MessageCircle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.contact_telegram}</>}
+                    <Phone size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.contact_phone}
+                    {ad.contact_telegram && <> · <ChatRound size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.contact_telegram}</>}
                   </div>
                 </div>
 
@@ -172,14 +172,14 @@ export default function AdminPanel() {
                     onClick={() => handleApprove(ad)}
                     disabled={isProcessing}
                   >
-                    {isProcessing ? '...' : <><Check size={16} /> {TEXTS.ADMIN_BTN_APPROVE}</>}
+                    {isProcessing ? '...' : <><CheckCircle size={16} weight="BoldDuotone" /> {TEXTS.ADMIN_BTN_APPROVE}</>}
                   </button>
                   <button
                     className="btn-reject"
                     onClick={() => handleReject(ad)}
                     disabled={isProcessing}
                   >
-                    {isProcessing ? '...' : <><X size={16} /> {TEXTS.ADMIN_BTN_REJECT}</>}
+                    {isProcessing ? '...' : <><CloseCircle size={16} weight="BoldDuotone" /> {TEXTS.ADMIN_BTN_REJECT}</>}
                   </button>
                 </div>
               </div>

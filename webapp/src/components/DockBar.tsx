@@ -7,13 +7,13 @@
  */
 
 import { useLocation, useNavigate } from 'react-router-dom'
-import { User, Search, PlusCircle, Star } from 'lucide-react'
+import { Magnifer, AddCircle, Star, User } from '@solar-icons/react'
 
 const tabs: { path: string; icon: React.ReactNode; activeIcon: React.ReactNode; label: string }[] = [
-  { path: '/catalog', icon: <Search size={22} />, activeIcon: <Search size={22} strokeWidth={2.5} />, label: 'Каталог' },
-  { path: '/sell', icon: <PlusCircle size={22} />, activeIcon: <PlusCircle size={22} strokeWidth={2.5} />, label: 'Продать' },
-  { path: '/favorites', icon: <Star size={22} />, activeIcon: <Star size={22} fill="currentColor" />, label: 'Избранное' },
-  { path: '/', icon: <User size={22} />, activeIcon: <User size={22} strokeWidth={2.5} />, label: 'Профиль' },
+  { path: '/catalog', icon: <Magnifer size={22} weight="BoldDuotone" />, activeIcon: <Magnifer size={22} weight="BoldDuotone" />, label: 'Каталог' },
+  { path: '/sell', icon: <AddCircle size={22} weight="BoldDuotone" />, activeIcon: <AddCircle size={22} weight="BoldDuotone" />, label: 'Продать' },
+  { path: '/favorites', icon: <Star size={22} weight="BoldDuotone" />, activeIcon: <Star size={22} weight="BoldDuotone" />, label: 'Избранное' },
+  { path: '/', icon: <User size={22} weight="BoldDuotone" />, activeIcon: <User size={22} weight="BoldDuotone" />, label: 'Профиль' },
 ]
 
 /** Главные страницы, на которых виден док */

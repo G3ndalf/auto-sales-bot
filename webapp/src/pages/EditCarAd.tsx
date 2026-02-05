@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Car, Banknote, MapPin, CheckCircle, AlertTriangle, Loader, Fuel, Pencil, Save } from 'lucide-react'
+import { Garage, Banknote, MapPoint, CheckCircle, DangerTriangle, Refresh, Fuel, Pen, Diskette } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
@@ -167,7 +167,7 @@ export default function EditCarAd() {
         fontSize: '16px',
         backgroundColor: '#f5f5f5',
       }}>
-        <Loader size={16} /> Загрузка объявления...
+        <Refresh size={16} weight="BoldDuotone" className="animate-spin" /> Загрузка объявления...
       </div>
     )
   }
@@ -175,7 +175,7 @@ export default function EditCarAd() {
   // ===== Рендер формы =====
   return (
     <div className="form-page">
-      <h1><Pencil size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> Редактирование — Авто</h1>
+      <h1><Pen size={18} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> Редактирование — Авто</h1>
 
       {/* ⚠️ Предупреждение о повторной модерации */}
       <div style={{
@@ -188,7 +188,7 @@ export default function EditCarAd() {
         fontSize: '13px',
         lineHeight: '1.4',
       }}>
-        <AlertTriangle size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> После редактирования объявление будет отправлено на повторную модерацию
+        <DangerTriangle size={16} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> После редактирования объявление будет отправлено на повторную модерацию
       </div>
 
       {/* Ошибки формы */}
@@ -206,7 +206,7 @@ export default function EditCarAd() {
       {/* Section: Основное (аналогично CreateCarAd) */}
       <div className="form-section">
         <div className="form-section__header">
-          <span className="form-section__icon"><Car size={16} /></span>
+          <span className="form-section__icon"><Garage size={16} weight="BoldDuotone" /></span>
           <span>Основное</span>
         </div>
 
@@ -313,14 +313,14 @@ export default function EditCarAd() {
             checked={hasGas}
             onChange={e => setHasGas(e.target.checked)}
           />
-          <span className="checkbox-label"><Fuel size={16} /> Установлено ГБО (газ)</span>
+          <span className="checkbox-label"><Fuel size={16} weight="BoldDuotone" /> Установлено ГБО (газ)</span>
         </label>
       </div>
 
       {/* Section: Цена и описание */}
       <div className="form-section">
         <div className="form-section__header">
-          <span className="form-section__icon"><Banknote size={16} /></span>
+          <span className="form-section__icon"><Banknote size={16} weight="BoldDuotone" /></span>
           <span>Цена и описание</span>
         </div>
 
@@ -351,7 +351,7 @@ export default function EditCarAd() {
       {/* Section: Город и контакты */}
       <div className="form-section">
         <div className="form-section__header">
-          <span className="form-section__icon"><MapPin size={16} /></span>
+          <span className="form-section__icon"><MapPoint size={16} weight="BoldDuotone" /></span>
           <span>Город и контакты</span>
         </div>
 
@@ -421,7 +421,7 @@ export default function EditCarAd() {
             fontSize: '16px',
             fontWeight: 600,
           }}>
-            <CheckCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', color: '#4CAF50' }} /> Изменения сохранены! Объявление отправлено на модерацию.
+            <CheckCircle size={16} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle', color: '#4CAF50' }} /> Изменения сохранены! Объявление отправлено на модерацию.
           </p>
         ) : (
           <button
@@ -429,7 +429,7 @@ export default function EditCarAd() {
             onClick={handleSubmit}
             disabled={submitting}
           >
-            {submitting ? 'Сохранение...' : <><Save size={16} /> Сохранить изменения</>}
+            {submitting ? 'Сохранение...' : <><Diskette size={16} weight="BoldDuotone" /> Сохранить изменения</>}
           </button>
         )}
       </div>
