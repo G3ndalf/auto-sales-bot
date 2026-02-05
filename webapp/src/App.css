@@ -651,8 +651,8 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   scrollbar-width: none;
   background: #0B0F19;
   padding: 8px 0;
-  gap: 8px;
-  /* Отступы по краям чтобы были видны соседние фото */
+  gap: 4px;
+  /* Отступы по краям — минимальный peek соседних фото */
   scroll-padding-left: 16px;
   padding-left: 16px;
   padding-right: 16px;
@@ -661,7 +661,7 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   display: none;
 }
 .gallery-scroll-img {
-  width: calc(100% - 48px);
+  width: calc(100% - 32px);
   flex-shrink: 0;
   scroll-snap-align: center;
   aspect-ratio: 4/3;
