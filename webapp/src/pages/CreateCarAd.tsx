@@ -3,6 +3,7 @@ import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
 import { submitAd, SubmitError } from '../api'
+import PhotoUploader from '../components/PhotoUploader'
 
 export default function CreateCarAd() {
   const [brand, setBrand] = useState('')
@@ -19,8 +20,10 @@ export default function CreateCarAd() {
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
   const [telegram, setTelegram] = useState('')
+  const [photoIds, setPhotoIds] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
+  const [published, setPublished] = useState(false)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [errorType, setErrorType] = useState<'validation' | 'rate_limit' | 'generic' | null>(null)
@@ -68,6 +71,7 @@ export default function CreateCarAd() {
       city,
       contact_phone: phone.trim(),
       contact_telegram: telegram.trim() || null,
+      photo_ids: photoIds.length > 0 ? photoIds : undefined,
     }
 
     setSubmitting(true)
@@ -75,12 +79,16 @@ export default function CreateCarAd() {
     setErrorType(null)
 
     try {
-      await submitAd(adData)
+      const result = await submitAd(adData)
       setSent(true)
+      // Если фото были загружены, сервер может опубликовать сразу
+      if (photoIds.length > 0 && (result as Record<string, unknown>).published) {
+        setPublished(true)
+      }
       // Close Mini App after showing success
       setTimeout(() => {
         window.Telegram?.WebApp?.close()
-      }, 1500)
+      }, 2000)
     } catch (e: unknown) {
       setSubmitting(false)
       if (e instanceof SubmitError) {
@@ -271,6 +279,12 @@ export default function CreateCarAd() {
             placeholder="Дополнительная информация..."
           />
         </div>
+
+        <PhotoUploader
+          maxPhotos={CONFIG.MAX_CAR_PHOTOS}
+          photoIds={photoIds}
+          onPhotosChange={setPhotoIds}
+        />
       </div>
 
       {/* Section: Контакты */}
@@ -319,11 +333,11 @@ export default function CreateCarAd() {
         </div>
       </div>
 
-      <p className="form-hint">{TEXTS.PHOTOS_HINT_AFTER_SUBMIT}</p>
-
       <div className="submit-section">
         {sent ? (
-          <p className="form-hint">{TEXTS.MSG_SEND_DATA_FALLBACK}</p>
+          <p className="form-hint">
+            {published ? TEXTS.MSG_AD_PUBLISHED : (photoIds.length > 0 ? TEXTS.MSG_SENT : TEXTS.MSG_AD_PENDING_PHOTOS)}
+          </p>
         ) : (
           <button
             className={`btn btn-gradient ${!allRequired ? 'btn-disabled' : ''}`}

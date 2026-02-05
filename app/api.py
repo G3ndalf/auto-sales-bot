@@ -9,7 +9,8 @@ Endpoints:
     GET  /api/plates                          — approved plate ads (filters: city, q, sort)
     GET  /api/plates/{ad_id}                  — single plate ad
     GET  /api/cities                          — cities with approved ads
-    GET  /api/photos/{file_id}                — proxy Telegram photo
+    GET  /api/photos/{file_id}                — serve photo (local upload or Telegram proxy)
+    POST /api/photos/upload                   — upload photo via multipart (returns photo_id)
     GET  /api/profile/{telegram_id}           — user profile with ad stats
     GET  /api/user/{telegram_id}/ads          — all user's ads (any status) for "My Ads" page
 
@@ -59,6 +60,7 @@ from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
 from app.utils.publish import publish_to_channel
 from app.utils.validators import validate_car_ad, validate_plate_ad
 from app.utils.rate_limiter import submit_limiter
+from app.utils.photo_storage import save_photo, get_photo_path, is_local_photo, ALLOWED_TYPES, MAX_PHOTO_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +130,7 @@ def create_api_app(
     """Create aiohttp app with API routes."""
     app = web.Application(
         middlewares=[cors_middleware],
+        client_max_size=10 * 1024 * 1024,  # 10MB для multipart загрузок фото
     )
     app["session_pool"] = session_pool
     app["bot_token"] = bot_token
@@ -138,6 +141,9 @@ def create_api_app(
 
     # Submit endpoint (sendData fallback)
     app.router.add_post("/api/submit", handle_submit)
+
+    # Загрузка фото из Mini App
+    app.router.add_post("/api/photos/upload", handle_photo_upload)
 
     # Public routes
     app.router.add_get("/api/brands", get_brands)
@@ -534,8 +540,14 @@ async def get_cities(request: web.Request) -> web.Response:
 
 
 async def proxy_photo(request: web.Request) -> web.Response:
-    """GET /api/photos/{file_id} — proxy Telegram photo."""
-    import aiohttp
+    """GET /api/photos/{file_id} — serve photo (local or Telegram proxy).
+
+    Сначала проверяет, является ли file_id локальным (loc_*).
+    Если да — отдаёт файл с диска.
+    Если нет — проксирует через Telegram Bot API (старое поведение).
+    """
+    import aiohttp as aiohttp_client  # переименовываем чтобы не конфликтовать с web
+    import mimetypes
 
     file_id = request.match_info["file_id"]
 
@@ -543,12 +555,25 @@ async def proxy_photo(request: web.Request) -> web.Response:
     if not _FILE_ID_RE.match(file_id) or len(file_id) > 256:
         raise web.HTTPBadRequest(text="Invalid file_id")
 
-    bot_token = request.app["bot_token"]
+    # Проверяем, не локальное ли фото (загруженное через Mini App)
+    if is_local_photo(file_id):
+        path = get_photo_path(file_id)
+        if path is None:
+            raise web.HTTPNotFound()
+        content_type = mimetypes.guess_type(str(path))[0] or "image/jpeg"
+        return web.FileResponse(
+            path,
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                "Content-Type": content_type,
+            },
+        )
 
-    # Get file path from Telegram
+    # Telegram photo proxy (существующая логика для Telegram file_id)
+    bot_token = request.app["bot_token"]
     api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={file_id}"
 
-    async with aiohttp.ClientSession() as client:
+    async with aiohttp_client.ClientSession() as client:
         async with client.get(api_url) as resp:
             if resp.status != 200:
                 raise web.HTTPNotFound()
@@ -557,20 +582,17 @@ async def proxy_photo(request: web.Request) -> web.Response:
                 raise web.HTTPNotFound()
             file_path = data["result"]["file_path"]
 
-        # Download file
         download_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
         async with client.get(download_url) as resp:
             if resp.status != 200:
                 raise web.HTTPNotFound()
             content = await resp.read()
-            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            content_type_header = resp.headers.get("Content-Type", "image/jpeg")
 
     return web.Response(
         body=content,
-        content_type=content_type,
-        headers={
-            "Cache-Control": "public, max-age=86400",
-        },
+        content_type=content_type_header,
+        headers={"Cache-Control": "public, max-age=86400"},
     )
 
 
@@ -1027,6 +1049,72 @@ async def delete_plate_ad_endpoint(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+# --- Photo upload endpoint (Mini App) ---
+
+
+async def handle_photo_upload(request: web.Request) -> web.Response:
+    """POST /api/photos/upload — загрузка одного фото через multipart.
+
+    Принимает multipart/form-data с полем "photo".
+    Возвращает {"ok": true, "photo_id": "loc_uuid"}.
+
+    Query params:
+        user_id — telegram_id пользователя (обязательный, для rate limit)
+
+    Лимит: 5MB, только JPEG/PNG/WebP.
+    Rate limit: используется тот же лимитер что и для submit.
+    """
+    user_id = _safe_int(request.query.get("user_id"), 0)
+    if not user_id:
+        return web.json_response({"ok": False, "error": "Missing user_id"}, status=400)
+
+    # Rate limit (используем тот же лимитер, ключ "photo:{user_id}")
+    denied, reason = submit_limiter.check(f"photo:{user_id}")
+    if denied:
+        return web.json_response({"ok": False, "error": reason}, status=429)
+
+    try:
+        reader = await request.multipart()
+        field = await reader.next()
+
+        if field is None or field.name != "photo":
+            return web.json_response({"ok": False, "error": "Missing 'photo' field"}, status=400)
+
+        # Извлекаем Content-Type из заголовков multipart-поля
+        content_type = field.headers.get("Content-Type", "").split(";")[0].strip()
+        if content_type not in ALLOWED_TYPES:
+            return web.json_response(
+                {"ok": False, "error": "Неподдерживаемый формат. Допустимы: JPEG, PNG, WebP"},
+                status=400,
+            )
+
+        # Читаем файл порциями с проверкой размера
+        data = bytearray()
+        while True:
+            chunk = await field.read_chunk(8192)
+            if not chunk:
+                break
+            data.extend(chunk)
+            if len(data) > MAX_PHOTO_SIZE:
+                return web.json_response(
+                    {"ok": False, "error": f"Файл слишком большой (макс. {MAX_PHOTO_SIZE // 1024 // 1024}MB)"},
+                    status=400,
+                )
+
+        if not data:
+            return web.json_response({"ok": False, "error": "Пустой файл"}, status=400)
+
+        # Сохраняем на диск и возвращаем идентификатор
+        photo_id = save_photo(bytes(data), content_type)
+        return web.json_response({"ok": True, "photo_id": photo_id})
+
+    except ValueError as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400)
+    except Exception:
+        logger.exception("[api/photos/upload] Error uploading photo")
+        return web.json_response({"ok": False, "error": "Ошибка загрузки"}, status=500)
+
+
 # --- Submit endpoint (sendData fallback) ---
 
 
@@ -1096,6 +1184,10 @@ async def handle_submit(request: web.Request) -> web.Response:
     storage = request.app.get("storage")
 
     try:
+        # Извлекаем photo_ids из данных (если Mini App отправил фото заранее)
+        photo_ids = data.get("photo_ids", [])
+        has_photos = False  # флаг: есть ли валидные фото для авто-публикации
+
         async with pool() as session:
             # Get or create user
             user = await get_or_create_user(
@@ -1143,9 +1235,47 @@ async def handle_submit(request: web.Request) -> web.Response:
                     contact_telegram=contact_tg,
                 )
 
+            # ── Обработка photo_ids (фото загруженные через /api/photos/upload) ──
+            # Если Mini App отправил photo_ids — прикрепляем фото к объявлению
+            # и автоматически одобряем + публикуем (без FSM-flow).
+            if photo_ids and isinstance(photo_ids, list):
+                # Валидация: проверяем что каждый photo_id существует на диске
+                valid_photos = []
+                for pid in photo_ids[:10]:  # максимум 10 фото
+                    if isinstance(pid, str) and is_local_photo(pid) and get_photo_path(pid):
+                        valid_photos.append(pid)
+
+                if valid_photos:
+                    # Прикрепить фото к объявлению в той же транзакции
+                    photo_ad_type_enum = AdType.CAR if ad_type == "car_ad" else AdType.PLATE
+                    for i, pid in enumerate(valid_photos):
+                        photo = AdPhoto(
+                            ad_type=photo_ad_type_enum,
+                            ad_id=ad.id,
+                            file_id=pid,
+                            position=i,
+                        )
+                        session.add(photo)
+
+                    # Авто-одобрение: фото есть → публикуем сразу
+                    ad.status = AdStatus.APPROVED
+                    has_photos = True
+
             await session.commit()
 
-        # Send message to user asking for photos
+        # ── Пост-коммит логика: зависит от наличия фото ──────────────
+        if has_photos:
+            # Фото есть → уведомляем и публикуем в канал
+            if bot:
+                await bot.send_message(user_id_tg, "🎉 Объявление опубликовано!")
+                cb_type = "car" if ad_type == "car_ad" else "plate"
+                # Для публикации нужна новая сессия (старая закрыта)
+                async with pool() as pub_session:
+                    await publish_to_channel(bot, ad, cb_type, pub_session)
+
+            return web.json_response({"ok": True, "ad_id": ad.id, "published": True})
+
+        # ── Фото нет — старый flow: просим прислать фото через Telegram ──
         if bot:
             if ad_type == "car_ad":
                 await bot.send_message(user_id_tg, WEB_APP_CAR_CREATED)
@@ -1159,7 +1289,7 @@ async def handle_submit(request: web.Request) -> web.Response:
             )
             await bot.send_message(user_id_tg, WEB_APP_SEND_PHOTOS, reply_markup=skip_kb)
 
-        # Set FSM state for photo collection
+        # Set FSM state for photo collection (только если фото не были загружены)
         if storage and bot:
             bot_id = int(settings.bot_token.split(":")[0])
             key = StorageKey(

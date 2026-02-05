@@ -267,6 +267,38 @@ export async function submitAd(data: Record<string, unknown>): Promise<{ ok: boo
   return res.json();
 }
 
+/**
+ * Загрузить одно фото на сервер.
+ * Возвращает photo_id для использования в submitAd.
+ *
+ * Используется компонентом PhotoUploader — загружает файл через multipart/form-data.
+ * Content-Type НЕ ставим вручную — браузер сам добавит с правильным boundary.
+ */
+export async function uploadPhoto(file: File): Promise<string> {
+  const uid = getUserId();
+  if (!uid) throw new Error('user_id not available');
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  const res = await fetch(`${API_BASE}/api/photos/upload?user_id=${uid}`, {
+    method: 'POST',
+    body: formData,
+    // НЕ ставим Content-Type — браузер сам добавит с boundary
+  });
+
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new SubmitError(
+      payload.error || `Ошибка загрузки (${res.status})`,
+      res.status === 429 ? 'rate_limit' : 'generic',
+    );
+  }
+
+  const data = await res.json();
+  return data.photo_id;
+}
+
 // API calls
 export const api = {
   getBrands: () => fetchJSON<Brand[]>('/api/brands'),
