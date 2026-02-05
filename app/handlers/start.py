@@ -25,9 +25,8 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
     Message,
-    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
     WebAppInfo,
 )
 from sqlalchemy import select
@@ -44,8 +43,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 # ── Константы ─────────────────────────────────────────────────────
-# Текст кнопки "Перезапустить" в ReplyKeyboard (должен совпадать с фильтром)
-RESTART_BTN_TEXT = "🔄 Перезапустить"
+# ReplyKeyboard убрана — используем только inline-кнопки
 
 # Regex для парсинга deep link аргументов вида msg_car_5 / msg_plate_3
 _DEEP_LINK_RE = re.compile(r"^msg_(car|plate)_(\d+)$")
@@ -105,17 +103,12 @@ async def _send_start_menu(message: Message, user_id: int | None = None) -> None
     """
     uid = user_id or (message.from_user.id if message.from_user else 0)
 
-    # ── Установить ReplyKeyboard (кнопка перезапуска внизу чата) ──
-    restart_kb = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=RESTART_BTN_TEXT)]],
-        resize_keyboard=True,
-    )
-    # Отправляем невидимое сообщение чтобы установить клавиатуру, затем удаляем
-    setup_msg = await message.answer("⏳", reply_markup=restart_kb)
+    # ── Убираем ReplyKeyboard (если была) ──
+    remove_msg = await message.answer("⏳", reply_markup=ReplyKeyboardRemove())
     try:
-        await setup_msg.delete()
+        await remove_msg.delete()
     except Exception:
-        pass  # Не критично если не удалилось
+        pass
 
     # ── Основное сообщение с приветствием + inline кнопками ──────────
     inline_buttons: list[list[InlineKeyboardButton]] = []
@@ -159,18 +152,6 @@ async def cmd_start(message: Message, session: AsyncSession):
         return
 
     # ── Стандартное меню /start ─────────────────────────────────────
-    await _send_start_menu(message)
-
-
-@router.message(F.text == RESTART_BTN_TEXT)
-async def handle_restart_button(message: Message, session: AsyncSession):
-    """Обработчик текстовой кнопки "🔄 Перезапустить".
-
-    Когда пользователь нажимает ReplyKeyboard кнопку, Telegram
-    отправляет текст кнопки как обычное сообщение.
-    Ловим этот текст и показываем меню заново — с обновлёнными
-    cache-busting URL для Mini App кнопок.
-    """
     await _send_start_menu(message)
 
 
