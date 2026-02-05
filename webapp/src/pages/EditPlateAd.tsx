@@ -17,6 +17,8 @@ import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
 import { api } from '../api'
 import type { PlateAdFull } from '../api'
+import FormErrors from '../components/FormErrors'
+import RegionCitySelector from '../components/RegionCitySelector'
 
 export default function EditPlateAd() {
   /** Назад ведёт на "Мои объявления" */
@@ -153,26 +155,7 @@ export default function EditPlateAd() {
       </div>
 
       {/* Ошибки формы с анимацией slide-down / fade-in */}
-      <AnimatePresence>
-        {formErrors.length > 0 && (
-          <motion.div
-            key="form-errors"
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            <div ref={errorsRef} className="form-errors">
-              <div className="form-errors__title">Исправьте ошибки:</div>
-              <ul className="form-errors__list">
-                {formErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FormErrors ref={errorsRef} errors={formErrors} />
 
       {/* Section: Номерной знак */}
       <div className="form-section">
@@ -225,33 +208,13 @@ export default function EditPlateAd() {
           <span>Местоположение и контакты</span>
         </div>
 
-        <div className="form-group">
-          <label>Регион</label>
-          <select
-            value={region}
-            onChange={e => { setRegion(e.target.value); setCity('') }}
-          >
-            <option value="">Выберите регион...</option>
-            {TEXTS.REGIONS.map(r => (
-              <option key={r.name} value={r.name}>{r.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label>{TEXTS.LABEL_CITY}</label>
-          <select
-            value={city}
-            onChange={e => setCity(e.target.value)}
-            disabled={!region}
-          >
-            <option value="">{region ? 'Выберите город...' : 'Сначала выберите регион'}</option>
-            {region && TEXTS.REGIONS.find(r => r.name === region)?.cities.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-            {region && <option value="Другой">Другой</option>}
-          </select>
-        </div>
+        {/* Регион и город — общий компонент */}
+        <RegionCitySelector
+          region={region}
+          city={city}
+          onRegionChange={v => setRegion(v)}
+          onCityChange={v => setCity(v)}
+        />
 
         <div className="form-row">
           <div className="form-group">

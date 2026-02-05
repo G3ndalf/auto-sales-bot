@@ -2,11 +2,11 @@
  * MyAds.tsx — Страница "Мои объявления"
  *
  * Показывает все объявления текущего пользователя с табами "Авто" / "Номера".
- * Каждая карточка содержит фото, название, цену, статус-бейдж и кнопки
- * редактирования/удаления.
+ * Каждая карточка рендерится через общий компонент AdCard,
+ * который включает фото, название, цену, статус-бейдж и кнопки действий.
  *
- * Анимации: stagger карточки, pulse бейдж «На модерации», whileTap кнопки,
- * мягкий transition табов
+ * Анимации: stagger карточки (через listStagger из constants/animations),
+ * pulse бейдж «На модерации» (внутри AdCard), мягкий transition табов.
  *
  * API: GET /api/user/{telegram_id}/ads → {cars: UserAd[], plates: UserAd[]}
  */
@@ -17,36 +17,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { api, getUserId } from '../api'
 import type { UserAd } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
-import { SkeletonList } from '../components/Skeleton'
-import { ClipboardList, Garage, Hashtag, Pen, Tag, TrashBinMinimalistic, CheckCircle, ClockCircle, CloseCircle } from '@solar-icons/react'
+import { ClipboardList, Garage, Hashtag } from '@solar-icons/react'
+import { listStagger } from '../constants/animations'
+import AdCard from '../components/AdCard'
 
 /** Тип текущего таба */
 type Tab = 'cars' | 'plates'
-
-/**
- * Конфигурация бейджей статусов:
- * - pending (На проверке) — оранжевый
- * - approved (Активно) — зелёный
- * - rejected (Отклонено) — красный
- */
-const STATUS_CONFIG: Record<string, { label: string; icon: JSX.Element; bg: string; color: string }> = {
-  pending: { label: 'На проверке', icon: <ClockCircle size={14} weight="BoldDuotone" />, bg: 'rgba(245,158,11,0.15)', color: '#F59E0B' },
-  approved: { label: 'Активно', icon: <CheckCircle size={14} weight="BoldDuotone" />, bg: 'rgba(16,185,129,0.15)', color: '#10B981' },
-  rejected: { label: 'Отклонено', icon: <CloseCircle size={14} weight="BoldDuotone" />, bg: 'rgba(239,68,68,0.15)', color: '#EF4444' },
-  sold: { label: 'Продано', icon: <Tag size={14} weight="BoldDuotone" />, bg: 'rgba(139,92,246,0.15)', color: '#8B5CF6' },
-}
-
-/* Stagger-контейнер для списка карточек */
-const listContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.03 } },
-}
-
-/* Элемент списка — fade-in + slide-up */
-const listItem = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
-}
 
 export default function MyAds() {
   /** Навигация назад по BackButton ведёт на главную */
@@ -117,11 +93,6 @@ export default function MyAds() {
   /** Переход на страницу редактирования */
   const handleEdit = (adType: 'car' | 'plate', adId: number) => {
     navigate(`/${adType}/${adId}/edit`)
-  }
-
-  /** Форматирование цены с разделителями тысяч */
-  const formatPrice = (price: number): string => {
-    return price.toLocaleString('ru-RU') + ' ₽'
   }
 
   /** Текущий список объявлений (в зависимости от таба) */
@@ -212,92 +183,40 @@ export default function MyAds() {
         </div>
       )}
 
-      {/* Карточки объявлений — stagger fade-in + slide-up */}
+      {/* Карточки объявлений — stagger fade-in + slide-up через AdCard */}
       <AnimatePresence>
         {!loading && !error && currentAds.length > 0 && (
           <motion.div
             key={tab}
             className="ads-list"
-            variants={listContainer}
+            variants={listStagger}
             initial="hidden"
             animate="visible"
             exit={{ opacity: 0, transition: { duration: 0.1 } }}
           >
-            {currentAds.map((ad, i) => {
-              const status = STATUS_CONFIG[ad.status] || STATUS_CONFIG.pending
-              const title = (ad as unknown as Record<string, string>).title
-                || (ad.ad_type === 'car'
-                  ? `${ad.brand || ''} ${ad.model || ''}`.trim() || 'Автомобиль'
-                  : ad.plate_number || 'Номер')
-
-              return (
-                <motion.div
-                  key={`${ad.ad_type}-${ad.id}`}
-                  variants={listItem}
-                  
-                  style={{ background: 'var(--section-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflow: 'hidden' }}
-                >
-                  {/* Верхняя часть: фото 90×90 + инфо (как в каталоге) */}
-                  <div style={{ display: 'flex', gap: 12, padding: 10 }}>
-                    {/* Фото — квадрат с закруглёнными углами */}
-                    <div className="ad-card-photo">
-                      {ad.photo ? (
-                        <img src={api.photoUrl(ad.photo)} alt={title} loading="lazy" />
-                      ) : (
-                        <div className="no-photo">
-                          {ad.ad_type === 'car' ? <Garage size={16} weight="BoldDuotone" /> : <Hashtag size={16} weight="BoldDuotone" />}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Текстовая информация */}
-                    <div className="ad-card-info">
-                      <div className="ad-card-title">{title}</div>
-                      <div className="ad-card-price">{formatPrice(ad.price)}</div>
-                      <div className="ad-card-location">📍 {ad.city}</div>
-                      {/* Бейдж статуса — мягкий pulse для «На модерации» */}
-                      <motion.span
-                        animate={ad.status === 'pending' ? { opacity: [1, 0.6, 1] } : {}}
-                        transition={ad.status === 'pending' ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : {}}
-                        style={{
-                          display: 'inline-block', padding: '2px 10px', borderRadius: 6,
-                          fontSize: 12, fontWeight: 600, alignSelf: 'flex-start',
-                          backgroundColor: status.bg, color: status.color,
-                        }}
-                      >
-                        {status.icon} {status.label}
-                      </motion.span>
-                    </div>
-                  </div>
-
-                  {/* Кнопки действий — whileTap {{ scale: 0.9 }} */}
-                  <div style={{ display: 'flex', borderTop: '1px solid var(--border)' }}>
-                    <motion.button whileTap={{ scale: 0.9 }}
-                      onClick={() => handleEdit(ad.ad_type, ad.id)}
-                      style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#F59E0B', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRight: '1px solid var(--border)' }}
-                    >
-                      <Pen size={14} weight="BoldDuotone" /> Изменить
-                    </motion.button>
-
-                    {ad.status === 'approved' && (
-                      <motion.button whileTap={{ scale: 0.9 }}
-                        onClick={() => markAsSold(ad.ad_type, ad.id)}
-                        style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#8B5CF6', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRight: '1px solid var(--border)' }}
-                      >
-                        <Tag size={14} weight="BoldDuotone" /> Продано
-                      </motion.button>
-                    )}
-
-                    <motion.button whileTap={{ scale: 0.9 }}
-                      onClick={() => handleDelete(ad.ad_type, ad.id)}
-                      style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#EF4444', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      <TrashBinMinimalistic size={14} weight="BoldDuotone" /> Удалить
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )
-            })}
+            {currentAds.map((ad) => (
+              <AdCard
+                key={`${ad.ad_type}-${ad.id}`}
+                id={ad.id}
+                adType={ad.ad_type}
+                price={ad.price}
+                city={ad.city}
+                photo={ad.photo}
+                viewCount={0}
+                brand={ad.brand}
+                model={ad.model}
+                plateNumber={ad.plate_number}
+                title={
+                  ad.ad_type === 'car'
+                    ? `${ad.brand || ''} ${ad.model || ''}`.trim() || 'Автомобиль'
+                    : ad.plate_number || 'Номер'
+                }
+                status={ad.status}
+                onEdit={() => handleEdit(ad.ad_type, ad.id)}
+                onDelete={() => handleDelete(ad.ad_type, ad.id)}
+                onMarkSold={ad.status === 'approved' ? () => markAsSold(ad.ad_type, ad.id) : undefined}
+              />
+            ))}
           </motion.div>
         )}
       </AnimatePresence>

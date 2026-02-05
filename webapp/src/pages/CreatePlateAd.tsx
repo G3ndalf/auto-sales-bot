@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Hashtag, MapPoint, CheckCircle, DangerTriangle, Refresh } from '@solar-icons/react'
+import { motion } from 'framer-motion'
+import { Hashtag, MapPoint } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
 import { submitAd, SubmitError, getUsername } from '../api'
 import PhotoUploader from '../components/PhotoUploader'
+import FormErrors from '../components/FormErrors'
+import SuccessScreen from '../components/SuccessScreen'
+import DuplicateWarning from '../components/DuplicateWarning'
+import RegionCitySelector from '../components/RegionCitySelector'
 
 export default function CreatePlateAd() {
   const [plateNumber, setPlateNumber] = useState('')
@@ -97,106 +101,20 @@ export default function CreatePlateAd() {
     await doSubmit(buildAdData(true))
   }
 
-  // Duplicate warning screen — bounce-in + shake иконки
+  // Duplicate warning screen — предупреждение о похожем объявлении
   if (showDuplicateWarning) {
     return (
-      <div className="form-page">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-          className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
-        >
-          <motion.div
-            animate={{ x: [0, -8, 8, -8, 8, 0] }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <DangerTriangle size={48} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
-          </motion.div>
-          <motion.h2
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.3 }}
-            className="text-[1.3em] text-[#F59E0B]"
-          >
-            Похожее объявление уже существует
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.35, duration: 0.3 }}
-            className="text-[#9CA3AF] max-w-[280px] leading-normal"
-          >
-            Вы уже подавали похожее объявление за последние 7 дней. Возможно, стоит отредактировать существующее.
-          </motion.p>
-          <div className="flex gap-3 mt-4">
-            <button
-              className="btn bg-[#1F2937] text-[#F9FAFB]"
-              onClick={() => setShowDuplicateWarning(false)}
-            >
-              ← Назад
-            </button>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              className="btn btn-gradient"
-              onClick={handleForceSubmit}
-              disabled={submitting}
-            >
-              {submitting ? 'Отправка...' : 'Всё равно опубликовать'}
-            </motion.button>
-          </div>
-        </motion.div>
-      </div>
+      <DuplicateWarning
+        onBack={() => setShowDuplicateWarning(false)}
+        onForce={handleForceSubmit}
+        submitting={submitting}
+      />
     )
   }
 
   // Success screen — scale-up галочка + fade-in текст
   if (sent) {
-    return (
-      <div className="form-page">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-          className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
-        >
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 12, delay: 0.15 }}
-            style={{ filter: 'drop-shadow(0 4px 16px rgba(245, 158, 11, 0.4))' }}
-          >
-            <CheckCircle size={64} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
-          </motion.span>
-          <motion.h2
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.3 }}
-            className="text-[1.4em]"
-          >
-            {published ? 'Объявление опубликовано!' : 'Отправлено на модерацию!'}
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.45, duration: 0.3 }}
-            className="text-[#9CA3AF]"
-          >
-            {published ? 'Ваше объявление уже в каталоге' : 'Мы проверим и опубликуем'}
-          </motion.p>
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.55, duration: 0.3 }}
-            whileTap={{ scale: 0.95 }}
-            className="btn btn-primary mt-4"
-            onClick={() => window.location.hash = '#/plates'}
-          >
-            В каталог
-          </motion.button>
-        </motion.div>
-      </div>
-    )
+    return <SuccessScreen published={published} catalogHash="#/plates" />
   }
 
   return (
@@ -204,35 +122,7 @@ export default function CreatePlateAd() {
       <h1>{TEXTS.PLATE_FORM_TITLE}</h1>
 
       {/* Ошибки валидации с анимацией slide-down / fade-in */}
-      <AnimatePresence>
-        {formErrors.length > 0 && (
-          <motion.div
-            key="form-errors"
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            <div
-              ref={errorsRef}
-              className={`form-errors ${errorType === 'rate_limit' ? 'form-errors--rate-limit' : ''}`}
-            >
-              {errorType === 'rate_limit' ? (
-                <div className="form-errors__title"><Refresh size={16} weight="BoldDuotone" className="animate-spin" /> {formErrors[0]}</div>
-              ) : (
-                <>
-                  <div className="form-errors__title">Исправьте ошибки:</div>
-                  <ul className="form-errors__list">
-                    {formErrors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FormErrors ref={errorsRef} errors={formErrors} errorType={errorType} />
 
       {/* Section: Номер */}
       <div className="form-section">
@@ -293,33 +183,13 @@ export default function CreatePlateAd() {
           <span>Местоположение и контакты</span>
         </div>
 
-        <div className="form-group">
-          <label>Регион</label>
-          <select
-            value={region}
-            onChange={e => { setRegion(e.target.value); setCity('') }}
-          >
-            <option value="">Выберите регион...</option>
-            {TEXTS.REGIONS.map(r => (
-              <option key={r.name} value={r.name}>{r.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label>{TEXTS.LABEL_CITY}</label>
-          <select
-            value={city}
-            onChange={e => setCity(e.target.value)}
-            disabled={!region}
-          >
-            <option value="">{region ? 'Выберите город...' : 'Сначала выберите регион'}</option>
-            {region && TEXTS.REGIONS.find(r => r.name === region)?.cities.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-            {region && <option value="Другой">Другой</option>}
-          </select>
-        </div>
+        {/* Регион и город — общий компонент */}
+        <RegionCitySelector
+          region={region}
+          city={city}
+          onRegionChange={v => setRegion(v)}
+          onCityChange={v => setCity(v)}
+        />
 
         <div className="form-row">
           <div className="form-group">

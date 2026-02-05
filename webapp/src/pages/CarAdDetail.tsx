@@ -1,12 +1,16 @@
+/**
+ * CarAdDetail.tsx — Детальная страница объявления автомобиля.
+ *
+ * Рефакторинг: цвета из THEME, анимации из animations.ts,
+ * ContactFooter и FavoriteButton — shared компоненты,
+ * formatPrice/formatDate — из utils/format.
+ */
+
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Garage,
-  Star,
-  Eye,
-  Phone,
-  ChatSquare,
   CalendarMinimalistic,
   SpedometerMiddle,
   Transmission,
@@ -19,59 +23,11 @@ import { api } from '../api'
 import type { CarAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 import PhotoGallery from '../components/PhotoGallery'
-
-// ─── Цвета темы ──────────────────────────────────────────────
-
-const C = {
-  bg: '#0B0F19',
-  card: '#111827',
-  cardLight: '#1A2332',
-  accent: '#F59E0B',
-  accentDim: 'rgba(245, 158, 11, 0.15)',
-  accentBorder: 'rgba(245, 158, 11, 0.12)',
-  accentGlow: 'rgba(245, 158, 11, 0.25)',
-  text: '#F9FAFB',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
-  border: 'rgba(255, 255, 255, 0.06)',
-  glass: 'rgba(255, 255, 255, 0.03)',
-  green: '#34D399',
-  greenDim: 'rgba(52, 211, 153, 0.12)',
-} as const
-
-// ─── Варианты анимаций ──────────────────────────────────────
-
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
-}
-
-const fadeUpItem = {
-  hidden: { opacity: 0, y: 14 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } as const,
-  },
-}
-
-const footerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring' as const, stiffness: 280, damping: 26, delay: 0.2 },
-  },
-}
-
-const soldBadgeVariants = {
-  hidden: { opacity: 0, scale: 0.7 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: { type: 'spring' as const, stiffness: 350, damping: 20, delay: 0.15 },
-  },
-}
+import ContactFooter from '../components/ContactFooter'
+import FavoriteButton from '../components/FavoriteButton'
+import { THEME } from '../constants/theme'
+import { detailStagger, detailItem, soldBadgeScale } from '../constants/animations'
+import { formatPrice, formatDate } from '../utils/format'
 
 // ─── Компонент ──────────────────────────────────────────────
 
@@ -80,8 +36,6 @@ export default function CarAdDetail() {
   const { id } = useParams<{ id: string }>()
   const [ad, setAd] = useState<CarAdFull | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isFavorite, setIsFavorite] = useState(false)
-  const [favoriteLoading, setFavoriteLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -94,48 +48,8 @@ export default function CarAdDetail() {
       .catch(() => setLoading(false))
   }, [id])
 
-  useEffect(() => {
-    if (!id) return
-    api
-      .getFavorites()
-      .then((data) => {
-        const found = data.items.some(
-          (item) => item.ad_type === 'car' && item.id === Number(id),
-        )
-        setIsFavorite(found)
-      })
-      .catch(() => {})
-  }, [id])
-
-  const toggleFavorite = async () => {
-    if (!id) return
-    setFavoriteLoading(true)
-    try {
-      if (isFavorite) {
-        await api.removeFavorite('car', Number(id))
-        setIsFavorite(false)
-      } else {
-        await api.addFavorite('car', Number(id))
-        setIsFavorite(true)
-      }
-    } catch {
-      /* ignore */
-    }
-    setFavoriteLoading(false)
-  }
-
   if (loading) return null
   if (!ad) return <div className="loading">Объявление не найдено</div>
-
-  const formatPrice = (n: number) => n.toLocaleString('ru-RU') + ' \u20BD'
-  const formatDate = (s: string | null) => {
-    if (!s) return ''
-    return new Date(s).toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
 
   // ─── Характеристики (только поля из формы) ─────────────────
   type SpecItem = {
@@ -192,7 +106,7 @@ export default function CarAdDetail() {
     colorDim: 'rgba(20, 184, 166, 0.12)',
   })
 
-  // Cast ad для доступа к author_username и is_sold (приходят из API)
+  // Cast ad для доступа к author_username и is_sold (приходят из API, но нет в типе)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const adAny = ad as any
 
@@ -207,11 +121,11 @@ export default function CarAdDetail() {
         }
       />
 
-      {/* ─── Бейдж «Продано» ─── */}
+      {/* ─── Бейдж «Продано» — shared анимация soldBadgeScale ─── */}
       {adAny.is_sold && (
         <motion.div
           className="sold-badge"
-          variants={soldBadgeVariants}
+          variants={soldBadgeScale}
           initial="hidden"
           animate="visible"
         >
@@ -219,16 +133,16 @@ export default function CarAdDetail() {
         </motion.div>
       )}
 
-      {/* ─── Основной контент ─── */}
-      <motion.div variants={staggerContainer} initial="hidden" animate="visible">
+      {/* ─── Основной контент — stagger-анимация из animations.ts ─── */}
+      <motion.div variants={detailStagger} initial="hidden" animate="visible">
         {/* ═══════════════════════════════════════════════════
             HEADER: название + цена + избранное
             ═══════════════════════════════════════════════════ */}
         <motion.div
-          variants={fadeUpItem}
+          variants={detailItem}
           style={{
             padding: '20px 20px 18px',
-            background: `linear-gradient(180deg, ${C.cardLight} 0%, ${C.card} 100%)`,
+            background: `linear-gradient(180deg, ${THEME.cardLight} 0%, ${THEME.card} 100%)`,
             position: 'relative',
           }}
         >
@@ -240,7 +154,7 @@ export default function CarAdDetail() {
               left: 20,
               right: 20,
               height: 1,
-              background: `linear-gradient(90deg, transparent 0%, ${C.accentBorder} 30%, ${C.accent} 50%, ${C.accentBorder} 70%, transparent 100%)`,
+              background: `linear-gradient(90deg, transparent 0%, ${THEME.accentBorder} 30%, ${THEME.accent} 50%, ${THEME.accentBorder} 70%, transparent 100%)`,
             }}
           />
 
@@ -252,7 +166,7 @@ export default function CarAdDetail() {
               gap: 12,
             }}
           >
-            {/* Название + цена в одну строку */}
+            {/* Название + цена */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1
                 style={{
@@ -260,7 +174,7 @@ export default function CarAdDetail() {
                   fontWeight: 800,
                   margin: 0,
                   lineHeight: 1.15,
-                  color: C.text,
+                  color: THEME.text,
                   letterSpacing: '-0.02em',
                 }}
               >
@@ -270,66 +184,19 @@ export default function CarAdDetail() {
                 style={{
                   fontSize: 22,
                   fontWeight: 800,
-                  color: C.accent,
+                  color: THEME.accent,
                   marginTop: 6,
                   letterSpacing: '-0.01em',
                   lineHeight: 1,
-                  textShadow: `0 0 30px ${C.accentGlow}`,
+                  textShadow: `0 0 30px ${THEME.accentGlow}`,
                 }}
               >
                 {formatPrice(ad.price)}
               </div>
             </div>
 
-            {/* Избранное + просмотры */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 4,
-                flexShrink: 0,
-                paddingTop: 2,
-              }}
-            >
-              <motion.button
-                whileTap={{ scale: 0.8 }}
-                onClick={toggleFavorite}
-                disabled={favoriteLoading}
-                style={{
-                  background: isFavorite ? C.accentDim : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${isFavorite ? C.accentBorder : 'rgba(255,255,255,0.06)'}`,
-                  borderRadius: 12,
-                  width: 40,
-                  height: 40,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: favoriteLoading ? 0.5 : 1,
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {isFavorite ? (
-                  <Star size={20} weight="Bold" color={C.accent} />
-                ) : (
-                  <Star size={20} weight="Linear" color={C.textSecondary} />
-                )}
-              </motion.button>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: C.textMuted,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  fontWeight: 500,
-                }}
-              >
-                <Eye size={12} weight="BoldDuotone" color={C.textMuted} />
-                {ad.view_count}
-              </span>
-            </div>
+            {/* Избранное + просмотры — shared компонент */}
+            <FavoriteButton adId={Number(id)} adType="car" viewCount={ad.view_count} />
           </div>
         </motion.div>
 
@@ -337,10 +204,10 @@ export default function CarAdDetail() {
             ХАРАКТЕРИСТИКИ — премиальная сетка 2×N
             ═══════════════════════════════════════════════════ */}
         <motion.div
-          variants={fadeUpItem}
+          variants={detailItem}
           style={{
             padding: '16px 20px',
-            background: C.bg,
+            background: THEME.bg,
           }}
         >
           <div
@@ -355,7 +222,7 @@ export default function CarAdDetail() {
                 key={i}
                 style={{
                   background: `linear-gradient(135deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%)`,
-                  border: `1px solid ${C.border}`,
+                  border: `1px solid ${THEME.border}`,
                   borderRadius: 14,
                   padding: '12px 14px',
                   display: 'flex',
@@ -385,7 +252,7 @@ export default function CarAdDetail() {
                     style={{
                       fontSize: 11,
                       fontWeight: 500,
-                      color: C.textMuted,
+                      color: THEME.textMuted,
                       lineHeight: 1.2,
                       letterSpacing: '0.02em',
                       textTransform: 'uppercase' as const,
@@ -397,7 +264,7 @@ export default function CarAdDetail() {
                     style={{
                       fontSize: 14,
                       fontWeight: 700,
-                      color: C.text,
+                      color: THEME.text,
                       marginTop: 2,
                       lineHeight: 1.25,
                     }}
@@ -413,7 +280,7 @@ export default function CarAdDetail() {
           {ad.has_gbo && (
             <div style={{
               marginTop: 10,
-              background: `linear-gradient(135deg, ${C.greenDim} 0%, rgba(52,211,153,0.04) 100%)`,
+              background: `linear-gradient(135deg, ${THEME.greenDim} 0%, rgba(52,211,153,0.04) 100%)`,
               border: `1px solid rgba(52,211,153,0.15)`,
               borderRadius: 14,
               padding: '12px 16px',
@@ -423,15 +290,15 @@ export default function CarAdDetail() {
             }}>
               <div style={{
                 width: 34, height: 34, borderRadius: 10,
-                background: C.greenDim,
+                background: THEME.greenDim,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
-                <GasStation size={18} weight="BoldDuotone" color={C.green} />
+                <GasStation size={18} weight="BoldDuotone" color={THEME.green} />
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: C.textMuted, letterSpacing: '0.02em', textTransform: 'uppercase' as const }}>ГБО</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.green, marginTop: 2 }}>Установлено</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: THEME.textMuted, letterSpacing: '0.02em', textTransform: 'uppercase' as const }}>ГБО</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: THEME.green, marginTop: 2 }}>Установлено</div>
               </div>
             </div>
           )}
@@ -442,7 +309,7 @@ export default function CarAdDetail() {
             ═══════════════════════════════════════════════════ */}
         {ad.description && (
           <motion.div
-            variants={fadeUpItem}
+            variants={detailItem}
             style={{
               padding: '0 20px',
               marginTop: 4,
@@ -451,7 +318,7 @@ export default function CarAdDetail() {
             <div
               style={{
                 background: `linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)`,
-                border: `1px solid ${C.border}`,
+                border: `1px solid ${THEME.border}`,
                 borderRadius: 16,
                 padding: '16px 18px',
               }}
@@ -462,7 +329,7 @@ export default function CarAdDetail() {
                   fontWeight: 600,
                   textTransform: 'uppercase' as const,
                   letterSpacing: '0.06em',
-                  color: C.textMuted,
+                  color: THEME.textMuted,
                   margin: '0 0 10px 0',
                 }}
               >
@@ -484,11 +351,11 @@ export default function CarAdDetail() {
         )}
 
         {/* ═══════════════════════════════════════════════════
-            ДАТА ПУБЛИКАЦИИ
+            ДАТА ПУБЛИКАЦИИ — formatDate 'long' (6 февраля 2026)
             ═══════════════════════════════════════════════════ */}
         {ad.created_at && (
           <motion.div
-            variants={fadeUpItem}
+            variants={detailItem}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -497,72 +364,25 @@ export default function CarAdDetail() {
               padding: '16px 20px 24px',
             }}
           >
-            <ClockCircle size={13} weight="BoldDuotone" color={C.textMuted} />
+            <ClockCircle size={13} weight="BoldDuotone" color={THEME.textMuted} />
             <span
               style={{
                 fontSize: 12,
                 fontWeight: 500,
-                color: C.textMuted,
+                color: THEME.textMuted,
                 letterSpacing: '0.01em',
               }}
             >
-              {formatDate(ad.created_at)}
+              {formatDate(ad.created_at, 'long')}
             </span>
           </motion.div>
         )}
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════
-          STICKY FOOTER — контакты
+          STICKY FOOTER — shared компонент контактов
           ═══════════════════════════════════════════════════ */}
-      <motion.div
-        className="detail-footer"
-        variants={footerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {/* Кнопка «Показать» — телефон */}
-        <button
-          className="btn btn-gradient detail-footer__btn"
-          onClick={() => {
-            const raw = ad.contact_phone
-            const digits = raw.replace(/\D/g, '')
-            const formatted =
-              digits.length === 11
-                ? `${digits[0]}-${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9, 11)}`
-                : raw
-            navigator.clipboard?.writeText(formatted).catch(() => {})
-            const wa = window.Telegram?.WebApp
-            if ((wa as any)?.showPopup) {
-              ;(wa as any).showPopup({
-                title: 'Номер скопирован',
-                message: formatted,
-                buttons: [{ id: 'ok', type: 'default', text: 'OK' }],
-              })
-            } else {
-              alert(formatted)
-            }
-          }}
-        >
-          <Phone size={18} weight="BoldDuotone" /> Показать
-        </button>
-
-        {/* «Написать» — Telegram */}
-        {adAny.author_username && (
-          <button
-            className="btn btn-secondary detail-footer__btn"
-            onClick={() => {
-              const wa = window.Telegram?.WebApp
-              const url = `https://t.me/${adAny.author_username}`
-              if ((wa as any)?.openTelegramLink)
-                (wa as any).openTelegramLink(url)
-              else window.open(url, '_blank')
-            }}
-          >
-            <ChatSquare size={16} weight="BoldDuotone" /> Написать
-          </button>
-        )}
-      </motion.div>
+      <ContactFooter phone={ad.contact_phone} authorUsername={adAny.author_username} />
     </div>
   )
 }

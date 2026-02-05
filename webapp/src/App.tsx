@@ -24,7 +24,6 @@ import MyAds from './pages/MyAds'
 
 /* ─── Lazy: редкие страницы ─── */
 const Sell = lazy(() => import('./pages/Sell'))
-const Home = lazy(() => import('./pages/Home'))
 const CreateCarAd = lazy(() => import('./pages/CreateCarAd'))
 const CreatePlateAd = lazy(() => import('./pages/CreatePlateAd'))
 const EditCarAd = lazy(() => import('./pages/EditCarAd'))

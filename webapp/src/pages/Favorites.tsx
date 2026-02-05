@@ -1,45 +1,20 @@
 /**
  * Favorites.tsx — Страница избранных объявлений.
  * Показывает список сохранённых пользователем объявлений.
+ * Карточки рендерятся через общий компонент AdCard.
  */
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { api } from '../api'
 import type { FavoriteItem } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
-import { SkeletonList } from '../components/Skeleton'
-import { Star, HeartBroken, Garage, Hashtag, MapPoint, Eye } from '@solar-icons/react'
-
-/* Варианты анимации для stagger-появления карточек */
-const listContainerVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      when: 'beforeChildren' as const,
-      staggerChildren: 0.03, // 30ms между карточками (быстрый stagger)
-    },
-  },
-}
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.2, ease: 'easeOut' },
-  },
-}
-
-const floatAnimation = {
-  y: [0, -10, 0],
-  transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
-}
+import { Star, HeartBroken } from '@solar-icons/react'
+import { listStagger, floatLoop } from '../constants/animations'
+import AdCard from '../components/AdCard'
 
 export default function Favorites() {
   const [items, setItems] = useState<FavoriteItem[]>([])
   const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
   useBackButton('/')
 
   useEffect(() => {
@@ -52,7 +27,7 @@ export default function Favorites() {
   if (loading) return null
 
   if (items.length === 0) return (
-    /* Мягкое fade-in для пустого состояния */
+    /* Мягкое fade-in для пустого состояния с плавающей иконкой */
     <motion.div
       style={{ textAlign: 'center', padding: '60px 16px', color: '#9CA3AF' }}
       initial={{ opacity: 0 }}
@@ -61,7 +36,7 @@ export default function Favorites() {
     >
       <motion.div
         style={{ marginBottom: 12 }}
-        animate={floatAnimation}
+        animate={floatLoop}
       >
         <HeartBroken size={48} weight="BoldDuotone" />
       </motion.div>
@@ -75,40 +50,24 @@ export default function Favorites() {
       <h1 style={{ fontSize: '1.4em', fontWeight: 800, padding: '20px 16px 12px' }}>
         <Star size={20} weight="BoldDuotone" /> Избранное ({items.length})
       </h1>
-      {/* Stagger-контейнер: карточки появляются одна за другой */}
+      {/* Stagger-контейнер: карточки появляются одна за другой через AdCard */}
       <motion.div
         className="ads-list"
-        variants={listContainerVariants}
+        variants={listStagger}
         initial="hidden"
         animate="visible"
       >
-        {items.map((item, i) => (
-          <motion.div
+        {items.map((item) => (
+          <AdCard
             key={`${item.ad_type}-${item.id}`}
-            className="ad-card"
-            style={{ cursor: 'pointer' }}
-            onClick={() => navigate(`/${item.ad_type}/${item.id}`)}
-            variants={cardVariants}
-            
-          >
-            <div className="ad-card-photo">
-              {item.photo ? (
-                <img src={api.photoUrl(item.photo)} alt="" loading="lazy" />
-              ) : (
-                <div className="no-photo">{item.ad_type === 'car' ? <Garage weight="BoldDuotone" /> : <Hashtag weight="BoldDuotone" />}</div>
-              )}
-            </div>
-            <div className="ad-card-info">
-              <div className="ad-card-title">{item.title}</div>
-              <div className="ad-card-location">
-                <MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {item.city}
-                <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2, verticalAlign: 'middle' }}>
-                  <Eye size={14} weight="BoldDuotone" /> {item.view_count}
-                </span>
-              </div>
-              <div className="ad-card-price">{item.price.toLocaleString('ru-RU')} ₽</div>
-            </div>
-          </motion.div>
+            id={item.id}
+            adType={item.ad_type}
+            price={item.price}
+            city={item.city}
+            photo={item.photo}
+            viewCount={item.view_count}
+            title={item.title}
+          />
         ))}
       </motion.div>
     </div>

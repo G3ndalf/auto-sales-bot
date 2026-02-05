@@ -14,14 +14,16 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Garage, Banknote, MapPoint, CheckCircle, DangerTriangle, Refresh, Pen, Diskette } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
+import { selectStyle } from '../constants/theme'
 import { useBackButton } from '../hooks/useBackButton'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
+import { normalizePhone } from '../utils/format'
+import FormErrors from '../components/FormErrors'
+import RegionCitySelector from '../components/RegionCitySelector'
 import { BRANDS } from '../data/brands'
 
 const COLORS = ['Белый', 'Чёрный', 'Серый', 'Серебристый', 'Красный', 'Синий', 'Голубой', 'Зелёный', 'Жёлтый', 'Оранжевый', 'Коричневый', 'Бежевый', 'Фиолетовый', 'Бордовый', 'Золотой']
-
-const selectStyle = { background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151' }
 
 export default function EditCarAd() {
   /** Назад ведёт на "Мои объявления" */
@@ -119,16 +121,6 @@ export default function EditCarAd() {
     return value.trim() ? 'valid' : 'invalid'
   }
 
-  const handlePhoneChange = (value: string) => {
-    let digits = value.replace(/\D/g, '')
-    // Если начинает с 9 — добавляем 8 в начало
-    if (digits.startsWith('9')) digits = '8' + digits
-    // Если начинает с +7 — заменяем на 8
-    if (digits.startsWith('7') && digits.length > 1) digits = '8' + digits.slice(1)
-    // Ограничиваем 11 цифрами
-    setPhone(digits.slice(0, 11))
-  }
-
   /** Все обязательные поля заполнены */
   const allRequired = brand && model && year && price && city && phone
 
@@ -221,26 +213,7 @@ export default function EditCarAd() {
       </div>
 
       {/* Ошибки формы с анимацией slide-down / fade-in */}
-      <AnimatePresence>
-        {formErrors.length > 0 && (
-          <motion.div
-            key="form-errors"
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            <div ref={errorsRef} className="form-errors">
-              <div className="form-errors__title">Исправьте ошибки:</div>
-              <ul className="form-errors__list">
-                {formErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FormErrors ref={errorsRef} errors={formErrors} />
 
       {/* Section: Основное */}
       <div className="form-section">
@@ -463,37 +436,15 @@ export default function EditCarAd() {
           <span>Город и контакты</span>
         </div>
 
-        <div className="form-group">
-          <label className="required">Регион</label>
-          <select
-            className={fc('region', region)}
-            style={selectStyle}
-            value={region}
-            onChange={e => { setRegion(e.target.value); setCity(''); touch('region') }}
-          >
-            <option value="">Выберите регион...</option>
-            {TEXTS.REGIONS.map(r => (
-              <option key={r.name} value={r.name}>{r.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label className="required">{TEXTS.LABEL_CITY}</label>
-          <select
-            className={fc('city', city)}
-            style={selectStyle}
-            value={city}
-            onChange={e => { setCity(e.target.value); touch('city') }}
-            disabled={!region}
-          >
-            <option value="">{region ? 'Выберите город...' : 'Сначала выберите регион'}</option>
-            {region && TEXTS.REGIONS.find(r => r.name === region)?.cities.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-            {region && <option value="Другой">Другой</option>}
-          </select>
-        </div>
+        {/* Регион и город — общий компонент */}
+        <RegionCitySelector
+          region={region}
+          city={city}
+          onRegionChange={v => { setRegion(v); touch('region') }}
+          onCityChange={v => { setCity(v); touch('city') }}
+          regionClassName={fieldState(region, 'region') === 'valid' ? 'field-valid' : fieldState(region, 'region') === 'invalid' ? 'field-invalid' : ''}
+          cityClassName={fieldState(city, 'city') === 'valid' ? 'field-valid' : fieldState(city, 'city') === 'invalid' ? 'field-invalid' : ''}
+        />
 
         <div className="form-row">
           <div className="form-group">
@@ -502,7 +453,7 @@ export default function EditCarAd() {
               className={fc('phone', phone)}
               type="tel"
               value={phone}
-              onChange={e => handlePhoneChange(e.target.value)}
+              onChange={e => setPhone(normalizePhone(e.target.value))}
               onBlur={() => touch('phone')}
               placeholder="8-999-123-45-67"
             />

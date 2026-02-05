@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Magnifer, Hashtag, MapPoint, Eye, DangerCircle, CloseCircle, Tuning2, AltArrowUp, AltArrowDown } from '@solar-icons/react'
+import { Magnifer, Hashtag, DangerCircle, CloseCircle, Tuning2, AltArrowUp, AltArrowDown } from '@solar-icons/react'
 import { api } from '../api'
 import type { PlateAdPreview } from '../api'
 import { TEXTS } from '../constants/texts'
 import { useBackButton } from '../hooks/useBackButton'
-import { SkeletonList } from '../components/Skeleton'
+import { listStagger } from '../constants/animations'
+import AdCard from '../components/AdCard'
 
 /**
  * Кэш данных списка номеров — сохраняется в памяти модуля
@@ -31,26 +31,6 @@ let _platesCache: PlatesCache | null = null
 
 interface Props {
   embedded?: boolean
-}
-
-/* Варианты анимации для stagger-появления карточек */
-const listContainerVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      when: 'beforeChildren' as const,
-      staggerChildren: 0.03, // 30ms между карточками (быстрый stagger)
-    },
-  },
-}
-
-const listCardVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.2, ease: 'easeOut' },
-  },
 }
 
 /**
@@ -246,9 +226,6 @@ export default function PlatesList({ embedded }: Props) {
     loadAds(0, selectedCity, searchQuery, sort)
   }
 
-  const formatPrice = (n: number) =>
-    n.toLocaleString('ru-RU') + ' ₽'
-
   if (loading && ads.length === 0) return null
 
   return (
@@ -393,26 +370,24 @@ export default function PlatesList({ embedded }: Props) {
           <p>Пока нет объявлений</p>
         </motion.div>
       ) : (
+        /* Stagger-контейнер: карточки появляются одна за другой через AdCard */
         <motion.div
           className="ads-list"
-          variants={listContainerVariants}
+          variants={listStagger}
           initial={restoredCache ? false : 'hidden'}
           animate="visible"
         >
-          {ads.map((ad, i) => (
-            <motion.div
+          {ads.map((ad) => (
+            <AdCard
               key={ad.id}
-              variants={listCardVariants}
-              
-            >
-              <Link to={`/plate/${ad.id}`} className="ad-card plate-card">
-                <div className="plate-number-display">{ad.plate_number}</div>
-                <div className="ad-card-info">
-                  <div className="ad-card-price">{formatPrice(ad.price)}</div>
-                  <div className="ad-card-location"><MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2, verticalAlign: 'middle' }}><Eye size={14} weight="BoldDuotone" /> {ad.view_count}</span></div>
-                </div>
-              </Link>
-            </motion.div>
+              id={ad.id}
+              adType="plate"
+              price={ad.price}
+              city={ad.city}
+              photo={ad.photo}
+              viewCount={ad.view_count}
+              plateNumber={ad.plate_number}
+            />
           ))}
         </motion.div>
       )}
