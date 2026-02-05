@@ -63,8 +63,12 @@ def get_photo_path(photo_id: str) -> Path | None:
         return None
     uid = photo_id[len(LOCAL_PREFIX):]
     # Ищем файл с любым расширением (jpg, png, webp)
+    upload_root = UPLOAD_DIR.resolve()
     for ext in ALLOWED_TYPES.values():
-        path = UPLOAD_DIR / f"{uid}{ext}"
+        path = (UPLOAD_DIR / f"{uid}{ext}").resolve()
+        # Defense-in-depth: убедиться что путь внутри UPLOAD_DIR
+        if not str(path).startswith(str(upload_root)):
+            return None
         if path.exists():
             return path
     return None

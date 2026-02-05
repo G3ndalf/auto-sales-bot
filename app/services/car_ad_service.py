@@ -1,7 +1,6 @@
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.constants import ADS_PER_PAGE
 from app.models.car_ad import AdStatus, CarAd, FuelType, Transmission
 from app.models.photo import AdPhoto, AdType
 
@@ -65,65 +64,6 @@ async def get_car_ad(session: AsyncSession, ad_id: int) -> CarAd | None:
     return result.scalar_one_or_none()
 
 
-async def get_car_ad_photos(session: AsyncSession, ad_id: int) -> list[AdPhoto]:
-    """Get all photos for a car ad, ordered by position."""
-    stmt = (
-        select(AdPhoto)
-        .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id == ad_id)
-        .order_by(AdPhoto.position)
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def get_approved_car_ads(
-    session: AsyncSession,
-    *,
-    brand: str | None = None,
-    model: str | None = None,
-    city: str | None = None,
-    offset: int = 0,
-    limit: int = ADS_PER_PAGE,
-) -> list[CarAd]:
-    """Get approved car ads with optional filters."""
-    stmt = select(CarAd).where(CarAd.status == AdStatus.APPROVED)
-
-    if brand:
-        stmt = stmt.where(CarAd.brand == brand)
-    if model:
-        stmt = stmt.where(CarAd.model == model)
-    if city:
-        stmt = stmt.where(CarAd.city == city)
-
-    stmt = stmt.order_by(CarAd.created_at.desc()).offset(offset).limit(limit)
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def get_brands(session: AsyncSession) -> list[str]:
-    """Get list of brands with approved ads."""
-    stmt = (
-        select(CarAd.brand)
-        .where(CarAd.status == AdStatus.APPROVED)
-        .group_by(CarAd.brand)
-        .order_by(CarAd.brand)
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def get_models_by_brand(session: AsyncSession, brand: str) -> list[str]:
-    """Get list of models for a brand with approved ads."""
-    stmt = (
-        select(CarAd.model)
-        .where(CarAd.status == AdStatus.APPROVED, CarAd.brand == brand)
-        .group_by(CarAd.model)
-        .order_by(CarAd.model)
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
 async def get_pending_car_ads(session: AsyncSession) -> list[CarAd]:
     """Get all pending car ads for moderation."""
     stmt = (
@@ -154,25 +94,3 @@ async def reject_car_ad(
         ad.rejection_reason = reason
         return ad
     return None
-
-
-async def get_user_car_ads(session: AsyncSession, user_id: int) -> list[CarAd]:
-    """Get all car ads by a user."""
-    stmt = (
-        select(CarAd)
-        .where(CarAd.user_id == user_id)
-        .order_by(CarAd.created_at.desc())
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def count_approved_by_brand(session: AsyncSession, brand: str) -> int:
-    """Count approved ads for a brand."""
-    stmt = (
-        select(func.count())
-        .select_from(CarAd)
-        .where(CarAd.status == AdStatus.APPROVED, CarAd.brand == brand)
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one()

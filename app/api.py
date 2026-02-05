@@ -33,8 +33,10 @@ Endpoints:
 import hmac
 import json
 import logging
+import mimetypes
 import re
 
+from aiohttp import ClientSession as HttpClientSession
 from aiohttp import web
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.storage.base import StorageKey
@@ -129,6 +131,18 @@ def _get_first_photos(photos_list: list[AdPhoto]) -> dict[int, str]:
     return result
 
 
+async def _on_startup(app: web.Application):
+    """Создать HTTP-клиент для проксирования фото из Telegram."""
+    app["http_client"] = HttpClientSession()
+
+
+async def _on_cleanup(app: web.Application):
+    """Закрыть HTTP-клиент при остановке."""
+    client = app.get("http_client")
+    if client:
+        await client.close()
+
+
 def create_api_app(
     session_pool: async_sessionmaker, bot_token: str, bot=None, storage=None,
 ) -> web.Application:
@@ -143,6 +157,10 @@ def create_api_app(
         app["bot"] = bot
     if storage:
         app["storage"] = storage
+
+    # Lifecycle hooks для HTTP-клиента
+    app.on_startup.append(_on_startup)
+    app.on_cleanup.append(_on_cleanup)
 
     # Submit endpoint (sendData fallback)
     app.router.add_post("/api/submit", handle_submit)
@@ -534,9 +552,6 @@ async def proxy_photo(request: web.Request) -> web.Response:
     Если да — отдаёт файл с диска.
     Если нет — проксирует через Telegram Bot API (старое поведение).
     """
-    import aiohttp as aiohttp_client  # переименовываем чтобы не конфликтовать с web
-    import mimetypes
-
     file_id = request.match_info["file_id"]
 
     # Sanitize file_id: only alphanumeric, underscores, dashes allowed
@@ -557,25 +572,25 @@ async def proxy_photo(request: web.Request) -> web.Response:
             },
         )
 
-    # Telegram photo proxy (существующая логика для Telegram file_id)
+    # Telegram photo proxy — переиспользуем app-level HTTP-клиент
     bot_token = request.app["bot_token"]
+    client = request.app["http_client"]
     api_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={file_id}"
 
-    async with aiohttp_client.ClientSession() as client:
-        async with client.get(api_url) as resp:
-            if resp.status != 200:
-                raise web.HTTPNotFound()
-            data = await resp.json()
-            if not data.get("ok"):
-                raise web.HTTPNotFound()
-            file_path = data["result"]["file_path"]
+    async with client.get(api_url) as resp:
+        if resp.status != 200:
+            raise web.HTTPNotFound()
+        data = await resp.json()
+        if not data.get("ok"):
+            raise web.HTTPNotFound()
+        file_path = data["result"]["file_path"]
 
-        download_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
-        async with client.get(download_url) as resp:
-            if resp.status != 200:
-                raise web.HTTPNotFound()
-            content = await resp.read()
-            content_type_header = resp.headers.get("Content-Type", "image/jpeg")
+    download_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+    async with client.get(download_url) as resp:
+        if resp.status != 200:
+            raise web.HTTPNotFound()
+        content = await resp.read()
+        content_type_header = resp.headers.get("Content-Type", "image/jpeg")
 
     return web.Response(
         body=content,
@@ -744,21 +759,49 @@ async def get_user_ads(request: web.Request) -> web.Response:
 
 
 # ---------------------------------------------------------------------------
-# Edit ad endpoints — partial update with owner check
+# Edit / Delete ad endpoints — общая логика + тонкие обёртки
 # ---------------------------------------------------------------------------
 
+# Разрешённые поля и конвертеры для редактирования car ads
+_CAR_ALLOWED_FIELDS = {
+    "brand", "model", "year", "mileage", "engine_volume",
+    "fuel_type", "transmission", "color", "price",
+    "description", "city", "contact_phone", "contact_telegram",
+}
+_CAR_FIELD_CONVERTERS = {
+    "year": lambda v, ad: _safe_int(v),
+    "mileage": lambda v, ad: _safe_int(v),
+    "price": lambda v, ad: _safe_int(v),
+    "engine_volume": lambda v, ad: _safe_float(v),
+    "fuel_type": lambda v, ad: FUEL_TYPE_MAP.get(v, ad.fuel_type),
+    "transmission": lambda v, ad: TRANSMISSION_MAP.get(v, ad.transmission),
+}
 
-async def edit_car_ad_endpoint(request: web.Request) -> web.Response:
-    """PUT /api/ads/car/{ad_id}?user_id=<telegram_id> — редактирование авто-объявления.
+# Разрешённые поля и конвертеры для редактирования plate ads
+_PLATE_ALLOWED_FIELDS = {
+    "plate_number", "price", "description",
+    "city", "contact_phone", "contact_telegram",
+}
+_PLATE_FIELD_CONVERTERS = {
+    "price": lambda v, ad: _safe_int(v),
+}
 
-    Тело запроса — JSON с полями для обновления (частичное обновление).
+
+async def _edit_ad(
+    request: web.Request,
+    model_class,
+    validator_fn,
+    allowed_fields: set[str],
+    field_converters: dict,
+) -> web.Response:
+    """Общая логика редактирования объявления (car или plate).
 
     Правила:
     - user_id (query param) должен совпадать с владельцем объявления
     - Редактировать можно только PENDING или APPROVED объявления
     - Если объявление было APPROVED — после редактирования статус → PENDING
       (повторная модерация, чтобы не пропустить невалидные правки)
-    - Поля валидируются через validate_car_ad (на основе слитого словаря)
+    - Поля валидируются через validator_fn (на основе merged словаря)
 
     HTTP-ошибки: 400 (валидация), 403 (не владелец), 404 (не найдено / уже rejected)
     """
@@ -780,7 +823,7 @@ async def edit_car_ad_endpoint(request: web.Request) -> web.Response:
     async with pool() as session:
         # ── Загрузить объявление ───────────────────────────────────
         ad = (await session.execute(
-            select(CarAd).where(CarAd.id == ad_id)
+            select(model_class).where(model_class.id == ad_id)
         )).scalar_one_or_none()
 
         if not ad:
@@ -803,50 +846,29 @@ async def edit_car_ad_endpoint(request: web.Request) -> web.Response:
         # ── Подготовить merged dict для валидации ──────────────────
         # Берём текущие значения объявления и мержим с присланными,
         # чтобы валидатор проверял полную картину.
-        current_data = {
-            "brand": ad.brand,
-            "model": ad.model,
-            "year": ad.year,
-            "price": ad.price,
-            "mileage": ad.mileage,
-            "engine_volume": ad.engine_volume,
-            "fuel_type": ad.fuel_type.value if ad.fuel_type else "",
-            "transmission": ad.transmission.value if ad.transmission else "",
-            "color": ad.color,
-            "city": ad.city,
-            "contact_phone": ad.contact_phone,
-            "contact_telegram": ad.contact_telegram,
-            "description": ad.description,
-        }
+        current_data = {}
+        for field in allowed_fields:
+            val = getattr(ad, field, None)
+            # Enum → строковое значение для валидатора
+            if hasattr(val, "value"):
+                val = val.value
+            current_data[field] = val
         merged = {**current_data, **body}
 
         # ── Валидация ──────────────────────────────────────────────
-        errors = validate_car_ad(merged)
+        errors = validator_fn(merged)
         if errors:
             return web.json_response({"errors": errors}, status=400)
 
-        # ── Список полей, разрешённых к обновлению ─────────────────
-        # Только поля из модели CarAd. Игнорируем всё постороннее.
-        ALLOWED_FIELDS = {
-            "brand", "model", "year", "mileage", "engine_volume",
-            "fuel_type", "transmission", "color", "price",
-            "description", "city", "contact_phone", "contact_telegram",
-        }
-
+        # ── Применить обновления ───────────────────────────────────
         updated = False
         for field, value in body.items():
-            if field not in ALLOWED_FIELDS:
+            if field not in allowed_fields:
                 continue
 
-            # Маппинг enum-полей из строковых значений
-            if field == "fuel_type":
-                value = FUEL_TYPE_MAP.get(value, ad.fuel_type)
-            elif field == "transmission":
-                value = TRANSMISSION_MAP.get(value, ad.transmission)
-            elif field in ("year", "mileage", "price"):
-                value = _safe_int(value)
-            elif field == "engine_volume":
-                value = _safe_float(value)
+            converter = field_converters.get(field)
+            if converter:
+                value = converter(value, ad)
             else:
                 value = str(value).strip() if value is not None else None
 
@@ -862,106 +884,28 @@ async def edit_car_ad_endpoint(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def edit_car_ad_endpoint(request: web.Request) -> web.Response:
+    """PUT /api/ads/car/{ad_id}?user_id=<telegram_id> — редактирование авто-объявления."""
+    return await _edit_ad(
+        request, CarAd, validate_car_ad, _CAR_ALLOWED_FIELDS, _CAR_FIELD_CONVERTERS,
+    )
+
+
 async def edit_plate_ad_endpoint(request: web.Request) -> web.Response:
-    """PUT /api/ads/plate/{ad_id}?user_id=<telegram_id> — редактирование номер-объявления.
-
-    Аналогично edit_car_ad_endpoint, но для PlateAd.
-
-    Тело запроса — JSON с полями для обновления (частичное обновление).
-    Если объявление было APPROVED → статус сбрасывается на PENDING.
-
-    HTTP-ошибки: 400 (валидация), 403 (не владелец), 404 (не найдено / уже rejected)
-    """
-    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
-    if not ad_id:
-        return web.json_response({"error": "Invalid ad_id"}, status=400)
-
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
-    if not user_id_tg:
-        return web.json_response({"error": "Missing user_id"}, status=400)
-
-    try:
-        body = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
-
-    pool = request.app["session_pool"]
-    async with pool() as session:
-        # ── Загрузить объявление ───────────────────────────────────
-        ad = (await session.execute(
-            select(PlateAd).where(PlateAd.id == ad_id)
-        )).scalar_one_or_none()
-
-        if not ad:
-            return web.json_response({"error": "Ad not found"}, status=404)
-
-        if ad.status not in (AdStatus.PENDING, AdStatus.APPROVED):
-            return web.json_response(
-                {"error": "Cannot edit rejected ad"}, status=400,
-            )
-
-        # ── Проверка владельца ─────────────────────────────────────
-        owner = (await session.execute(
-            select(User).where(User.id == ad.user_id)
-        )).scalar_one_or_none()
-
-        if not owner or owner.telegram_id != user_id_tg:
-            return web.json_response({"error": "Forbidden"}, status=403)
-
-        # ── Merged dict для валидации ──────────────────────────────
-        current_data = {
-            "plate_number": ad.plate_number,
-            "price": ad.price,
-            "city": ad.city,
-            "contact_phone": ad.contact_phone,
-            "contact_telegram": ad.contact_telegram,
-            "description": ad.description,
-        }
-        merged = {**current_data, **body}
-
-        errors = validate_plate_ad(merged)
-        if errors:
-            return web.json_response({"errors": errors}, status=400)
-
-        # ── Применить обновления ───────────────────────────────────
-        ALLOWED_FIELDS = {
-            "plate_number", "price", "description",
-            "city", "contact_phone", "contact_telegram",
-        }
-
-        updated = False
-        for field, value in body.items():
-            if field not in ALLOWED_FIELDS:
-                continue
-            if field == "price":
-                value = _safe_int(value)
-            else:
-                value = str(value).strip() if value is not None else None
-            setattr(ad, field, value)
-            updated = True
-
-        # Повторная модерация при изменении одобренного объявления
-        if updated and ad.status == AdStatus.APPROVED:
-            ad.status = AdStatus.PENDING
-
-        await session.commit()
-
-    return web.json_response({"ok": True})
+    """PUT /api/ads/plate/{ad_id}?user_id=<telegram_id> — редактирование номер-объявления."""
+    return await _edit_ad(
+        request, PlateAd, validate_plate_ad, _PLATE_ALLOWED_FIELDS, _PLATE_FIELD_CONVERTERS,
+    )
 
 
-# ---------------------------------------------------------------------------
-# Delete ad endpoints — soft delete (status → rejected)
-# ---------------------------------------------------------------------------
-
-
-async def delete_car_ad_endpoint(request: web.Request) -> web.Response:
-    """DELETE /api/ads/car/{ad_id}?user_id=<telegram_id> — мягкое удаление авто-объявления.
+async def _delete_ad(request: web.Request, model_class) -> web.Response:
+    """Общая логика мягкого удаления объявления (car или plate).
 
     Мягкое удаление: статус → REJECTED, rejection_reason = "Удалено владельцем".
     Это позволяет сохранить данные для истории / аналитики, но объявление
     пропадёт из каталога и из модерации.
 
-    HTTP-ошибки: 403 (не владелец), 404 (не найдено)
+    HTTP-ошибки: 400 (невалидные параметры), 403 (не владелец), 404 (не найдено)
     """
     ad_id = _safe_int(request.match_info.get("ad_id"), 0)
     if not ad_id:
@@ -974,7 +918,7 @@ async def delete_car_ad_endpoint(request: web.Request) -> web.Response:
     pool = request.app["session_pool"]
     async with pool() as session:
         ad = (await session.execute(
-            select(CarAd).where(CarAd.id == ad_id)
+            select(model_class).where(model_class.id == ad_id)
         )).scalar_one_or_none()
 
         if not ad:
@@ -994,47 +938,16 @@ async def delete_car_ad_endpoint(request: web.Request) -> web.Response:
         await session.commit()
 
     return web.json_response({"ok": True})
+
+
+async def delete_car_ad_endpoint(request: web.Request) -> web.Response:
+    """DELETE /api/ads/car/{ad_id}?user_id=<telegram_id> — мягкое удаление авто-объявления."""
+    return await _delete_ad(request, CarAd)
 
 
 async def delete_plate_ad_endpoint(request: web.Request) -> web.Response:
-    """DELETE /api/ads/plate/{ad_id}?user_id=<telegram_id> — мягкое удаление номер-объявления.
-
-    Аналогично delete_car_ad_endpoint, но для PlateAd.
-    Мягкое удаление: статус → REJECTED, rejection_reason = "Удалено владельцем".
-
-    HTTP-ошибки: 403 (не владелец), 404 (не найдено)
-    """
-    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
-    if not ad_id:
-        return web.json_response({"error": "Invalid ad_id"}, status=400)
-
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
-    if not user_id_tg:
-        return web.json_response({"error": "Missing user_id"}, status=400)
-
-    pool = request.app["session_pool"]
-    async with pool() as session:
-        ad = (await session.execute(
-            select(PlateAd).where(PlateAd.id == ad_id)
-        )).scalar_one_or_none()
-
-        if not ad:
-            return web.json_response({"error": "Ad not found"}, status=404)
-
-        # ── Проверка владельца ─────────────────────────────────────
-        owner = (await session.execute(
-            select(User).where(User.id == ad.user_id)
-        )).scalar_one_or_none()
-
-        if not owner or owner.telegram_id != user_id_tg:
-            return web.json_response({"error": "Forbidden"}, status=403)
-
-        # ── Мягкое удаление ────────────────────────────────────────
-        ad.status = AdStatus.REJECTED
-        ad.rejection_reason = "Удалено владельцем"
-        await session.commit()
-
-    return web.json_response({"ok": True})
+    """DELETE /api/ads/plate/{ad_id}?user_id=<telegram_id> — мягкое удаление номер-объявления."""
+    return await _delete_ad(request, PlateAd)
 
 
 # --- Photo upload endpoint (Mini App) ---

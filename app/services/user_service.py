@@ -1,7 +1,15 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+
+
+async def _find_user(session: AsyncSession, telegram_id: int) -> User | None:
+    """Найти пользователя по telegram_id."""
+    stmt = select(User).where(User.telegram_id == telegram_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def get_or_create_user(
@@ -10,12 +18,24 @@ async def get_or_create_user(
     username: str | None,
     full_name: str,
 ) -> User:
-    """Get existing user or create new one."""
-    stmt = select(User).where(User.telegram_id == telegram_id)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
+    """Get existing user or create new one.
 
-    if user is None:
+    Обрабатывает race condition: если между SELECT и INSERT другой
+    запрос уже создал пользователя с тем же telegram_id, ловим
+    IntegrityError и повторно ищем.
+    """
+    # 1. Попробовать найти
+    user = await _find_user(session, telegram_id)
+    if user:
+        # Обновить username и full_name если изменились
+        if username is not None and user.username != username:
+            user.username = username
+        if full_name is not None and user.full_name != full_name:
+            user.full_name = full_name
+        return user
+
+    # 2. Создать нового
+    try:
         user = User(
             telegram_id=telegram_id,
             username=username,
@@ -23,23 +43,21 @@ async def get_or_create_user(
         )
         session.add(user)
         await session.flush()
-    else:
-        # Update username and full_name if changed (only if new value is not None)
-        if username is not None and user.username != username:
-            user.username = username
-        if full_name is not None and user.full_name != full_name:
-            user.full_name = full_name
-
-    return user
+        return user
+    except IntegrityError:
+        # Race condition: другой запрос уже создал пользователя
+        await session.rollback()
+        user = await _find_user(session, telegram_id)
+        if user:
+            return user
+        raise  # Если и после rollback не нашли — что-то серьёзное
 
 
 async def get_user_by_telegram_id(
     session: AsyncSession, telegram_id: int
 ) -> User | None:
     """Get user by Telegram ID."""
-    stmt = select(User).where(User.telegram_id == telegram_id)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    return await _find_user(session, telegram_id)
 
 
 async def set_admin(session: AsyncSession, telegram_id: int, is_admin: bool = True) -> User | None:

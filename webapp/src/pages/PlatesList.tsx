@@ -24,6 +24,7 @@ export default function PlatesList({ embedded }: Props) {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [offset, setOffset] = useState(0)
+  const [error, setError] = useState(false)
 
   // ─── Фильтры (город) ──────────────────────────────────────
   const [cities, setCities] = useState<City[]>([])
@@ -80,6 +81,7 @@ export default function PlatesList({ embedded }: Props) {
     sort = sortOrder
   ) => {
     setLoading(true)
+    setError(false)
     try {
       const params = buildParams(newOffset, city, q, sort)
       const data = await api.getPlateAds(params)
@@ -93,7 +95,7 @@ export default function PlatesList({ embedded }: Props) {
       setTotal(data.total)
       setOffset(newOffset + data.items.length)
     } catch {
-      // ignore
+      setError(true)
     }
     setLoading(false)
   }
@@ -261,7 +263,25 @@ export default function PlatesList({ embedded }: Props) {
 
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
-      {!loading && ads.length === 0 ? (
+      {error && (
+        <div style={{
+          textAlign: 'center',
+          padding: '40px 16px',
+          color: 'var(--hint, #6b7280)',
+        }}>
+          <p style={{ fontSize: '2em', marginBottom: '12px' }}>😕</p>
+          <p style={{ marginBottom: '16px' }}>Не удалось загрузить объявления</p>
+          <button
+            className="btn btn-secondary"
+            onClick={() => loadAds()}
+            style={{ margin: '0 auto' }}
+          >
+            🔄 Повторить
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && ads.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">🔢</div>
           <p>Пока нет объявлений</p>

@@ -1,7 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.constants import ADS_PER_PAGE
 from app.models.car_ad import AdStatus
 from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
@@ -52,35 +51,6 @@ async def get_plate_ad(session: AsyncSession, ad_id: int) -> PlateAd | None:
     return result.scalar_one_or_none()
 
 
-async def get_plate_ad_photos(session: AsyncSession, ad_id: int) -> list[AdPhoto]:
-    """Get all photos for a plate ad, ordered by position."""
-    stmt = (
-        select(AdPhoto)
-        .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id == ad_id)
-        .order_by(AdPhoto.position)
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def get_approved_plate_ads(
-    session: AsyncSession,
-    *,
-    city: str | None = None,
-    offset: int = 0,
-    limit: int = ADS_PER_PAGE,
-) -> list[PlateAd]:
-    """Get approved plate ads with optional city filter."""
-    stmt = select(PlateAd).where(PlateAd.status == AdStatus.APPROVED)
-
-    if city:
-        stmt = stmt.where(PlateAd.city == city)
-
-    stmt = stmt.order_by(PlateAd.created_at.desc()).offset(offset).limit(limit)
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
 async def get_pending_plate_ads(session: AsyncSession) -> list[PlateAd]:
     """Get all pending plate ads for moderation."""
     stmt = (
@@ -111,14 +81,3 @@ async def reject_plate_ad(
         ad.rejection_reason = reason
         return ad
     return None
-
-
-async def get_user_plate_ads(session: AsyncSession, user_id: int) -> list[PlateAd]:
-    """Get all plate ads by a user."""
-    stmt = (
-        select(PlateAd)
-        .where(PlateAd.user_id == user_id)
-        .order_by(PlateAd.created_at.desc())
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())

@@ -11,6 +11,8 @@ import { uploadPhoto } from '../api'
 
 /** Элемент фото в локальном состоянии компонента */
 interface PhotoItem {
+  /** Уникальный ID для отслеживания в UI */
+  localId: string;
   /** ID фото на сервере (loc_uuid) или null если ещё грузится */
   id: string | null;
   /** Data URL для превью (из FileReader) */
@@ -63,6 +65,7 @@ export default function PhotoUploader({ maxPhotos, photoIds, onPhotosChange }: P
 
       // Добавить в список с состоянием "загружается"
       const tempItem: PhotoItem = {
+        localId: Math.random().toString(36).slice(2),
         id: null,
         preview,
         uploading: true,
@@ -80,7 +83,7 @@ export default function PhotoUploader({ maxPhotos, photoIds, onPhotosChange }: P
 
         setPhotos(prev => {
           const updated = prev.map(p =>
-            p === tempItem ? { ...p, id: photoId, uploading: false } : p
+            p.localId === tempItem.localId ? { ...p, id: photoId, uploading: false } : p
           );
           // Обновить родительский массив photo_ids
           const ids = updated.filter(p => p.id).map(p => p.id!);
@@ -90,7 +93,7 @@ export default function PhotoUploader({ maxPhotos, photoIds, onPhotosChange }: P
       } catch (e) {
         setPhotos(prev =>
           prev.map(p =>
-            p === tempItem
+            p.localId === tempItem.localId
               ? { ...p, uploading: false, error: e instanceof Error ? e.message : 'Ошибка' }
               : p
           )
@@ -220,7 +223,7 @@ export default function PhotoUploader({ maxPhotos, photoIds, onPhotosChange }: P
 
       <div style={gridStyle}>
         {photos.map((photo, i) => (
-          <div key={i} style={thumbStyle}>
+          <div key={photo.localId} style={thumbStyle}>
             <img src={photo.preview} alt="" style={imgStyle} />
             {photo.uploading && (
               <div style={overlayStyle}>⏳</div>
