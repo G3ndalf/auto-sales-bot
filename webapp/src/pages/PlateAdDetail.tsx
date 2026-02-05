@@ -135,29 +135,20 @@ export default function PlateAdDetail() {
           <div className="flex items-center gap-2">
             <div className="detail-price">{formatPrice(ad.price)}</div>
 
-            {/* Звёздочка избранного: bounce при нажатии + плавная смена иконки */}
+            {/* Звёздочка избранного: bounce при нажатии */}
             <motion.button
-              whileTap={{ scale: 0.8 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+              whileTap={{ scale: 0.75 }}
               onClick={toggleFavorite}
               disabled={favoriteLoading}
-              className="bg-transparent border-none text-2xl cursor-pointer"
-              style={{ opacity: favoriteLoading ? 0.5 : 1 }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: 4, display: 'inline-flex',
+                opacity: favoriteLoading ? 0.5 : 1,
+              }}
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={isFavorite ? 'fav' : 'no-fav'}
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  style={{ display: 'inline-flex' }}
-                >
-                  {isFavorite
-                    ? <Star size={22} weight="Bold" color="#F59E0B" />
-                    : <Star size={22} weight="Linear" color="#9CA3AF" />}
-                </motion.span>
-              </AnimatePresence>
+              {isFavorite
+                ? <Star size={22} weight="Bold" color="#F59E0B" />
+                : <Star size={22} weight="Linear" color="#9CA3AF" />}
             </motion.button>
           </div>
         </motion.div>
