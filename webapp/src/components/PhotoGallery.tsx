@@ -162,12 +162,8 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
 
       if (dir === 'v') {
         if (Math.abs(dy) > DISMISS_PX) {
-          // Dismiss: анимируем уход + закрываем
-          el.style.transition = 'transform 0.2s ease-out'
-          el.style.transform = `translateY(${dy > 0 ? 300 : -300}px)`
-          overlay.style.transition = 'background-color 0.2s ease-out'
-          overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)'
-          setTimeout(() => setFullscreen(false), 200)
+          // Dismiss: просто закрываем без анимации перемещения
+          setFullscreen(false)
         } else {
           // Snap back
           el.style.transition = 'transform 0.2s ease-out'

@@ -584,7 +584,7 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
 .ad-card:active { background: var(--secondary-bg); transform: scale(0.98); }
 
 .ad-card-photo {
-  width: 90px; height: 90px;
+  width: 120px; height: 90px; /* 4:3 */
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
