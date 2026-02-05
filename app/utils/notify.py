@@ -116,6 +116,5 @@ async def notify_admins(bot: Bot, ad, ad_type: str, photo_count: int = 0) -> Non
     for admin_id in settings.admin_ids:
         try:
             await bot.send_message(admin_id, text, reply_markup=kb)
-            logger.info("Admin %d notified about %s #%d", admin_id, ad_type, ad.id)
         except Exception:
             logger.exception("Failed to notify admin %d", admin_id)

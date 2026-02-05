@@ -36,7 +36,6 @@ async def handle_web_app_data(
     bot: Bot,
 ):
     """Process data received from Telegram Mini App."""
-    logger.info("[web_app] Received web_app_data from user %s", message.from_user.id)
     try:
         data = json.loads(message.web_app_data.data)
     except (json.JSONDecodeError, AttributeError):
@@ -54,7 +53,6 @@ async def handle_web_app_data(
         # BUG 5 fix: Check if user is already collecting photos
         current_state = await state.get_state()
         if current_state == PhotoCollectStates.waiting_photos:
-            logger.info("[web_app] User %s had active photo collection — clearing", message.from_user.id)
             await state.clear()
             await message.answer(WEB_APP_FSM_OVERWRITE)
 
@@ -65,34 +63,30 @@ async def handle_web_app_data(
             username=message.from_user.username,
             full_name=message.from_user.full_name,
         )
-        logger.info("[web_app] [Step 1] User ready: id=%d, tg=%d", user.id, message.from_user.id)
 
-        # Step 2: Create ad
+        # Create ad
         if ad_type == "car_ad":
             ad = await _create_car_ad(session, user.id, data)
             await message.answer(WEB_APP_CAR_CREATED)
         else:
             ad = await _create_plate_ad(session, user.id, data)
             await message.answer(WEB_APP_PLATE_CREATED)
-        logger.info("[web_app] [Step 2] Ad created: type=%s, id=%d", ad_type, ad.id)
 
-        # Step 3: Ask for photos
+        # Ask for photos
         skip_kb = ReplyKeyboardMarkup(
             keyboard=[[KeyboardButton(text=WEB_APP_SKIP_PHOTOS)]],
             resize_keyboard=True,
             one_time_keyboard=True,
         )
         await message.answer(WEB_APP_SEND_PHOTOS, reply_markup=skip_kb)
-        logger.info("[web_app] [Step 3] Photo request sent to user %d", message.from_user.id)
 
-        # Step 4: Set FSM state for photo collection
+        # Set FSM state for photo collection
         await state.set_state(PhotoCollectStates.waiting_photos)
         await state.update_data(
             ad_id=ad.id,
             ad_type=ad_type,
             photo_count=0,
         )
-        logger.info("[web_app] [Step 4] FSM state set: waiting_photos, ad_id=%d", ad.id)
 
         # NOTE: Admin notification moved to photos.py — sent AFTER photo collection ends
 

@@ -100,7 +100,6 @@ async def _finish_and_publish(
 @router.message(PhotoCollectStates.waiting_photos, lambda m: m.text == WEB_APP_SKIP_PHOTOS)
 async def skip_photos(message: Message, state: FSMContext, bot: Bot, session: AsyncSession):
     """User chose to skip sending photos."""
-    logger.info("[photos] User %d skipped photos", message.from_user.id)
     await _finish_and_publish(message, state, bot, session, photo_count=0)
 
 
@@ -109,7 +108,6 @@ async def done_photos(message: Message, state: FSMContext, bot: Bot, session: As
     """User pressed Done button."""
     data = await state.get_data()
     photo_count = data.get("photo_count", 0)
-    logger.info("[photos] User %d pressed Done with %d photos", message.from_user.id, photo_count)
     await _finish_and_publish(message, state, bot, session, photo_count=photo_count)
 
 
@@ -145,7 +143,6 @@ async def collect_photo(
 
     photo_count += 1
     await state.update_data(photo_count=photo_count)
-    logger.info("[photos] Photo %d/%d for %s #%d", photo_count, max_photos, ad_type, ad_id)
 
     if photo_count >= max_photos:
         # Limit reached — auto-finish
@@ -163,7 +160,6 @@ async def finish_photos(message: Message, state: FSMContext, bot: Bot, session: 
     """User typed done/готово."""
     data = await state.get_data()
     photo_count = data.get("photo_count", 0)
-    logger.info("[photos] User %d typed done with %d photos", message.from_user.id, photo_count)
     await _finish_and_publish(message, state, bot, session, photo_count=photo_count)
 
 

@@ -1,7 +1,9 @@
 """REST API for Mini App catalog (aiohttp)."""
 
+import hmac
 import json
 import logging
+import re
 
 from aiohttp import web
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
@@ -26,8 +28,16 @@ from app.texts import (
 )
 from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
 from app.utils.publish import publish_to_channel
+from app.utils.validators import validate_car_ad, validate_plate_ad
+from app.utils.rate_limiter import submit_limiter
 
 logger = logging.getLogger(__name__)
+
+# Max request body size for submit endpoint (10 KB)
+MAX_SUBMIT_BODY_SIZE = 10 * 1024
+
+# Telegram file_id: alphanumeric, underscores, dashes only
+_FILE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
 
 def _safe_int(val, default: int = 0) -> int:
@@ -87,9 +97,9 @@ def _check_admin_access(request: web.Request) -> bool:
     """Check admin access via token or user_id."""
     # Method 1: Secret token (most reliable — doesn't depend on Telegram SDK)
     token = request.query.get("token")
-    if token and settings.admin_token and token == settings.admin_token:
-        logger.info("[AdminAuth] Access granted via admin_token")
-        return True
+    if token and settings.admin_token:
+        if hmac.compare_digest(token, settings.admin_token):
+            return True
 
     # Method 2: user_id from header or query
     uid_str = (
@@ -102,7 +112,6 @@ def _check_admin_access(request: web.Request) -> bool:
         init_data = request.query.get("initData") or request.query.get("tgWebAppData")
         if init_data:
             try:
-                import json
                 from urllib.parse import parse_qs
                 parsed = parse_qs(init_data)
                 user_json = parsed.get("user", [None])[0]
@@ -116,12 +125,11 @@ def _check_admin_access(request: web.Request) -> bool:
         try:
             uid = int(uid_str)
             if uid in settings.admin_ids:
-                logger.info("[AdminAuth] Access granted for user_id=%d", uid)
                 return True
         except (ValueError, TypeError):
             pass
 
-    logger.warning("[AdminAuth] Access denied. query=%s", dict(request.query))
+    logger.warning("[AdminAuth] Access denied (path=%s)", request.path)
     return False
 
 
@@ -178,8 +186,8 @@ async def get_car_ads(request: web.Request) -> web.Response:
     brand = request.query.get("brand")
     model = request.query.get("model")
     city = request.query.get("city")
-    offset = int(request.query.get("offset", 0))
-    limit = min(int(request.query.get("limit", 20)), 50)
+    offset = _safe_int(request.query.get("offset"), 0)
+    limit = min(_safe_int(request.query.get("limit"), 20), 50)
 
     async with pool() as session:
         stmt = select(CarAd).where(CarAd.status == AdStatus.APPROVED)
@@ -237,7 +245,9 @@ async def get_car_ads(request: web.Request) -> web.Response:
 
 async def get_car_ad(request: web.Request) -> web.Response:
     """GET /api/cars/{ad_id} — single car ad with all photos."""
-    ad_id = int(request.match_info["ad_id"])
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    if not ad_id:
+        raise web.HTTPBadRequest(text="Invalid ad_id")
     pool = request.app["session_pool"]
 
     async with pool() as session:
@@ -279,8 +289,8 @@ async def get_plate_ads(request: web.Request) -> web.Response:
     """GET /api/plates — list approved plate ads."""
     pool = request.app["session_pool"]
     city = request.query.get("city")
-    offset = int(request.query.get("offset", 0))
-    limit = min(int(request.query.get("limit", 20)), 50)
+    offset = _safe_int(request.query.get("offset"), 0)
+    limit = min(_safe_int(request.query.get("limit"), 20), 50)
 
     async with pool() as session:
         stmt = select(PlateAd).where(PlateAd.status == AdStatus.APPROVED)
@@ -327,7 +337,9 @@ async def get_plate_ads(request: web.Request) -> web.Response:
 
 async def get_plate_ad_detail(request: web.Request) -> web.Response:
     """GET /api/plates/{ad_id} — single plate ad."""
-    ad_id = int(request.match_info["ad_id"])
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    if not ad_id:
+        raise web.HTTPBadRequest(text="Invalid ad_id")
     pool = request.app["session_pool"]
 
     async with pool() as session:
@@ -398,6 +410,11 @@ async def proxy_photo(request: web.Request) -> web.Response:
     import aiohttp
 
     file_id = request.match_info["file_id"]
+
+    # Sanitize file_id: only alphanumeric, underscores, dashes allowed
+    if not _FILE_ID_RE.match(file_id) or len(file_id) > 256:
+        raise web.HTTPBadRequest(text="Invalid file_id")
+
     bot_token = request.app["bot_token"]
 
     # Get file path from Telegram
@@ -494,8 +511,29 @@ async def handle_submit(request: web.Request) -> web.Response:
 
     Body: {type: "car_ad"|"plate_ad", user_id: int, ...ad fields...}
     """
+    # Check Content-Type
+    content_type = request.content_type or ""
+    if "application/json" not in content_type:
+        return web.json_response(
+            {"ok": False, "error": "Content-Type must be application/json"},
+            status=415,
+        )
+
+    # Check body size (max 10 KB)
+    if request.content_length and request.content_length > MAX_SUBMIT_BODY_SIZE:
+        return web.json_response(
+            {"ok": False, "error": "Request body too large"},
+            status=413,
+        )
+
     try:
-        data = await request.json()
+        raw_body = await request.read()
+        if len(raw_body) > MAX_SUBMIT_BODY_SIZE:
+            return web.json_response(
+                {"ok": False, "error": "Request body too large"},
+                status=413,
+            )
+        data = json.loads(raw_body)
     except (json.JSONDecodeError, Exception):
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
 
@@ -512,6 +550,23 @@ async def handle_submit(request: web.Request) -> web.Response:
     except (ValueError, TypeError):
         return web.json_response({"ok": False, "error": "Invalid user_id"}, status=400)
 
+    # Rate limit check
+    denied, reason = submit_limiter.check(f"user:{user_id_tg}")
+    if denied:
+        logger.warning("[api/submit] Rate limited user_id=%d: %s", user_id_tg, reason)
+        return web.json_response({"ok": False, "error": reason}, status=429)
+
+    # --- Validate fields ---
+    if ad_type == "car_ad":
+        validation_errors = validate_car_ad(data)
+    else:
+        validation_errors = validate_plate_ad(data)
+
+    if validation_errors:
+        return web.json_response(
+            {"ok": False, "errors": validation_errors}, status=400,
+        )
+
     pool = request.app["session_pool"]
     bot = request.app.get("bot")
     storage = request.app.get("storage")
@@ -525,7 +580,6 @@ async def handle_submit(request: web.Request) -> web.Response:
                 username=None,
                 full_name=None,
             )
-            logger.info("[api/submit] User ready: id=%d, tg=%d", user.id, user_id_tg)
 
             # Create ad
             contact_tg = data.get("contact_telegram")
@@ -553,7 +607,6 @@ async def handle_submit(request: web.Request) -> web.Response:
                     contact_phone=str(data.get("contact_phone", "")).strip(),
                     contact_telegram=contact_tg,
                 )
-                logger.info("[api/submit] Car ad created: id=%d", ad.id)
             else:
                 ad = await create_plate_ad(
                     session,
@@ -565,7 +618,6 @@ async def handle_submit(request: web.Request) -> web.Response:
                     contact_phone=str(data.get("contact_phone", "")).strip(),
                     contact_telegram=contact_tg,
                 )
-                logger.info("[api/submit] Plate ad created: id=%d", ad.id)
 
             await session.commit()
 
@@ -582,7 +634,6 @@ async def handle_submit(request: web.Request) -> web.Response:
                 one_time_keyboard=True,
             )
             await bot.send_message(user_id_tg, WEB_APP_SEND_PHOTOS, reply_markup=skip_kb)
-            logger.info("[api/submit] Photo request sent to user %d", user_id_tg)
 
         # Set FSM state for photo collection
         if storage and bot:
@@ -598,7 +649,6 @@ async def handle_submit(request: web.Request) -> web.Response:
                 "ad_type": ad_type,
                 "photo_count": 0,
             })
-            logger.info("[api/submit] FSM state set: waiting_photos, ad_id=%d", ad.id)
 
         return web.json_response({"ok": True, "ad_id": ad.id})
 
@@ -734,10 +784,12 @@ async def admin_approve(request: web.Request) -> web.Response:
         raise web.HTTPForbidden(text="Access denied")
 
     ad_type = request.match_info["ad_type"]
-    ad_id = int(request.match_info["ad_id"])
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
 
     if ad_type not in ("car", "plate"):
         raise web.HTTPBadRequest(text="Invalid ad_type")
+    if not ad_id:
+        raise web.HTTPBadRequest(text="Invalid ad_id")
 
     pool = request.app["session_pool"]
     async with pool() as session:
@@ -780,10 +832,12 @@ async def admin_reject(request: web.Request) -> web.Response:
         raise web.HTTPForbidden(text="Access denied")
 
     ad_type = request.match_info["ad_type"]
-    ad_id = int(request.match_info["ad_id"])
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
 
     if ad_type not in ("car", "plate"):
         raise web.HTTPBadRequest(text="Invalid ad_type")
+    if not ad_id:
+        raise web.HTTPBadRequest(text="Invalid ad_id")
 
     # Parse optional reason from request body
     reason = "Не прошло модерацию"
