@@ -8,6 +8,27 @@ import { TEXTS } from '../constants/texts'
 import { useBackButton } from '../hooks/useBackButton'
 import { SkeletonList } from '../components/Skeleton'
 
+/**
+ * Кэш данных списка авто — сохраняется в памяти модуля
+ * между mount/unmount. При возврате из карточки объявления
+ * восстанавливает данные, фильтры и позицию скролла.
+ */
+interface CarsCache {
+  ads: CarAdPreview[]
+  total: number
+  offset: number
+  scrollY: number
+  brand: string
+  city: string
+  query: string
+  sort: string
+  priceMin: string
+  priceMax: string
+  yearMin: string
+  yearMax: string
+}
+let _carsCache: CarsCache | null = null
+
 interface Props {
   embedded?: boolean
 }
@@ -24,22 +45,25 @@ interface Props {
 export default function CarsList({ embedded }: Props) {
   useBackButton(embedded ? null : '/catalog')
 
-  const [ads, setAds] = useState<CarAdPreview[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [offset, setOffset] = useState(0)
+  // ─── Восстановление из кэша при возврате из карточки ────────
+  const [restoredCache] = useState(() => _carsCache)
+
+  const [ads, setAds] = useState<CarAdPreview[]>(restoredCache?.ads || [])
+  const [total, setTotal] = useState(restoredCache?.total || 0)
+  const [loading, setLoading] = useState(!restoredCache)
+  const [offset, setOffset] = useState(restoredCache?.offset || 0)
   const [error, setError] = useState(false)
 
   // ─── Фильтры (марка, город) ────────────────────────────────
   const [brands, setBrands] = useState<Brand[]>([])
-  const [selectedBrand, setSelectedBrand] = useState('')
-  const [selectedCity, setSelectedCity] = useState('')
+  const [selectedBrand, setSelectedBrand] = useState(restoredCache?.brand || '')
+  const [selectedCity, setSelectedCity] = useState(restoredCache?.city || '')
 
   // ─── Панель фильтров (свёрнута по умолчанию) ──────────────
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   // ─── Поиск (debounce 400ms) ────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(restoredCache?.query || '')
   /** Ref для хранения таймера debounce — очищается при каждом новом вводе */
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -51,14 +75,14 @@ export default function CarsList({ embedded }: Props) {
   }, [])
 
   // ─── Фильтры цены и года ─────────────────────────────────
-  const [priceMin, setPriceMin] = useState('')
-  const [priceMax, setPriceMax] = useState('')
-  const [yearMin, setYearMin] = useState('')
-  const [yearMax, setYearMax] = useState('')
+  const [priceMin, setPriceMin] = useState(restoredCache?.priceMin || '')
+  const [priceMax, setPriceMax] = useState(restoredCache?.priceMax || '')
+  const [yearMin, setYearMin] = useState(restoredCache?.yearMin || '')
+  const [yearMax, setYearMax] = useState(restoredCache?.yearMax || '')
 
   // ─── Сортировка ────────────────────────────────────────────
   // Варианты: date_new (default), date_old, price_asc, price_desc, mileage_asc
-  const [sortOrder, setSortOrder] = useState('date_new')
+  const [sortOrder, setSortOrder] = useState(restoredCache?.sort || 'date_new')
 
   // Загружаем справочник марок один раз при монтировании
   useEffect(() => {
@@ -123,9 +147,27 @@ export default function CarsList({ embedded }: Props) {
     setLoading(false)
   }
 
-  // Начальная загрузка при монтировании
+  // ─── Начальная загрузка / восстановление из кэша ──────────
   useEffect(() => {
-    loadAds(0)
+    if (restoredCache) {
+      // Данные уже восстановлены через useState — только скролл
+      setTimeout(() => window.scrollTo(0, restoredCache.scrollY), 50)
+    } else {
+      loadAds(0)
+    }
+  }, [])
+
+  // ─── Сохранение в кэш при unmount ──────────────────────────
+  /** Ref для доступа к актуальному state в cleanup-функции */
+  const cacheRef = useRef({ ads, total, offset, brand: selectedBrand, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax, yearMin, yearMax })
+  useEffect(() => {
+    cacheRef.current = { ads, total, offset, brand: selectedBrand, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax, yearMin, yearMax }
+  })
+  useEffect(() => {
+    return () => {
+      const s = cacheRef.current
+      _carsCache = { ...s, scrollY: window.scrollY }
+    }
   }, [])
 
   // ─── Обработчики фильтров ──────────────────────────────────

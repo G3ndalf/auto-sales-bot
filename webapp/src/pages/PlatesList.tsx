@@ -8,6 +8,24 @@ import { TEXTS } from '../constants/texts'
 import { useBackButton } from '../hooks/useBackButton'
 import { SkeletonList } from '../components/Skeleton'
 
+/**
+ * Кэш данных списка номеров — сохраняется в памяти модуля
+ * между mount/unmount. При возврате из карточки объявления
+ * восстанавливает данные, фильтры и позицию скролла.
+ */
+interface PlatesCache {
+  ads: PlateAdPreview[]
+  total: number
+  offset: number
+  scrollY: number
+  city: string
+  query: string
+  sort: string
+  priceMin: string
+  priceMax: string
+}
+let _platesCache: PlatesCache | null = null
+
 interface Props {
   embedded?: boolean
 }
@@ -24,20 +42,23 @@ interface Props {
 export default function PlatesList({ embedded }: Props) {
   useBackButton(embedded ? null : '/catalog')
 
-  const [ads, setAds] = useState<PlateAdPreview[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [offset, setOffset] = useState(0)
+  // ─── Восстановление из кэша при возврате из карточки ────────
+  const [restoredCache] = useState(() => _platesCache)
+
+  const [ads, setAds] = useState<PlateAdPreview[]>(restoredCache?.ads || [])
+  const [total, setTotal] = useState(restoredCache?.total || 0)
+  const [loading, setLoading] = useState(!restoredCache)
+  const [offset, setOffset] = useState(restoredCache?.offset || 0)
   const [error, setError] = useState(false)
 
   // ─── Фильтры (город) ──────────────────────────────────────
-  const [selectedCity, setSelectedCity] = useState('')
+  const [selectedCity, setSelectedCity] = useState(restoredCache?.city || '')
 
   // ─── Панель фильтров (свёрнута по умолчанию) ──────────────
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   // ─── Поиск (debounce 400ms) ────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(restoredCache?.query || '')
   /** Ref для хранения таймера debounce — очищается при каждом новом вводе */
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -49,12 +70,12 @@ export default function PlatesList({ embedded }: Props) {
   }, [])
 
   // ─── Фильтры цены ───────────────────────────────────────
-  const [priceMin, setPriceMin] = useState('')
-  const [priceMax, setPriceMax] = useState('')
+  const [priceMin, setPriceMin] = useState(restoredCache?.priceMin || '')
+  const [priceMax, setPriceMax] = useState(restoredCache?.priceMax || '')
 
   // ─── Сортировка ────────────────────────────────────────────
   // Варианты: date_new (default), date_old, price_asc, price_desc
-  const [sortOrder, setSortOrder] = useState('date_new')
+  const [sortOrder, setSortOrder] = useState(restoredCache?.sort || 'date_new')
 
   // Города теперь берутся из статического справочника TEXTS.REGIONS
 
@@ -111,9 +132,27 @@ export default function PlatesList({ embedded }: Props) {
     setLoading(false)
   }
 
-  // Начальная загрузка при монтировании
+  // ─── Начальная загрузка / восстановление из кэша ──────────
   useEffect(() => {
-    loadAds(0)
+    if (restoredCache) {
+      // Данные уже восстановлены через useState — только скролл
+      setTimeout(() => window.scrollTo(0, restoredCache.scrollY), 50)
+    } else {
+      loadAds(0)
+    }
+  }, [])
+
+  // ─── Сохранение в кэш при unmount ──────────────────────────
+  /** Ref для доступа к актуальному state в cleanup-функции */
+  const cacheRef = useRef({ ads, total, offset, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax })
+  useEffect(() => {
+    cacheRef.current = { ads, total, offset, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax }
+  })
+  useEffect(() => {
+    return () => {
+      const s = cacheRef.current
+      _platesCache = { ...s, scrollY: window.scrollY }
+    }
   }, [])
 
   // ─── Обработчик фильтра города ─────────────────────────────

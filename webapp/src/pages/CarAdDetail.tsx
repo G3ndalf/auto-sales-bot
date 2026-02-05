@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Garage, Star, Eye, Phone, ChatRound, ChatSquare } from '@solar-icons/react'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
+import PhotoGallery from '../components/PhotoGallery'
 
 export default function CarAdDetail() {
   useBackButton()
   const { id } = useParams<{ id: string }>()
   const [ad, setAd] = useState<CarAdFull | null>(null)
-  const [photoIndex, setPhotoIndex] = useState(0)
+  // photoIndex больше не нужен — управляется внутри PhotoGallery
   const [loading, setLoading] = useState(true)
 
   // ─── Избранное ─────────────────────────────────────────────
@@ -61,50 +62,14 @@ export default function CarAdDetail() {
     return new Date(s).toLocaleDateString('ru-RU')
   }
 
-  const prevPhoto = () => setPhotoIndex(i => Math.max(0, i - 1))
-  const nextPhoto = () => setPhotoIndex(i => Math.min(ad.photos.length - 1, i + 1))
-
   return (
     <div className="detail-page">
-      {/* Навигация назад — через TG BackButton */}
-
-      {/* Photo gallery */}
-      {ad.photos.length > 0 ? (
-        <div className="gallery">
-          <AnimatePresence mode="wait">
-            <motion.img
-              key={photoIndex}
-              src={api.photoUrl(ad.photos[photoIndex])}
-              alt={`${ad.brand} ${ad.model}`}
-              className="gallery-img"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-            />
-          </AnimatePresence>
-          {ad.photos.length > 1 && (
-            <>
-              <div className="gallery-nav">
-                <button onClick={prevPhoto} disabled={photoIndex === 0}>‹</button>
-                <span>{photoIndex + 1} / {ad.photos.length}</span>
-                <button onClick={nextPhoto} disabled={photoIndex === ad.photos.length - 1}>›</button>
-              </div>
-              <div className="gallery-dots">
-                {ad.photos.map((_, i) => (
-                  <button
-                    key={i}
-                    className={`gallery-dot${i === photoIndex ? ' active' : ''}`}
-                    onClick={() => setPhotoIndex(i)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="gallery-placeholder"><Garage size={48} weight="BoldDuotone" className="opacity-30" /></div>
-      )}
+      {/* Галерея фото — нажатие лево/право листает, центр открывает на весь экран */}
+      <PhotoGallery
+        photos={ad.photos.map(p => api.photoUrl(p))}
+        alt={`${ad.brand} ${ad.model}`}
+        fallbackIcon={<Garage size={48} weight="BoldDuotone" className="opacity-30" />}
+      />
 
       {/* Title & price & favorite */}
       <div className="detail-header">
