@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
