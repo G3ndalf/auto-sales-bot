@@ -76,6 +76,8 @@ export interface CarAdFull {
   fuel_type: string;
   transmission: string;
   color: string;
+  has_gbo: boolean;
+  region: string | null;
   city: string;
   description: string;
   contact_phone: string;
@@ -98,6 +100,7 @@ export interface PlateAdFull {
   id: number;
   plate_number: string;
   price: number;
+  region: string | null;
   city: string;
   description: string;
   contact_phone: string;

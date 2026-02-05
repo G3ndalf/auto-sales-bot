@@ -462,6 +462,8 @@ async def get_car_ad(request: web.Request) -> web.Response:
             "fuel_type": ad.fuel_type.value,
             "transmission": ad.transmission.value,
             "color": ad.color,
+            "has_gbo": ad.has_gbo,
+            "region": ad.region,
             "city": ad.city,
             "description": ad.description,
             "contact_phone": ad.contact_phone,
@@ -617,6 +619,7 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
             "id": ad.id,
             "plate_number": ad.plate_number,
             "price": ad.price,
+            "region": ad.region,
             "city": ad.city,
             "description": ad.description,
             "contact_phone": ad.contact_phone,
@@ -886,7 +889,8 @@ async def get_user_ads(request: web.Request) -> web.Response:
 _CAR_ALLOWED_FIELDS = {
     "brand", "model", "year", "mileage", "engine_volume",
     "fuel_type", "transmission", "color", "price",
-    "description", "city", "contact_phone", "contact_telegram",
+    "description", "region", "city", "contact_phone", "contact_telegram",
+    "has_gbo",
 }
 _CAR_FIELD_CONVERTERS = {
     "year": lambda v, ad: _safe_int(v),
@@ -895,12 +899,13 @@ _CAR_FIELD_CONVERTERS = {
     "engine_volume": lambda v, ad: _safe_float(v),
     "fuel_type": lambda v, ad: FUEL_TYPE_MAP.get(v, ad.fuel_type),
     "transmission": lambda v, ad: TRANSMISSION_MAP.get(v, ad.transmission),
+    "has_gbo": lambda v, ad: bool(v),
 }
 
 # Разрешённые поля и конвертеры для редактирования plate ads
 _PLATE_ALLOWED_FIELDS = {
     "plate_number", "price", "description",
-    "city", "contact_phone", "contact_telegram",
+    "region", "city", "contact_phone", "contact_telegram",
 }
 _PLATE_FIELD_CONVERTERS = {
     "price": lambda v, ad: _safe_int(v),
@@ -1265,9 +1270,11 @@ async def handle_submit(request: web.Request) -> web.Response:
                     color=str(data.get("color", "")).strip(),
                     price=_safe_int(data.get("price"), 0),
                     description=str(data.get("description", "")).strip(),
+                    region=str(data.get("region", "")).strip() or None,
                     city=str(data.get("city", "")).strip() or "Другой",
                     contact_phone=str(data.get("contact_phone", "")).strip(),
                     contact_telegram=contact_tg,
+                    has_gbo=bool(data.get("has_gbo", False)),
                 )
             else:
                 ad = await create_plate_ad(
@@ -1276,6 +1283,7 @@ async def handle_submit(request: web.Request) -> web.Response:
                     plate_number=str(data.get("plate_number", "")).strip(),
                     price=_safe_int(data.get("price"), 0),
                     description=str(data.get("description", "")).strip(),
+                    region=str(data.get("region", "")).strip() or None,
                     city=str(data.get("city", "")).strip() or "Другой",
                     contact_phone=str(data.get("contact_phone", "")).strip(),
                     contact_telegram=contact_tg,

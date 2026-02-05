@@ -22,6 +22,7 @@ export default function CreateCarAd() {
   const [transmission, setTransmission] = useState('')
   const [color, setColor] = useState('')
   const [isOtherColor, setIsOtherColor] = useState(false)
+  const [hasGbo, setHasGbo] = useState(false)
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
   const [region, setRegion] = useState('')
@@ -75,8 +76,10 @@ export default function CreateCarAd() {
       mileage: parseInt(mileage) || 0,
       transmission,
       color: color.trim(),
+      has_gbo: hasGbo,
       price: parseInt(price),
       description: description.trim(),
+      region,
       city,
       contact_phone: phone.trim(),
       username: getUsername(),
@@ -451,6 +454,18 @@ export default function CreateCarAd() {
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Чекбокс ГБО */}
+        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '4px' }}>
+          <input
+            type="checkbox"
+            id="has-gbo"
+            checked={hasGbo}
+            onChange={e => setHasGbo(e.target.checked)}
+            style={{ width: '20px', height: '20px', accentColor: '#F59E0B', cursor: 'pointer' }}
+          />
+          <label htmlFor="has-gbo" style={{ cursor: 'pointer', margin: 0 }}>Установлено ГБО</label>
         </div>
       </div>
 

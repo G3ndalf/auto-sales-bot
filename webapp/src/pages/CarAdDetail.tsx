@@ -188,7 +188,7 @@ export default function CarAdDetail() {
           {ad.mileage > 0 && (
             <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Пробег</div>
-              <div style={{ fontSize: '14px', fontWeight: 700 }}>{(ad.mileage / 1000).toFixed(0)}т км</div>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.mileage.toLocaleString('ru-RU')} км</div>
             </div>
           )}
           {ad.transmission && (
@@ -203,9 +203,15 @@ export default function CarAdDetail() {
               <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.color}</div>
             </div>
           )}
+          {ad.has_gbo && (
+            <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>ГБО</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#22C55E' }}>Есть</div>
+            </div>
+          )}
           <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Город</div>
-            <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.city}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.region ? `${ad.city}, ${ad.region}` : ad.city}</div>
           </div>
         </motion.div>
 

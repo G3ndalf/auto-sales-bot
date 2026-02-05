@@ -36,6 +36,7 @@ export default function CreatePlateAd() {
     plate_number: plateNumber.trim(),
     price: parseInt(price),
     description: description.trim(),
+    region,
     city,
     contact_phone: phone.trim(),
     username: getUsername(),

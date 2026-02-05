@@ -181,7 +181,7 @@ export default function PlateAdDetail() {
         }}>
           <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Город</div>
-            <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.city}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.region ? `${ad.city}, ${ad.region}` : ad.city}</div>
           </div>
         </motion.div>
 

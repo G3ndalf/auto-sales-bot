@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -64,7 +64,11 @@ class CarAd(Base, TimestampMixin):
     price: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # ГБО (газобаллонное оборудование)
+    has_gbo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+
     # Location and contacts
+    region: Mapped[str | None] = mapped_column(String(100), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     contact_phone: Mapped[str] = mapped_column(String(20), nullable=False)
     contact_telegram: Mapped[str | None] = mapped_column(String(255), nullable=True)

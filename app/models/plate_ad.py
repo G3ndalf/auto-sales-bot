@@ -24,6 +24,7 @@ class PlateAd(Base, TimestampMixin):
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Location and contacts
+    region: Mapped[str | None] = mapped_column(String(100), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     contact_phone: Mapped[str] = mapped_column(String(20), nullable=False)
     contact_telegram: Mapped[str | None] = mapped_column(String(255), nullable=True)

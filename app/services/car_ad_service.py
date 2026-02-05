@@ -19,9 +19,11 @@ async def create_car_ad(
     color: str,
     price: int,
     description: str,
+    region: str | None = None,
     city: str,
     contact_phone: str,
     contact_telegram: str | None = None,
+    has_gbo: bool = False,
     photo_file_ids: list[str] | None = None,
 ) -> CarAd:
     """Create a new car ad with photos."""
@@ -37,9 +39,11 @@ async def create_car_ad(
         color=color,
         price=price,
         description=description,
+        region=region,
         city=city,
         contact_phone=contact_phone,
         contact_telegram=contact_telegram,
+        has_gbo=has_gbo,
     )
     session.add(ad)
     await session.flush()

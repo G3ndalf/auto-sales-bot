@@ -50,10 +50,11 @@ function AnimatedRoutes() {
   return (
     <Suspense fallback={null}>
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<AnimatedPage><Profile /></AnimatedPage>} />
+        <Route path="/" element={<AnimatedPage><Catalog /></AnimatedPage>} />
         <Route path="/sell" element={<AnimatedPage><Sell /></AnimatedPage>} />
         <Route path="/car/new" element={<AnimatedPage><CreateCarAd /></AnimatedPage>} />
         <Route path="/plate/new" element={<AnimatedPage><CreatePlateAd /></AnimatedPage>} />
+        <Route path="/profile" element={<AnimatedPage><Profile /></AnimatedPage>} />
         <Route path="/catalog" element={<AnimatedPage><Catalog /></AnimatedPage>} />
         <Route path="/cars" element={<AnimatedPage><CarsList /></AnimatedPage>} />
         <Route path="/car/:id" element={<AnimatedPage><CarAdDetail /></AnimatedPage>} />
