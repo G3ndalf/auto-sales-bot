@@ -238,7 +238,7 @@ export default function PlatesList({ embedded }: Props) {
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: 12, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, background: '#1A2332' }}>
+            <div style={{ padding: 12, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, background: '#1A2332', overflow: 'hidden' }}>
               {/* Город */}
               <select className="filter-select" style={{ width: '100%', marginBottom: 8 }} value={selectedCity}
                 onChange={e => setSelectedCity(e.target.value)}>
@@ -263,10 +263,10 @@ export default function PlatesList({ embedded }: Props) {
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <input type="number" placeholder="Цена от" value={priceMin}
                   onChange={e => setPriceMin(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' as const }} />
+                  style={{ flex: '1 1 0', minWidth: 0, width: 0, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' as const }} />
                 <input type="number" placeholder="Цена до" value={priceMax}
                   onChange={e => setPriceMax(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' as const }} />
+                  style={{ flex: '1 1 0', minWidth: 0, width: 0, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' as const }} />
               </div>
 
               {/* Кнопки: Применить + Сбросить */}

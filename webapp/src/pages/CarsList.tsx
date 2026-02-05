@@ -258,17 +258,17 @@ export default function CarsList({ embedded }: Props) {
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: 12, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, background: '#1A2332' }}>
+            <div style={{ padding: 12, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, background: '#1A2332', overflow: 'hidden' }}>
               {/* Марка + Город */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <select className="filter-select" style={{ flex: 1 }} value={selectedBrand}
+                <select className="filter-select" style={{ flex: '1 1 0', minWidth: 0, width: 0 }} value={selectedBrand}
                   onChange={e => setSelectedBrand(e.target.value)}>
                   <option value="">Все марки</option>
                   {brands.map(b => (
                     <option key={b.brand} value={b.brand}>{b.brand} ({b.count})</option>
                   ))}
                 </select>
-                <select className="filter-select" style={{ flex: 1 }} value={selectedCity}
+                <select className="filter-select" style={{ flex: '1 1 0', minWidth: 0, width: 0 }} value={selectedCity}
                   onChange={e => setSelectedCity(e.target.value)}>
                   <option value="">Все города</option>
                   {TEXTS.REGIONS.map(r => (
@@ -293,20 +293,20 @@ export default function CarsList({ embedded }: Props) {
               <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                 <input type="number" placeholder="Цена от" value={priceMin}
                   onChange={e => setPriceMin(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
+                  style={{ flex: '1 1 0', minWidth: 0, width: 0, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
                 <input type="number" placeholder="Цена до" value={priceMax}
                   onChange={e => setPriceMax(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
+                  style={{ flex: '1 1 0', minWidth: 0, width: 0, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
               </div>
 
               {/* Год от-до */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <input type="number" placeholder="Год от" value={yearMin}
                   onChange={e => setYearMin(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
+                  style={{ flex: '1 1 0', minWidth: 0, width: 0, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
                 <input type="number" placeholder="Год до" value={yearMax}
                   onChange={e => setYearMax(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
+                  style={{ flex: '1 1 0', minWidth: 0, width: 0, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
               </div>
 
               {/* Кнопки: Применить + Сбросить */}
