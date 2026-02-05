@@ -89,7 +89,7 @@ def _format_price(price: int) -> str:
     return f"{price:,}".replace(",", " ") + " ₽"
 
 
-async def _send_start_menu(message: Message) -> None:
+async def _send_start_menu(message: Message, user_id: int | None = None) -> None:
     """Отправить главное меню бота — одно сообщение с InlineKeyboard.
 
     Сначала устанавливаем ReplyKeyboard (кнопка "🔄 Перезапустить") тихим
@@ -97,8 +97,13 @@ async def _send_start_menu(message: Message) -> None:
 
     Telegram позволяет только один reply_markup на сообщение,
     поэтому ReplyKeyboard ставится отдельно (удаляется сразу).
+
+    Args:
+        message: сообщение для ответа (определяет чат)
+        user_id: явный user_id (нужен для callback_query, где
+                 message.from_user — это бот, а не пользователь)
     """
-    uid = message.from_user.id if message.from_user else 0
+    uid = user_id or (message.from_user.id if message.from_user else 0)
 
     # ── Установить ReplyKeyboard (кнопка перезапуска внизу чата) ──
     restart_kb = ReplyKeyboardMarkup(
@@ -178,9 +183,10 @@ async def handle_restart_callback(callback: CallbackQuery, session: AsyncSession
     Удобно при разработке — перезагружает кнопки без набора /start.
     """
     await callback.answer()
-    if callback.message:
-        # Используем callback.message для отправки ответа в тот же чат
-        await _send_start_menu(callback.message)
+    if callback.message and callback.from_user:
+        # callback.message.from_user — это бот, НЕ пользователь!
+        # Передаём callback.from_user.id явно для правильного uid в URL
+        await _send_start_menu(callback.message, user_id=callback.from_user.id)
 
 
 def _extract_deep_link_arg(text: str) -> re.Match | None:
