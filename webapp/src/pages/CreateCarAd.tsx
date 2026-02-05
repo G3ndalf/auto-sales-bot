@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Garage, Banknote, MapPoint, CheckCircle, DangerTriangle, Refresh, Fuel } from '@solar-icons/react'
+import { Garage, Banknote, MapPoint, CheckCircle, DangerTriangle, Refresh } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
@@ -8,17 +8,20 @@ import { submitAd, SubmitError } from '../api'
 import PhotoUploader from '../components/PhotoUploader'
 import { BRANDS } from '../data/brands'
 
+const COLORS = ['Белый', 'Чёрный', 'Серый', 'Серебристый', 'Красный', 'Синий', 'Голубой', 'Зелёный', 'Жёлтый', 'Оранжевый', 'Коричневый', 'Бежевый', 'Фиолетовый', 'Бордовый', 'Золотой']
+
+const selectStyle = { background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151' }
+
 export default function CreateCarAd() {
   const [brand, setBrand] = useState('')
   const [model, setModel] = useState('')
   const [isOtherBrand, setIsOtherBrand] = useState(false)
+  const [isOtherModel, setIsOtherModel] = useState(false)
   const [year, setYear] = useState('')
   const [mileage, setMileage] = useState('')
-  const [engineVolume, setEngineVolume] = useState('')
-  const [fuelType, setFuelType] = useState('')
-  const [hasGas, setHasGas] = useState(false)
   const [transmission, setTransmission] = useState('')
   const [color, setColor] = useState('')
+  const [isOtherColor, setIsOtherColor] = useState(false)
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
   const [region, setRegion] = useState('')
@@ -51,23 +54,30 @@ export default function CreateCarAd() {
     return value.trim() ? 'valid' : 'invalid'
   }
 
+  const handlePhoneChange = (value: string) => {
+    let digits = value.replace(/\D/g, '')
+    // Если начинает с 9 — добавляем 8 в начало
+    if (digits.startsWith('9')) digits = '8' + digits
+    // Если начинает с +7 — заменяем на 8
+    if (digits.startsWith('7') && digits.length > 1) digits = '8' + digits.slice(1)
+    // Ограничиваем 11 цифрами
+    setPhone(digits.slice(0, 11))
+  }
+
   const allRequired = brand && model && year && price && city && phone
 
   /** Собирает данные формы в объект для отправки */
   const buildAdData = (force = false) => {
-    const finalFuel = hasGas && fuelType ? `${fuelType}` : fuelType
     return {
       type: 'car_ad',
       brand: brand.trim(),
       model: model.trim(),
       year: parseInt(year),
       mileage: parseInt(mileage) || 0,
-      engine_volume: parseFloat(engineVolume) || 0,
-      fuel_type: finalFuel,
       transmission,
       color: color.trim(),
       price: parseInt(price),
-      description: (description.trim() + (hasGas ? '\n⛽ Установлено ГБО' : '')).trim(),
+      description: description.trim(),
       city,
       contact_phone: phone.trim(),
       contact_telegram: telegram.trim() || null,
@@ -279,6 +289,7 @@ export default function CreateCarAd() {
             <label className="required">{TEXTS.LABEL_BRAND}</label>
             <select
               className={fc('brand', brand)}
+              style={selectStyle}
               value={isOtherBrand ? '__other' : brand}
               onChange={e => {
                 const v = e.target.value
@@ -291,6 +302,7 @@ export default function CreateCarAd() {
                   setBrand(v)
                   setModel('')
                 }
+                setIsOtherModel(false)
                 touch('brand')
               }}
             >
@@ -324,17 +336,42 @@ export default function CreateCarAd() {
                 placeholder="Введите модель..."
               />
             ) : (
-              <select
-                className={fc('model', model)}
-                value={model}
-                onChange={e => { setModel(e.target.value); touch('model') }}
-                disabled={!brand}
-              >
-                <option value="">{brand ? 'Выберите модель' : 'Сначала выберите марку'}</option>
-                {(BRANDS.find(b => b.name === brand)?.models ?? []).map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+              <>
+                <select
+                  className={fc('model', model)}
+                  style={selectStyle}
+                  value={isOtherModel ? '__other' : model}
+                  onChange={e => {
+                    const v = e.target.value
+                    if (v === '__other') {
+                      setIsOtherModel(true)
+                      setModel('')
+                    } else {
+                      setIsOtherModel(false)
+                      setModel(v)
+                    }
+                    touch('model')
+                  }}
+                  disabled={!brand}
+                >
+                  <option value="">{brand ? 'Выберите модель' : 'Сначала выберите марку'}</option>
+                  {(BRANDS.find(b => b.name === brand)?.models ?? []).map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  <option value="__other">Другая</option>
+                </select>
+                {isOtherModel && (
+                  <input
+                    className={fc('model', model)}
+                    type="text"
+                    value={model}
+                    onChange={e => setModel(e.target.value)}
+                    onBlur={() => touch('model')}
+                    placeholder="Введите модель..."
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
@@ -342,16 +379,17 @@ export default function CreateCarAd() {
         <div className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_YEAR}</label>
-            <input
+            <select
               className={fc('year', year)}
-              type="number"
+              style={selectStyle}
               value={year}
-              onChange={e => setYear(e.target.value)}
-              onBlur={() => touch('year')}
-              min={CONFIG.MIN_YEAR}
-              max={CONFIG.MAX_YEAR}
-              placeholder="2020"
-            />
+              onChange={e => { setYear(e.target.value); touch('year') }}
+            >
+              <option value="">Год выпуска</option>
+              {Array.from({ length: 2026 - 1980 + 1 }, (_, i) => 2026 - i).map(y => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label>{TEXTS.LABEL_MILEAGE}</label>
@@ -367,41 +405,47 @@ export default function CreateCarAd() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>{TEXTS.LABEL_ENGINE}</label>
-            <input
-              className="form-field"
-              type="number"
-              step="0.1"
-              value={engineVolume}
-              onChange={e => setEngineVolume(e.target.value)}
-              placeholder="1.6"
-            />
-          </div>
-          <div className="form-group">
             <label>{TEXTS.LABEL_COLOR}</label>
-            <input
+            <select
               className="form-field"
-              type="text"
-              value={color}
-              onChange={e => setColor(e.target.value)}
-              placeholder="Чёрный"
-            />
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label>{TEXTS.LABEL_FUEL}</label>
-            <select className="form-field" value={fuelType} onChange={e => setFuelType(e.target.value)}>
-              <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
-              {TEXTS.FUEL_TYPES.map(ft => (
-                <option key={ft.value} value={ft.value}>{ft.label}</option>
+              style={selectStyle}
+              value={isOtherColor ? '__other' : color}
+              onChange={e => {
+                const v = e.target.value
+                if (v === '__other') {
+                  setIsOtherColor(true)
+                  setColor('')
+                } else {
+                  setIsOtherColor(false)
+                  setColor(v)
+                }
+              }}
+            >
+              <option value="">Выберите цвет</option>
+              {COLORS.map(c => (
+                <option key={c} value={c}>{c}</option>
               ))}
+              <option value="__other">Другой</option>
             </select>
+            {isOtherColor && (
+              <input
+                className="form-field"
+                type="text"
+                value={color}
+                onChange={e => setColor(e.target.value)}
+                placeholder="Введите цвет..."
+                style={{ marginTop: 8 }}
+              />
+            )}
           </div>
           <div className="form-group">
             <label>{TEXTS.LABEL_TRANSMISSION}</label>
-            <select className="form-field" value={transmission} onChange={e => setTransmission(e.target.value)}>
+            <select
+              className="form-field"
+              style={selectStyle}
+              value={transmission}
+              onChange={e => setTransmission(e.target.value)}
+            >
               <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
               {TEXTS.TRANSMISSIONS.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -409,15 +453,6 @@ export default function CreateCarAd() {
             </select>
           </div>
         </div>
-
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={hasGas}
-            onChange={e => setHasGas(e.target.checked)}
-          />
-          <span className="checkbox-label"><Fuel size={16} weight="BoldDuotone" /> Установлено ГБО (газ)</span>
-        </label>
       </div>
 
       {/* Section: Цена и описание */}
@@ -475,6 +510,7 @@ export default function CreateCarAd() {
           <label className="required">Регион</label>
           <select
             className={fc('region', region)}
+            style={selectStyle}
             value={region}
             onChange={e => { setRegion(e.target.value); setCity(''); touch('region') }}
           >
@@ -489,6 +525,7 @@ export default function CreateCarAd() {
           <label className="required">{TEXTS.LABEL_CITY}</label>
           <select
             className={fc('city', city)}
+            style={selectStyle}
             value={city}
             onChange={e => { setCity(e.target.value); touch('city') }}
             disabled={!region}
@@ -508,9 +545,9 @@ export default function CreateCarAd() {
               className={fc('phone', phone)}
               type="tel"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => handlePhoneChange(e.target.value)}
               onBlur={() => touch('phone')}
-              placeholder="+7..."
+              placeholder="8-999-123-45-67"
             />
           </div>
           <div className="form-group">
