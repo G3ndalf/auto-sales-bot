@@ -1069,16 +1069,10 @@ async def handle_photo_upload(request: web.Request) -> web.Response:
         user_id — telegram_id пользователя (обязательный, для rate limit)
 
     Лимит: 5MB, только JPEG/PNG/WebP.
-    Rate limit: используется тот же лимитер что и для submit.
     """
     user_id = _safe_int(request.query.get("user_id"), 0)
     if not user_id:
         return web.json_response({"ok": False, "error": "Missing user_id"}, status=400)
-
-    # Rate limit (используем тот же лимитер, ключ "photo:{user_id}")
-    denied, reason = submit_limiter.check(f"photo:{user_id}")
-    if denied:
-        return web.json_response({"ok": False, "error": reason}, status=429)
 
     try:
         reader = await request.multipart()

@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 from app.data.brands import BRANDS
-from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
+from app.utils.mappings import TRANSMISSION_MAP
 
 
 def _check_required_string(
@@ -119,23 +119,6 @@ def validate_car_ad(data: dict) -> list[str]:
                 errors.append("Пробег — максимум 10 000 000")
         except (ValueError, TypeError):
             errors.append("Пробег — должен быть числом")
-
-    # engine_volume (optional, float, 0.1 - 20.0)
-    engine = data.get("engine_volume")
-    if engine is not None and engine != "":
-        try:
-            engine_f = float(engine)
-            if engine_f < 0.1 or engine_f > 20.0:
-                errors.append("Объём двигателя — от 0.1 до 20.0")
-        except (ValueError, TypeError):
-            errors.append("Объём двигателя — должен быть числом")
-
-    # fuel_type (optional, must be in FUEL_TYPE_MAP)
-    fuel = data.get("fuel_type")
-    if fuel is not None and fuel != "":
-        if str(fuel) not in FUEL_TYPE_MAP:
-            allowed = ", ".join(FUEL_TYPE_MAP.keys())
-            errors.append(f"Тип топлива — допустимые значения: {allowed}")
 
     # transmission (optional, must be in TRANSMISSION_MAP)
     trans = data.get("transmission")
