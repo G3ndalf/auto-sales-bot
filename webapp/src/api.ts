@@ -82,6 +82,10 @@ export interface CarAdFull {
   description: string;
   contact_phone: string;
   contact_telegram: string | null;
+  author_username: string | null;
+  author_name: string | null;
+  author_since: string | null;
+  author_ads_count: number;
   photos: string[];
   created_at: string | null;
   view_count: number;
@@ -105,6 +109,10 @@ export interface PlateAdFull {
   description: string;
   contact_phone: string;
   contact_telegram: string | null;
+  author_username: string | null;
+  author_name: string | null;
+  author_since: string | null;
+  author_ads_count: number;
   photos: string[];
   created_at: string | null;
   view_count: number;
@@ -361,6 +369,14 @@ export const api = {
   getCities: () => fetchJSON<City[]>('/api/cities'),
   photoUrl: (fileId: string) => `${API_BASE}/api/photos/${fileId}`,
   getProfile: (telegramId: number) => fetchJSON<UserProfile>(`/api/profile/${telegramId}`),
+
+  /** Обновить имя пользователя */
+  updateProfile: (telegramId: number, name: string) =>
+    fetchJSON<{ ok: boolean; name: string }>(`/api/profile/${telegramId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }),
 
   // ===== Мои объявления =====
 

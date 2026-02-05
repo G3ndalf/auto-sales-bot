@@ -183,6 +183,7 @@ def create_api_app(
     app.router.add_get("/api/cities", get_cities)
     app.router.add_get("/api/photos/{file_id}", proxy_photo)
     app.router.add_get("/api/profile/{telegram_id}", get_profile)
+    app.router.add_put("/api/profile/{telegram_id}", update_profile)
 
     # ── User "My Ads" endpoint ─────────────────────────────────────
     app.router.add_get("/api/user/{telegram_id}/ads", get_user_ads)
@@ -446,10 +447,22 @@ async def get_car_ad(request: web.Request) -> web.Response:
         )
         photos = (await session.execute(photo_stmt)).scalars().all()
 
-        # Подгружаем username автора
+        # Подгружаем автора + считаем его активные объявления
         author = (await session.execute(
             select(User).where(User.id == ad.user_id)
         )).scalar_one_or_none()
+
+        author_ads_count = 0
+        if author:
+            car_count = (await session.execute(
+                select(func.count()).select_from(CarAd)
+                .where(CarAd.user_id == author.id, CarAd.status == AdStatus.APPROVED)
+            )).scalar_one()
+            plate_count = (await session.execute(
+                select(func.count()).select_from(PlateAd)
+                .where(PlateAd.user_id == author.id, PlateAd.status == AdStatus.APPROVED)
+            )).scalar_one()
+            author_ads_count = car_count + plate_count
 
         data = {
             "id": ad.id,
@@ -469,6 +482,9 @@ async def get_car_ad(request: web.Request) -> web.Response:
             "contact_phone": ad.contact_phone,
             "contact_telegram": ad.contact_telegram,
             "author_username": author.username if author else None,
+            "author_name": author.full_name if author else None,
+            "author_since": author.created_at.strftime("%d.%m.%Y") if author and author.created_at else None,
+            "author_ads_count": author_ads_count,
             "photos": [p.file_id for p in photos],
             "created_at": ad.created_at.isoformat() if ad.created_at else None,
             "view_count": ad.view_count,
@@ -610,10 +626,22 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
         )
         photos = (await session.execute(photo_stmt)).scalars().all()
 
-        # Подгружаем username автора
+        # Подгружаем автора + считаем его активные объявления
         author = (await session.execute(
             select(User).where(User.id == ad.user_id)
         )).scalar_one_or_none()
+
+        author_ads_count = 0
+        if author:
+            car_count = (await session.execute(
+                select(func.count()).select_from(CarAd)
+                .where(CarAd.user_id == author.id, CarAd.status == AdStatus.APPROVED)
+            )).scalar_one()
+            plate_count = (await session.execute(
+                select(func.count()).select_from(PlateAd)
+                .where(PlateAd.user_id == author.id, PlateAd.status == AdStatus.APPROVED)
+            )).scalar_one()
+            author_ads_count = car_count + plate_count
 
         data = {
             "id": ad.id,
@@ -625,6 +653,9 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
             "contact_phone": ad.contact_phone,
             "contact_telegram": ad.contact_telegram,
             "author_username": author.username if author else None,
+            "author_name": author.full_name if author else None,
+            "author_since": author.created_at.strftime("%d.%m.%Y") if author and author.created_at else None,
+            "author_ads_count": author_ads_count,
             "photos": [p.file_id for p in photos],
             "created_at": ad.created_at.isoformat() if ad.created_at else None,
             "view_count": ad.view_count,
@@ -777,6 +808,41 @@ async def get_profile(request: web.Request) -> web.Response:
                 "plates": sum(plate_counts.values()),
             },
         })
+
+
+async def update_profile(request: web.Request) -> web.Response:
+    """PUT /api/profile/{telegram_id} — обновить имя пользователя.
+
+    Body: { "name": "Новое имя" }
+    """
+    telegram_id = _safe_int(request.match_info.get("telegram_id"), 0)
+    if not telegram_id:
+        return web.json_response({"error": "Invalid telegram_id"}, status=400)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    name = (body.get("name") or "").strip()
+    if not name or len(name) > 100:
+        return web.json_response(
+            {"error": "Имя должно быть от 1 до 100 символов"},
+            status=400,
+        )
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user_stmt = select(User).where(User.telegram_id == telegram_id)
+        user = (await session.execute(user_stmt)).scalar_one_or_none()
+
+        if not user:
+            return web.json_response({"error": "User not found"}, status=404)
+
+        user.full_name = name
+        await session.commit()
+
+        return web.json_response({"ok": True, "name": name})
 
 
 # ---------------------------------------------------------------------------

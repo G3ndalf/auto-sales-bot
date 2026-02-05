@@ -16,6 +16,7 @@ import { useBackButton } from '../hooks/useBackButton'
 import PhotoGallery from '../components/PhotoGallery'
 import ContactFooter from '../components/ContactFooter'
 import FavoriteButton from '../components/FavoriteButton'
+import SellerBlock from '../components/SellerBlock'
 import { detailStagger, detailItem, soldBadgeScale } from '../constants/animations'
 import { formatPrice, formatDate } from '../utils/format'
 
@@ -110,6 +111,13 @@ export default function PlateAdDetail() {
             <p className="detail-description">{ad.description}</p>
           </motion.div>
         )}
+
+        {/* Продавец — shared компонент SellerBlock */}
+        <SellerBlock
+          name={ad.author_name}
+          since={ad.author_since}
+          adsCount={ad.author_ads_count}
+        />
 
         {/* Дата публикации — formatDate с 'short' по умолчанию */}
         {ad.created_at && (

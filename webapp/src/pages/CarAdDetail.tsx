@@ -25,6 +25,7 @@ import { useBackButton } from '../hooks/useBackButton'
 import PhotoGallery from '../components/PhotoGallery'
 import ContactFooter from '../components/ContactFooter'
 import FavoriteButton from '../components/FavoriteButton'
+import SellerBlock from '../components/SellerBlock'
 import { THEME } from '../constants/theme'
 import { detailStagger, detailItem, soldBadgeScale } from '../constants/animations'
 import { formatPrice, formatDate } from '../utils/format'
@@ -351,6 +352,15 @@ export default function CarAdDetail() {
         )}
 
         {/* ═══════════════════════════════════════════════════
+            ПРОДАВЕЦ — shared компонент SellerBlock
+            ═══════════════════════════════════════════════════ */}
+        <SellerBlock
+          name={ad.author_name}
+          since={ad.author_since}
+          adsCount={ad.author_ads_count}
+        />
+
+        {/* ═══════════════════════════════════════════════════
             ДАТА ПУБЛИКАЦИИ — formatDate 'long' (6 февраля 2026)
             ═══════════════════════════════════════════════════ */}
         {ad.created_at && (
@@ -382,7 +392,7 @@ export default function CarAdDetail() {
       {/* ═══════════════════════════════════════════════════
           STICKY FOOTER — shared компонент контактов
           ═══════════════════════════════════════════════════ */}
-      <ContactFooter phone={ad.contact_phone} authorUsername={adAny.author_username} />
+      <ContactFooter phone={ad.contact_phone} authorUsername={ad.author_username} />
     </div>
   )
 }

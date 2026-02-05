@@ -2,7 +2,7 @@
  * Profile.tsx — Главная страница профиля пользователя.
  *
  * Показывает:
- * - Аватар, имя, username
+ * - Аватар, имя (редактируемое), username
  * - Дата регистрации
  * - Статистика объявлений: активные, на модерации, отклонённые, всего + разбивка авто/номера
  * - Кнопка "Мои объявления" (навигация на /my-ads)
@@ -10,13 +10,12 @@
  * Анимации: scale-in аватар, stagger статистика (80ms), stagger кнопки
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { api, getUserId, ADMIN_IDS } from '../api'
 import type { UserProfile } from '../api'
-import { SkeletonProfile } from '../components/Skeleton'
-import { ClipboardList, Settings, CheckCircle, ClockCircle, CloseCircle, Chart, Garage, Hashtag } from '@solar-icons/react'
+import { ClipboardList, Settings, CheckCircle, ClockCircle, CloseCircle, Chart, Garage, Hashtag, Pen } from '@solar-icons/react'
 
 /* Варианты анимаций для stagger-контейнеров */
 const staggerContainer = (staggerDelay = 0.03) => ({
@@ -33,6 +32,10 @@ const staggerItem = {
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -59,11 +62,40 @@ export default function Profile() {
       .finally(() => setLoading(false))
   }, [])
 
+  /** Начать редактирование имени */
+  const startEdit = () => {
+    setEditName(profile?.name || '')
+    setEditing(true)
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  /** Сохранить имя */
+  const saveName = async () => {
+    const uid = getUserId()
+    if (!uid || !editName.trim()) return
+
+    setSaving(true)
+    try {
+      const result = await api.updateProfile(uid, editName.trim())
+      if (result.ok && profile) {
+        setProfile({ ...profile, name: result.name })
+      }
+    } catch { /* ignore */ }
+    setSaving(false)
+    setEditing(false)
+  }
+
+  /** Отмена редактирования */
+  const cancelEdit = () => {
+    setEditing(false)
+    setEditName('')
+  }
+
   if (loading) return null
   if (!profile) return null
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
-  const displayName = tgUser?.first_name || profile.name
+  const displayName = profile.name || tgUser?.first_name || 'Пользователь'
   const avatar = displayName.charAt(0).toUpperCase()
 
   /** Статистика объявлений с цветовой кодировкой фона */
@@ -76,7 +108,7 @@ export default function Profile() {
 
   return (
     <div className="profile-page">
-      {/* Hero — аватар, имя, дата регистрации (мягкий scale-in) */}
+      {/* Hero — аватар, имя (редактируемое), дата регистрации */}
       <motion.div
         className="profile-hero"
         initial={{ scale: 0.95, opacity: 0 }}
@@ -84,7 +116,103 @@ export default function Profile() {
         transition={{ duration: 0.2, ease: 'easeOut' }}
       >
         <div className="profile-avatar">{avatar}</div>
-        <h1 className="profile-name">{displayName}</h1>
+
+        {/* Имя с кнопкой редактирования */}
+        <AnimatePresence mode="wait">
+          {editing ? (
+            <motion.div
+              key="editing"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.15 }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 8 }}
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                maxLength={100}
+                placeholder="Ваше имя"
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  padding: '8px 16px',
+                  borderRadius: 12,
+                  border: '1px solid #374151',
+                  background: '#1F2937',
+                  color: '#F9FAFB',
+                  outline: 'none',
+                  width: '80%',
+                  maxWidth: 240,
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={saveName}
+                  disabled={saving || !editName.trim()}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: '#F59E0B',
+                    color: '#0B0F19',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    opacity: saving || !editName.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {saving ? 'Сохранение...' : 'Сохранить'}
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 10,
+                    border: '1px solid #374151',
+                    background: 'transparent',
+                    color: '#9CA3AF',
+                    fontSize: 14,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="display"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.15 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <h1 className="profile-name" style={{ margin: 0 }}>{displayName}</h1>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={startEdit}
+                style={{
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: 6,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Pen size={14} weight="BoldDuotone" color="#F59E0B" />
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {profile.username && (
           <p className="profile-username">@{profile.username}</p>
         )}
