@@ -62,6 +62,15 @@ export const TEXTS = {
   ADMIN_ACCESS_DENIED: 'Нет доступа к админ-панели',
   ADMIN_CAR_LABEL: 'Авто',
   ADMIN_PLATE_LABEL: 'Номер',
+  ADMIN_TAB_MODERATION: 'Модерация',
+  ADMIN_TAB_USERS: 'Пользователи',
+  ADMIN_USERS_SEARCH: 'Поиск по имени или @username',
+  ADMIN_USERS_EMPTY: 'Пользователи не найдены',
+  ADMIN_USER_ADS: 'объявлений',
+  ADMIN_USER_BANNED: 'Заблокирован',
+  ADMIN_USER_BAN: 'Заблокировать',
+  ADMIN_USER_UNBAN: 'Разблокировать',
+  ADMIN_USER_SINCE: 'С нами с',
 
   // Enum labels
   FUEL_TYPES: [

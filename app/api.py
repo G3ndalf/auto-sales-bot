@@ -209,6 +209,12 @@ def create_api_app(
     app.router.add_post("/api/admin/reject/{ad_type}/{ad_id}", admin_reject)
     app.router.add_post("/api/admin/generate", admin_generate_ad)
 
+    # Admin user management
+    app.router.add_get("/api/admin/users", admin_get_users)
+    app.router.add_get("/api/admin/users/{telegram_id}", admin_get_user_detail)
+    app.router.add_post("/api/admin/users/{telegram_id}/ban", admin_ban_user)
+    app.router.add_post("/api/admin/users/{telegram_id}/unban", admin_unban_user)
+
     return app
 
 
@@ -1254,6 +1260,18 @@ async def handle_submit(request: web.Request) -> web.Response:
         logger.warning("[api/submit] Rate limited user_id=%d: %s", user_id_tg, reason)
         return web.json_response({"ok": False, "error": reason}, status=429)
 
+    # Check if user is banned
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user_check = (await session.execute(
+            select(User).where(User.telegram_id == user_id_tg)
+        )).scalar_one_or_none()
+        if user_check and user_check.is_banned:
+            return web.json_response(
+                {"ok": False, "error": "Ваш аккаунт заблокирован"},
+                status=403,
+            )
+
     # --- Validate fields ---
     if ad_type == "car_ad":
         validation_errors = validate_car_ad(data)
@@ -1824,6 +1842,227 @@ async def admin_reject(request: web.Request) -> web.Response:
                 await bot.send_message(user.telegram_id, USER_AD_REJECTED)
         except Exception:
             logger.exception("Failed to notify user about rejection")
+
+    return web.json_response({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Управление пользователями (админ)
+# ---------------------------------------------------------------------------
+
+
+async def admin_get_users(request: web.Request) -> web.Response:
+    """GET /api/admin/users — список пользователей с пагинацией и поиском.
+
+    Query params:
+        q      — поиск по username или full_name (ILIKE, OR)
+        offset — смещение (default 0)
+        limit  — количество (default 20, max 50)
+
+    Response: {items: [...], total: int}
+    """
+    if not _check_admin_access(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    q = request.query.get("q")
+    offset = _safe_int(request.query.get("offset"), 0)
+    limit = min(_safe_int(request.query.get("limit"), 20), 50)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        stmt = select(User)
+        count_stmt = select(func.count()).select_from(User)
+
+        # Поиск по username и full_name
+        if q:
+            q_escaped = _escape_like(q)
+            q_pattern = f"%{q_escaped}%"
+            search_filter = or_(
+                User.username.ilike(q_pattern),
+                User.full_name.ilike(q_pattern),
+            )
+            stmt = stmt.where(search_filter)
+            count_stmt = count_stmt.where(search_filter)
+
+        # Сортировка по дате регистрации DESC (новые первые)
+        stmt = stmt.order_by(User.created_at.desc())
+
+        total = (await session.execute(count_stmt)).scalar_one()
+        users = (
+            await session.execute(stmt.offset(offset).limit(limit))
+        ).scalars().all()
+
+        # Подсчитать ads_count для каждого пользователя
+        items = []
+        for user in users:
+            car_count = (await session.execute(
+                select(func.count()).select_from(CarAd).where(CarAd.user_id == user.id)
+            )).scalar_one()
+            plate_count = (await session.execute(
+                select(func.count()).select_from(PlateAd).where(PlateAd.user_id == user.id)
+            )).scalar_one()
+
+            items.append({
+                "id": user.id,
+                "telegram_id": user.telegram_id,
+                "username": user.username,
+                "full_name": user.full_name,
+                "phone": user.phone,
+                "is_banned": user.is_banned,
+                "is_admin": user.is_admin,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "ads_count": car_count + plate_count,
+            })
+
+    return web.json_response({"items": items, "total": total})
+
+
+async def admin_get_user_detail(request: web.Request) -> web.Response:
+    """GET /api/admin/users/{telegram_id} — детали пользователя.
+
+    Response: {user: {...}, cars: [...], plates: [...]}
+    """
+    if not _check_admin_access(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    telegram_id = _safe_int(request.match_info.get("telegram_id"), 0)
+    if not telegram_id:
+        return web.json_response({"error": "Invalid telegram_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user = (await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )).scalar_one_or_none()
+
+        if not user:
+            raise web.HTTPNotFound(text="User not found")
+
+        # Загрузить все car ads пользователя
+        car_ads = (await session.execute(
+            select(CarAd).where(CarAd.user_id == user.id).order_by(CarAd.created_at.desc())
+        )).scalars().all()
+
+        # Загрузить все plate ads пользователя
+        plate_ads = (await session.execute(
+            select(PlateAd).where(PlateAd.user_id == user.id).order_by(PlateAd.created_at.desc())
+        )).scalars().all()
+
+        # Собрать первые фото
+        car_ids = [ad.id for ad in car_ads]
+        plate_ids = [ad.id for ad in plate_ads]
+        car_photos: dict[int, str] = {}
+        plate_photos: dict[int, str] = {}
+
+        if car_ids:
+            photo_stmt = (
+                select(AdPhoto)
+                .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(car_ids))
+                .order_by(AdPhoto.position)
+            )
+            car_photos = _get_first_photos(
+                (await session.execute(photo_stmt)).scalars().all()
+            )
+
+        if plate_ids:
+            photo_stmt = (
+                select(AdPhoto)
+                .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(plate_ids))
+                .order_by(AdPhoto.position)
+            )
+            plate_photos = _get_first_photos(
+                (await session.execute(photo_stmt)).scalars().all()
+            )
+
+        # Формируем ответ
+        user_data = {
+            "id": user.id,
+            "telegram_id": user.telegram_id,
+            "username": user.username,
+            "full_name": user.full_name,
+            "phone": user.phone,
+            "is_banned": user.is_banned,
+            "is_admin": user.is_admin,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        }
+
+        cars_list = [
+            {
+                "id": ad.id,
+                "title": f"{ad.brand} {ad.model}",
+                "status": ad.status.value,
+                "price": ad.price,
+                "city": ad.city,
+                "photo": car_photos.get(ad.id),
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            }
+            for ad in car_ads
+        ]
+
+        plates_list = [
+            {
+                "id": ad.id,
+                "title": ad.plate_number,
+                "status": ad.status.value,
+                "price": ad.price,
+                "city": ad.city,
+                "photo": plate_photos.get(ad.id),
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            }
+            for ad in plate_ads
+        ]
+
+    return web.json_response({
+        "user": user_data,
+        "cars": cars_list,
+        "plates": plates_list,
+    })
+
+
+async def admin_ban_user(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{telegram_id}/ban — забанить пользователя."""
+    if not _check_admin_access(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    telegram_id = _safe_int(request.match_info.get("telegram_id"), 0)
+    if not telegram_id:
+        return web.json_response({"error": "Invalid telegram_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user = (await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )).scalar_one_or_none()
+
+        if not user:
+            raise web.HTTPNotFound(text="User not found")
+
+        user.is_banned = True
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def admin_unban_user(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{telegram_id}/unban — разбанить пользователя."""
+    if not _check_admin_access(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    telegram_id = _safe_int(request.match_info.get("telegram_id"), 0)
+    if not telegram_id:
+        return web.json_response({"error": "Invalid telegram_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        user = (await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )).scalar_one_or_none()
+
+        if not user:
+            raise web.HTTPNotFound(text="User not found")
+
+        user.is_banned = False
+        await session.commit()
 
     return web.json_response({"ok": True})
 

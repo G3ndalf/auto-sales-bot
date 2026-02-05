@@ -168,6 +168,24 @@ export interface AdminStats {
   rejected: number;
 }
 
+export interface AdminUser {
+  id: number;
+  telegram_id: number;
+  username: string | null;
+  full_name: string;
+  phone: string | null;
+  is_banned: boolean;
+  is_admin: boolean;
+  created_at: string;
+  ads_count: number;
+}
+
+export interface AdminUserDetail {
+  user: AdminUser;
+  cars: Array<{ id: number; title: string; status: string; price: number }>;
+  plates: Array<{ id: number; title: string; status: string; price: number }>;
+}
+
 /**
  * Объявление пользователя (универсальный тип для "Мои объявления").
  * Может быть авто или номером — определяется по ad_type.
@@ -458,5 +476,38 @@ export const api = {
       ok: boolean;
       ad?: { id: number; title: string; price: number; city: string; photos_attached: number };
     }>(`/api/admin/generate${adminQueryParams()}`, { method: 'POST' });
+  },
+
+  /** Получить список пользователей (поиск, пагинация) */
+  adminGetUsers: (q?: string, offset?: number, limit?: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (offset !== undefined) params.set('offset', String(offset));
+    if (limit !== undefined) params.set('limit', String(limit));
+    const qs = params.toString();
+    const base = adminQueryParams();
+    const sep = base ? '&' : '?';
+    return fetchJSON<{ items: AdminUser[]; total: number }>(
+      `/api/admin/users${base}${qs ? sep + qs : ''}`
+    );
+  },
+
+  /** Получить детали пользователя с его объявлениями */
+  adminGetUserDetail: (telegramId: number) => {
+    return fetchJSON<AdminUserDetail>(`/api/admin/users/${telegramId}${adminQueryParams()}`);
+  },
+
+  /** Заблокировать пользователя */
+  adminBanUser: (telegramId: number) => {
+    return fetchJSON<{ ok: boolean }>(`/api/admin/users/${telegramId}/ban${adminQueryParams()}`, {
+      method: 'POST',
+    });
+  },
+
+  /** Разблокировать пользователя */
+  adminUnbanUser: (telegramId: number) => {
+    return fetchJSON<{ ok: boolean }>(`/api/admin/users/${telegramId}/unban${adminQueryParams()}`, {
+      method: 'POST',
+    });
   },
 };
