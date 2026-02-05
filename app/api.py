@@ -1772,10 +1772,21 @@ _RANDOM_COLORS = [
     "Красный", "Зелёный", "Бежевый", "Коричневый", "Оранжевый",
 ]
 
-_RANDOM_CITIES = [
-    "Нальчик", "Баксан", "Прохладный", "Махачкала", "Грозный",
-    "Владикавказ", "Назрань", "Черкесск", "Ставрополь", "Пятигорск",
-    "Кисловодск", "Ессентуки", "Минеральные Воды",
+# Город → регион маппинг (для генерации)
+_RANDOM_CITY_REGIONS = [
+    ("Нальчик", "Кабардино-Балкария"),
+    ("Баксан", "Кабардино-Балкария"),
+    ("Прохладный", "Кабардино-Балкария"),
+    ("Махачкала", "Дагестан"),
+    ("Грозный", "Чечня"),
+    ("Владикавказ", "Северная Осетия"),
+    ("Назрань", "Ингушетия"),
+    ("Черкесск", "Карачаево-Черкесия"),
+    ("Ставрополь", "Ставропольский край"),
+    ("Пятигорск", "Ставропольский край"),
+    ("Кисловодск", "Ставропольский край"),
+    ("Ессентуки", "Ставропольский край"),
+    ("Минеральные Воды", "Ставропольский край"),
 ]
 
 _RANDOM_DESCRIPTIONS = [
@@ -1795,7 +1806,11 @@ _RANDOM_DESCRIPTIONS = [
 async def admin_generate_ad(request: web.Request) -> web.Response:
     """POST /api/admin/generate — сгенерировать тестовое объявление.
 
-    Создаёт авто-объявление с рандомными данными из базы марок/моделей.
+    Генерирует ТОЧНО те же поля, что отправляет форма CreateCarAd:
+      brand, model, year, mileage, transmission, color, has_gbo,
+      price, description, region, city, contact_phone.
+
+    Поля НЕ в форме (engine_volume, fuel_type) оставляем дефолтными (0 / бензин).
     Прикрепляет до 3 случайных фото из уже существующих в БД.
     Объявление создаётся со статусом APPROVED (сразу в каталоге).
     """
@@ -1804,26 +1819,23 @@ async def admin_generate_ad(request: web.Request) -> web.Response:
 
     pool = request.app["session_pool"]
 
-    # Выбрать рандомную марку и модель из справочника
+    # ── Рандомные данные — ТОЛЬКО поля из формы CreateCarAd ──
     brand_names = list(BRANDS.keys())
     brand = random.choice(brand_names)
     models = BRANDS[brand]
     model = random.choice(models) if models else "Базовая"
 
-    # Рандомные характеристики
     year = random.randint(2005, 2025)
     mileage = random.randint(0, 300000)
-    engine_volume = round(random.choice([1.4, 1.6, 1.8, 2.0, 2.4, 2.5, 3.0, 3.5, 4.0, 5.0]), 1)
-    fuel_type = random.choice(list(FuelType))
     transmission = random.choice(list(Transmission))
     color = random.choice(_RANDOM_COLORS)
-    price = random.randint(200, 5000) * 1000  # 200к — 5М, шаг 1000₽
-    city = random.choice(_RANDOM_CITIES)
+    has_gbo = random.choice([True, False, False, False])  # ~25% с ГБО
+    price = random.randint(200, 5000) * 1000
     description = random.choice(_RANDOM_DESCRIPTIONS)
-    phone = f"8-{random.randint(900,999)}-{random.randint(100,999)}-{random.randint(10,99)}-{random.randint(10,99)}"
+    city, region = random.choice(_RANDOM_CITY_REGIONS)
+    phone = f"8{random.randint(900,999)}{random.randint(1000000,9999999)}"
 
     async with pool() as session:
-        # Получить или создать пользователя-админа (от чьего имени создаётся)
         admin_tg_id = settings.admin_ids[0] if settings.admin_ids else 0
         if not admin_tg_id:
             return web.json_response({"ok": False, "error": "No admin configured"}, status=500)
@@ -1835,7 +1847,8 @@ async def admin_generate_ad(request: web.Request) -> web.Response:
             full_name="Администратор",
         )
 
-        # Создать объявление
+        # Создать объявление — engine_volume=0 и fuel_type=PETROL (дефолты,
+        # эти поля не в форме и не показываются в карточке)
         ad = await create_car_ad(
             session,
             user_id=user.id,
@@ -1843,15 +1856,17 @@ async def admin_generate_ad(request: web.Request) -> web.Response:
             model=model,
             year=year,
             mileage=mileage,
-            engine_volume=engine_volume,
-            fuel_type=fuel_type,
+            engine_volume=0,
+            fuel_type=FuelType.PETROL,
             transmission=transmission,
             color=color,
             price=price,
             description=description,
+            region=region,
             city=city,
             contact_phone=phone,
             contact_telegram=None,
+            has_gbo=has_gbo,
         )
 
         # Сразу одобряем
