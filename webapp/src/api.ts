@@ -432,4 +432,12 @@ export const api = {
       body: JSON.stringify({ reason: reason || 'Не прошло модерацию' }),
     });
   },
+
+  /** Сгенерировать тестовое объявление с рандомными данными и фото */
+  adminGenerateAd: () => {
+    return fetchJSON<{
+      ok: boolean;
+      ad?: { id: number; title: string; price: number; city: string; photos_attached: number };
+    }>(`/api/admin/generate${adminQueryParams()}`, { method: 'POST' });
+  },
 };

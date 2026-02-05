@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Chart, ClockCircle, CheckCircle, CloseCircle, Garage, Hashtag, MapPoint, Phone, ChatRound } from '@solar-icons/react'
+import { Chart, ClockCircle, CheckCircle, CloseCircle, Garage, Hashtag, MapPoint, Phone, ChatRound, AddCircle } from '@solar-icons/react'
 import { api } from '../api'
 import type { AdminPendingAd, AdminStats } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
@@ -38,6 +38,8 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generatedInfo, setGeneratedInfo] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
@@ -92,6 +94,26 @@ export default function AdminPanel() {
     setActionLoading(null)
   }
 
+  /** Сгенерировать тестовое объявление с рандомными данными */
+  const handleGenerate = async () => {
+    setGenerating(true)
+    setGeneratedInfo(null)
+    try {
+      const result = await api.adminGenerateAd()
+      if (result.ok && result.ad) {
+        const { title, price, city, photos_attached } = result.ad
+        setGeneratedInfo(
+          `${title} — ${price.toLocaleString('ru-RU')} ₽, ${city} (фото: ${photos_attached})`
+        )
+        // Обновить статистику
+        setStats(prev => prev ? { ...prev, total: prev.total + 1, approved: prev.approved + 1 } : prev)
+      }
+    } catch {
+      setError(TEXTS.ADMIN_ERROR)
+    }
+    setGenerating(false)
+  }
+
   const formatPrice = (n: number) => n.toLocaleString('ru-RU') + ' ₽'
 
   if (loading) return <div className="loading">Загрузка...</div>
@@ -131,6 +153,53 @@ export default function AdminPanel() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Кнопка генерации тестового объявления */}
+      <div style={{ margin: '16px 0' }}>
+        <motion.button
+          onClick={handleGenerate}
+          disabled={generating}
+          whileTap={{ scale: 0.95 }}
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            border: 'none',
+            background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+            color: '#0B0F19',
+            fontWeight: 600,
+            fontSize: '15px',
+            cursor: generating ? 'wait' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            opacity: generating ? 0.7 : 1,
+          }}
+        >
+          <AddCircle size={20} weight="BoldDuotone" />
+          {generating ? 'Генерация...' : 'Сгенерировать объявление'}
+        </motion.button>
+
+        {/* Результат генерации */}
+        {generatedInfo && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              marginTop: '8px',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'rgba(34, 197, 94, 0.15)',
+              color: '#22C55E',
+              fontSize: '13px',
+              lineHeight: 1.4,
+            }}
+          >
+            {generatedInfo}
+          </motion.div>
+        )}
+      </div>
 
       {/* Error toast */}
       {error && <div className="admin-error">{error}</div>}

@@ -34,6 +34,7 @@ import hmac
 import json
 import logging
 import mimetypes
+import random
 import re
 from datetime import datetime, timezone, timedelta
 
@@ -205,6 +206,7 @@ def create_api_app(
     app.router.add_get("/api/admin/stats", admin_get_stats)
     app.router.add_post("/api/admin/approve/{ad_type}/{ad_id}", admin_approve)
     app.router.add_post("/api/admin/reject/{ad_type}/{ad_id}", admin_reject)
+    app.router.add_post("/api/admin/generate", admin_generate_ad)
 
     return app
 
@@ -1750,3 +1752,135 @@ async def admin_reject(request: web.Request) -> web.Response:
             logger.exception("Failed to notify user about rejection")
 
     return web.json_response({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Генерация тестового объявления (только для админов)
+# ---------------------------------------------------------------------------
+
+# Рандомные данные для генерации тестовых объявлений
+_RANDOM_COLORS = [
+    "Белый", "Чёрный", "Серый", "Серебристый", "Синий",
+    "Красный", "Зелёный", "Бежевый", "Коричневый", "Оранжевый",
+]
+
+_RANDOM_CITIES = [
+    "Нальчик", "Баксан", "Прохладный", "Махачкала", "Грозный",
+    "Владикавказ", "Назрань", "Черкесск", "Ставрополь", "Пятигорск",
+    "Кисловодск", "Ессентуки", "Минеральные Воды",
+]
+
+_RANDOM_DESCRIPTIONS = [
+    "Машина в отличном состоянии, один хозяин, не бита, не крашена.",
+    "Срочно! Продаю в связи с переездом. Торг уместен.",
+    "Все ТО пройдены у дилера, есть полная сервисная книжка.",
+    "Гаражное хранение, зимний комплект шин в подарок.",
+    "Без ДТП, чистый салон, климат-контроль, подогрев сидений.",
+    "После капиталки двигателя, новая ходовая, свежая резина.",
+    "Полный привод, идеальна для гор. Отличный обзор.",
+    "Семейный авто, вместительный багажник, камера заднего вида.",
+    "Максимальная комплектация, кожаный салон, панорамная крыша.",
+    "Экономичный расход, идеальна для города. Обмен не предлагать.",
+]
+
+
+async def admin_generate_ad(request: web.Request) -> web.Response:
+    """POST /api/admin/generate — сгенерировать тестовое объявление.
+
+    Создаёт авто-объявление с рандомными данными из базы марок/моделей.
+    Прикрепляет до 3 случайных фото из уже существующих в БД.
+    Объявление создаётся со статусом APPROVED (сразу в каталоге).
+    """
+    if not _check_admin_access(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    pool = request.app["session_pool"]
+
+    # Выбрать рандомную марку и модель из справочника
+    brand_names = list(BRANDS.keys())
+    brand = random.choice(brand_names)
+    models = BRANDS[brand]
+    model = random.choice(models) if models else "Базовая"
+
+    # Рандомные характеристики
+    year = random.randint(2005, 2025)
+    mileage = random.randint(0, 300000)
+    engine_volume = round(random.choice([1.4, 1.6, 1.8, 2.0, 2.4, 2.5, 3.0, 3.5, 4.0, 5.0]), 1)
+    fuel_type = random.choice(list(FuelType))
+    transmission = random.choice(list(Transmission))
+    color = random.choice(_RANDOM_COLORS)
+    price = random.randint(200, 5000) * 1000  # 200к — 5М, шаг 1000₽
+    city = random.choice(_RANDOM_CITIES)
+    description = random.choice(_RANDOM_DESCRIPTIONS)
+    phone = f"8-{random.randint(900,999)}-{random.randint(100,999)}-{random.randint(10,99)}-{random.randint(10,99)}"
+
+    async with pool() as session:
+        # Получить или создать пользователя-админа (от чьего имени создаётся)
+        admin_tg_id = settings.admin_ids[0] if settings.admin_ids else 0
+        if not admin_tg_id:
+            return web.json_response({"ok": False, "error": "No admin configured"}, status=500)
+
+        user = await get_or_create_user(
+            session,
+            telegram_id=admin_tg_id,
+            username="admin",
+            full_name="Администратор",
+        )
+
+        # Создать объявление
+        ad = await create_car_ad(
+            session,
+            user_id=user.id,
+            brand=brand,
+            model=model,
+            year=year,
+            mileage=mileage,
+            engine_volume=engine_volume,
+            fuel_type=fuel_type,
+            transmission=transmission,
+            color=color,
+            price=price,
+            description=description,
+            city=city,
+            contact_phone=phone,
+            contact_telegram=None,
+        )
+
+        # Сразу одобряем
+        ad.status = AdStatus.APPROVED
+        ad.expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+
+        # Подобрать до 3 рандомных фото из существующих в БД
+        all_photos_stmt = select(AdPhoto.file_id).distinct()
+        all_photo_ids = [
+            row[0]
+            for row in (await session.execute(all_photos_stmt)).all()
+        ]
+
+        # Если есть фото — прикрепляем до 3 случайных
+        attached_count = 0
+        if all_photo_ids:
+            sample_size = min(3, len(all_photo_ids))
+            sampled = random.sample(all_photo_ids, sample_size)
+            for i, file_id in enumerate(sampled):
+                photo = AdPhoto(
+                    ad_type=AdType.CAR,
+                    ad_id=ad.id,
+                    file_id=file_id,
+                    position=i,
+                )
+                session.add(photo)
+                attached_count += 1
+
+        await session.commit()
+
+        return web.json_response({
+            "ok": True,
+            "ad": {
+                "id": ad.id,
+                "title": f"{brand} {model} ({year})",
+                "price": price,
+                "city": city,
+                "photos_attached": attached_count,
+            },
+        })
