@@ -166,6 +166,23 @@ export function getUserId(): number | null {
   return null;
 }
 
+// Custom error class for submit errors
+export class SubmitError extends Error {
+  type: 'validation' | 'rate_limit' | 'generic';
+  errors?: string[];
+
+  constructor(
+    message: string,
+    type: 'validation' | 'rate_limit' | 'generic',
+    errors?: string[],
+  ) {
+    super(message);
+    this.name = 'SubmitError';
+    this.type = type;
+    this.errors = errors;
+  }
+}
+
 // Submit ad via API (sendData fallback)
 export async function submitAd(data: Record<string, unknown>): Promise<{ ok: boolean; ad_id?: number }> {
   const uid = getUserId();
@@ -177,8 +194,27 @@ export async function submitAd(data: Record<string, unknown>): Promise<{ ok: boo
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    const payload = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+
+    if (res.status === 400 && Array.isArray(payload.errors)) {
+      throw new SubmitError(
+        payload.errors.join('; '),
+        'validation',
+        payload.errors,
+      );
+    }
+
+    if (res.status === 429) {
+      throw new SubmitError(
+        payload.error || 'Слишком много запросов',
+        'rate_limit',
+      );
+    }
+
+    throw new SubmitError(
+      payload.error || `HTTP ${res.status}`,
+      'generic',
+    );
   }
   return res.json();
 }

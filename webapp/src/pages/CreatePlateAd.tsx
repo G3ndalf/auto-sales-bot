@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
-import { submitAd } from '../api'
+import { submitAd, SubmitError } from '../api'
 
 export default function CreatePlateAd() {
   const [plateNumber, setPlateNumber] = useState('')
@@ -13,6 +13,9 @@ export default function CreatePlateAd() {
   const [telegram, setTelegram] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
+  const [formErrors, setFormErrors] = useState<string[]>([])
+  const [errorType, setErrorType] = useState<'validation' | 'rate_limit' | 'generic' | null>(null)
+  const errorsRef = useRef<HTMLDivElement>(null)
 
   useBackButton('/')
 
@@ -23,7 +26,11 @@ export default function CreatePlateAd() {
 
   const handleSubmit = async () => {
     if (!plateNumber || !price || !city || !phone) {
-      alert(TEXTS.VALIDATION_REQUIRED_PLATE)
+      setErrorType('validation')
+      setFormErrors(['Заполните все обязательные поля: номер, цена, город, телефон'])
+      setTimeout(() => {
+        errorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 50)
       return
     }
 
@@ -38,6 +45,8 @@ export default function CreatePlateAd() {
     }
 
     setSubmitting(true)
+    setFormErrors([])
+    setErrorType(null)
 
     try {
       await submitAd(adData)
@@ -47,14 +56,46 @@ export default function CreatePlateAd() {
       }, 1500)
     } catch (e: unknown) {
       setSubmitting(false)
-      const msg = e instanceof Error ? e.message : String(e)
-      alert(TEXTS.MSG_ERROR + '\n' + msg)
+      if (e instanceof SubmitError) {
+        setErrorType(e.type)
+        if (e.type === 'validation' && e.errors) {
+          setFormErrors(e.errors)
+        } else {
+          setFormErrors([e.message])
+        }
+      } else {
+        setErrorType('generic')
+        setFormErrors([e instanceof Error ? e.message : String(e)])
+      }
+      setTimeout(() => {
+        errorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 50)
     }
   }
 
   return (
     <div className="form-page">
       <h1>{TEXTS.PLATE_FORM_TITLE}</h1>
+
+      {formErrors.length > 0 && (
+        <div
+          ref={errorsRef}
+          className={`form-errors ${errorType === 'rate_limit' ? 'form-errors--rate-limit' : ''}`}
+        >
+          {errorType === 'rate_limit' ? (
+            <div className="form-errors__title">⏳ {formErrors[0]}</div>
+          ) : (
+            <>
+              <div className="form-errors__title">Исправьте ошибки:</div>
+              <ul className="form-errors__list">
+                {formErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Section: Номер */}
       <div className="form-section">

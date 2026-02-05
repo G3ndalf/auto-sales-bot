@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import type { CarAdPreview } from '../api'
+import type { CarAdPreview, Brand, City } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 
 interface Props {
@@ -16,10 +16,29 @@ export default function CarsList({ embedded }: Props) {
   const [loading, setLoading] = useState(true)
   const [offset, setOffset] = useState(0)
 
-  const loadAds = async (newOffset = 0) => {
+  // Filters
+  const [brands, setBrands] = useState<Brand[]>([])
+  const [cities, setCities] = useState<City[]>([])
+  const [selectedBrand, setSelectedBrand] = useState('')
+  const [selectedCity, setSelectedCity] = useState('')
+
+  // Load filter options
+  useEffect(() => {
+    api.getBrands().then(setBrands).catch(() => {})
+    api.getCities().then(setCities).catch(() => {})
+  }, [])
+
+  const buildParams = (newOffset: number, brand = selectedBrand, city = selectedCity) => {
+    const params: Record<string, string> = { offset: String(newOffset), limit: '20' }
+    if (brand) params.brand = brand
+    if (city) params.city = city
+    return params
+  }
+
+  const loadAds = async (newOffset = 0, brand = selectedBrand, city = selectedCity) => {
     setLoading(true)
     try {
-      const params: Record<string, string> = { offset: String(newOffset), limit: '20' }
+      const params = buildParams(newOffset, brand, city)
       const data = await api.getCarAds(params)
       if (newOffset === 0) {
         setAds(data.items)
@@ -38,10 +57,24 @@ export default function CarsList({ embedded }: Props) {
     loadAds(0)
   }, [])
 
+  const handleBrandChange = (brand: string) => {
+    setSelectedBrand(brand)
+    setOffset(0)
+    setAds([])
+    loadAds(0, brand, selectedCity)
+  }
+
+  const handleCityChange = (city: string) => {
+    setSelectedCity(city)
+    setOffset(0)
+    setAds([])
+    loadAds(0, selectedBrand, city)
+  }
+
   const formatPrice = (n: number) =>
     n.toLocaleString('ru-RU') + ' ₽'
 
-  if (loading && ads.length === 0) {
+  if (loading && ads.length === 0 && brands.length === 0) {
     return <div className="loading">Загрузка...</div>
   }
 
@@ -54,9 +87,37 @@ export default function CarsList({ embedded }: Props) {
         </>
       )}
 
+      <div className="filters-bar">
+        <select
+          className="filter-select"
+          value={selectedBrand}
+          onChange={e => handleBrandChange(e.target.value)}
+        >
+          <option value="">Все марки</option>
+          {brands.map(b => (
+            <option key={b.brand} value={b.brand}>
+              {b.brand} ({b.count})
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="filter-select"
+          value={selectedCity}
+          onChange={e => handleCityChange(e.target.value)}
+        >
+          <option value="">Все города</option>
+          {cities.map(c => (
+            <option key={c.city} value={c.city}>
+              {c.city} ({c.count})
+            </option>
+          ))}
+        </select>
+      </div>
+
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
-      {ads.length === 0 ? (
+      {!loading && ads.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">🚗</div>
           <p>Пока нет объявлений</p>
