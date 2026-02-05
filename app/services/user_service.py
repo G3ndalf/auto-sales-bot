@@ -19,15 +19,15 @@ async def get_or_create_user(
         user = User(
             telegram_id=telegram_id,
             username=username,
-            full_name=full_name,
+            full_name=full_name or "User",
         )
         session.add(user)
         await session.flush()
     else:
-        # Update username and full_name if changed
-        if user.username != username:
+        # Update username and full_name if changed (only if new value is not None)
+        if username is not None and user.username != username:
             user.username = username
-        if user.full_name != full_name:
+        if full_name is not None and user.full_name != full_name:
             user.full_name = full_name
 
     return user
