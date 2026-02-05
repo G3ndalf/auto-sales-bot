@@ -213,21 +213,26 @@ export default function CarAdDetail() {
         <button
           className="btn btn-gradient detail-footer__btn"
           onClick={() => {
-            const phone = ad.contact_phone
-            navigator.clipboard?.writeText(phone).catch(() => {})
+            const raw = ad.contact_phone
+            /* Форматируем номер с дефисами: 8-XXX-XXX-XX-XX */
+            const digits = raw.replace(/\D/g, '')
+            const formatted = digits.length === 11
+              ? `${digits[0]}-${digits.slice(1,4)}-${digits.slice(4,7)}-${digits.slice(7,9)}-${digits.slice(9,11)}`
+              : raw
+            navigator.clipboard?.writeText(formatted).catch(() => {})
             const wa = window.Telegram?.WebApp
             if (wa?.showPopup) {
               wa.showPopup({
                 title: 'Номер скопирован',
-                message: phone,
+                message: formatted,
                 buttons: [{ id: 'ok', type: 'default', text: 'OK' }],
               })
             } else {
-              alert(phone)
+              alert(formatted)
             }
           }}
         >
-          <Phone size={16} weight="BoldDuotone" /> Показать номер
+          <Phone size={18} weight="BoldDuotone" /> Показать номер
         </button>
         {/* «Написать» — только если у автора есть username */}
         {ad.author_username && (
