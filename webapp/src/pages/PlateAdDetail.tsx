@@ -189,7 +189,7 @@ export default function PlateAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Кнопка «Показать номер» — popup с номером + копирование */}
+        {/* Кнопка «Показать» — popup с номером + копирование */}
         <button
           className="btn btn-gradient detail-footer__btn"
           onClick={() => {
@@ -212,7 +212,7 @@ export default function PlateAdDetail() {
             }
           }}
         >
-          <Phone size={18} weight="BoldDuotone" /> Показать номер
+          <Phone size={18} weight="BoldDuotone" /> Показать
         </button>
         {/* «Написать» — только если у автора есть username */}
         {ad.author_username && (
