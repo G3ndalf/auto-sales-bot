@@ -14,6 +14,7 @@ import { motion } from 'framer-motion'
 import { api, getUserId, ADMIN_IDS } from '../api'
 import type { UserProfile } from '../api'
 import { SkeletonProfile } from '../components/Skeleton'
+import { ClipboardList, Star, Settings, CheckCircle, Clock, XCircle, BarChart3, Car, Hash } from 'lucide-react'
 
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -52,10 +53,10 @@ export default function Profile() {
   const avatar = displayName.charAt(0).toUpperCase()
 
   const stats = [
-    { value: profile.ads.active, label: '🟢 Активных' },
-    { value: profile.ads.pending, label: '🟡 На модерации' },
-    { value: profile.ads.rejected, label: '🔴 Отклонённых' },
-    { value: profile.ads.total, label: '📊 Всего' },
+    { value: profile.ads.active, label: <><CheckCircle size={14} /> Активных</> },
+    { value: profile.ads.pending, label: <><Clock size={14} /> На модерации</> },
+    { value: profile.ads.rejected, label: <><XCircle size={14} /> Отклонённых</> },
+    { value: profile.ads.total, label: <><BarChart3 size={14} /> Всего</> },
   ]
 
   return (
@@ -105,10 +106,10 @@ export default function Profile() {
             style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}
           >
             <span style={{ fontSize: 13, color: '#9CA3AF', background: '#1A2332', borderRadius: 10, padding: '6px 14px' }}>
-              🚗 Авто: {profile.ads.cars}
+              <Car size={14} /> Авто: {profile.ads.cars}
             </span>
             <span style={{ fontSize: 13, color: '#9CA3AF', background: '#1A2332', borderRadius: 10, padding: '6px 14px' }}>
-              🔢 Номера: {profile.ads.plates}
+              <Hash size={14} /> Номера: {profile.ads.plates}
             </span>
           </motion.div>
         )}
@@ -118,7 +119,7 @@ export default function Profile() {
       <div className="profile-section">
         <div className="profile-actions">
           <div className="profile-action" onClick={() => navigate('/my-ads')}>
-            <span className="profile-action__icon">📋</span>
+            <ClipboardList size={20} />
             <span>Мои объявления</span>
             {profile.ads.total > 0 && (
               <span style={{ marginLeft: 'auto', background: '#F59E0B', color: '#0B0F19', borderRadius: 12, padding: '2px 10px', fontSize: 13, fontWeight: 600 }}>
@@ -127,13 +128,13 @@ export default function Profile() {
             )}
           </div>
           <div className="profile-action" onClick={() => navigate('/favorites')}>
-            <span className="profile-action__icon">⭐</span>
+            <Star size={20} />
             <span>Избранное</span>
           </div>
           {/* Админ-панель — только для администраторов */}
           {ADMIN_IDS.includes(Number(getUserId())) && (
             <div className="profile-action" onClick={() => navigate('/admin')}>
-              <span className="profile-action__icon">⚙️</span>
+              <Settings size={20} />
               <span>Админ-панель</span>
             </div>
           )}

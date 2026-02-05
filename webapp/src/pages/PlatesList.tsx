@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Search, Hash, MapPin, Eye, AlertCircle, X, SlidersHorizontal, ChevronUp, ChevronDown } from 'lucide-react'
 import { api } from '../api'
 import type { PlateAdPreview } from '../api'
 import { TEXTS } from '../constants/texts'
@@ -175,14 +176,14 @@ export default function PlatesList({ embedded }: Props) {
   return (
     <div className={embedded ? 'catalog-content' : 'list-page'}>
       {!embedded && (
-        <h1>🔢 Номера</h1>
+        <h1><Hash size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Номера</h1>
       )}
 
       {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}
       <div style={{ position: 'relative', marginBottom: 10 }}>
         {/* Иконка поиска слева */}
-        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none', color: '#9CA3AF' }}>
-          🔍
+        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9CA3AF', display: 'flex', alignItems: 'center' }}>
+          <Search size={16} />
         </span>
         <input
           type="text"
@@ -198,7 +199,7 @@ export default function PlatesList({ embedded }: Props) {
             style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9CA3AF', padding: 4, lineHeight: 1 }}
             aria-label="Очистить поиск"
           >
-            ✕
+            <X size={18} />
           </button>
         )}
       </div>
@@ -213,14 +214,14 @@ export default function PlatesList({ embedded }: Props) {
             onClick={() => setFiltersOpen(prev => !prev)}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: 10, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#F9FAFB', fontSize: '0.95em', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', background: filtersOpen ? 'rgba(245,158,11,0.15)' : '#1A2332' }}
           >
-            <span>🔍 Фильтры</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><SlidersHorizontal size={16} /> Фильтры</span>
             {activeCount > 0 && (
               <span style={{ background: '#F59E0B', color: '#0B0F19', borderRadius: 10, padding: '1px 7px', fontSize: '0.8em', fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
                 {activeCount}
               </span>
             )}
-            <span style={{ marginLeft: 'auto', fontSize: '0.85em', opacity: 0.6 }}>
-              {filtersOpen ? '▲' : '▼'}
+            <span style={{ marginLeft: 'auto', opacity: 0.6, display: 'inline-flex', alignItems: 'center' }}>
+              {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </span>
           </motion.button>
         )
@@ -291,7 +292,7 @@ export default function PlatesList({ embedded }: Props) {
 
       {error && (
         <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF' }}>
-          <p style={{ fontSize: '2em', marginBottom: 12 }}>😕</p>
+          <p style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><AlertCircle size={48} /></p>
           <p style={{ marginBottom: 16 }}>Не удалось загрузить объявления</p>
           <button
             className="btn btn-secondary block mx-auto"
@@ -304,7 +305,7 @@ export default function PlatesList({ embedded }: Props) {
 
       {!loading && !error && ads.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🔢</div>
+          <div className="empty-icon"><Hash size={48} /></div>
           <p>Пока нет объявлений</p>
         </div>
       ) : (
@@ -320,7 +321,7 @@ export default function PlatesList({ embedded }: Props) {
                 <div className="plate-number-display">{ad.plate_number}</div>
                 <div className="ad-card-info">
                   <div className="ad-card-price">{formatPrice(ad.price)}</div>
-                  <div className="ad-card-location">📍 {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6 }}>👁 {ad.view_count}</span></div>
+                  <div className="ad-card-location"><MapPin size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={14} /> {ad.view_count}</span></div>
                 </div>
               </Link>
             </motion.div>

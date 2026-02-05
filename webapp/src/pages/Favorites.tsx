@@ -9,6 +9,7 @@ import { api } from '../api'
 import type { FavoriteItem } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 import { SkeletonList } from '../components/Skeleton'
+import { Star, HeartCrack, Car, Hash } from 'lucide-react'
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -41,12 +42,12 @@ export default function Favorites() {
 
   if (items.length === 0) return (
     <div style={{ textAlign: 'center', padding: '60px 16px', color: '#9CA3AF' }}>
-      <motion.p
-        style={{ fontSize: '3em', marginBottom: 12 }}
+      <motion.div
+        style={{ marginBottom: 12 }}
         animate={floatAnimation}
       >
-        💔
-      </motion.p>
+        <HeartCrack size={48} />
+      </motion.div>
       <p style={{ fontSize: 18, fontWeight: 600 }}>Нет избранных</p>
       <p style={{ marginTop: 8 }}>Нажмите ☆ на объявлении чтобы сохранить</p>
     </div>
@@ -55,7 +56,7 @@ export default function Favorites() {
   return (
     <div style={{ minHeight: '100vh', paddingBottom: 100 }}>
       <h1 style={{ fontSize: '1.4em', fontWeight: 800, padding: '20px 16px 12px' }}>
-        ⭐ Избранное ({items.length})
+        <Star size={20} /> Избранное ({items.length})
       </h1>
       <div className="ads-list">
         {items.map((item, i) => (
@@ -73,7 +74,7 @@ export default function Favorites() {
               {item.photo ? (
                 <img src={api.photoUrl(item.photo)} alt="" loading="lazy" />
               ) : (
-                <div className="no-photo">{item.ad_type === 'car' ? '🚗' : '🔢'}</div>
+                <div className="no-photo">{item.ad_type === 'car' ? <Car /> : <Hash />}</div>
               )}
             </div>
             <div className="ad-card-info">

@@ -15,6 +15,7 @@ import { api, getUserId } from '../api'
 import type { UserAd } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 import { SkeletonList } from '../components/Skeleton'
+import { ClipboardList, Car, Hash, Pencil, Tag, Trash2, CheckCircle, Clock, XCircle } from 'lucide-react'
 
 /** Тип текущего таба */
 type Tab = 'cars' | 'plates'
@@ -25,11 +26,11 @@ type Tab = 'cars' | 'plates'
  * - approved (Активно) — зелёный
  * - rejected (Отклонено) — красный
  */
-const STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: string; color: string }> = {
-  pending: { label: 'На проверке', emoji: '🟡', bg: 'rgba(245,158,11,0.15)', color: '#F59E0B' },
-  approved: { label: 'Активно', emoji: '🟢', bg: 'rgba(16,185,129,0.15)', color: '#10B981' },
-  rejected: { label: 'Отклонено', emoji: '🔴', bg: 'rgba(239,68,68,0.15)', color: '#EF4444' },
-  sold: { label: 'Продано', emoji: '🟣', bg: 'rgba(139,92,246,0.15)', color: '#8B5CF6' },
+const STATUS_CONFIG: Record<string, { label: string; icon: JSX.Element; bg: string; color: string }> = {
+  pending: { label: 'На проверке', icon: <Clock size={14} />, bg: 'rgba(245,158,11,0.15)', color: '#F59E0B' },
+  approved: { label: 'Активно', icon: <CheckCircle size={14} />, bg: 'rgba(16,185,129,0.15)', color: '#10B981' },
+  rejected: { label: 'Отклонено', icon: <XCircle size={14} />, bg: 'rgba(239,68,68,0.15)', color: '#EF4444' },
+  sold: { label: 'Продано', icon: <Tag size={14} />, bg: 'rgba(139,92,246,0.15)', color: '#8B5CF6' },
 }
 
 export default function MyAds() {
@@ -117,7 +118,7 @@ export default function MyAds() {
     <div style={{ padding: '16px 0', paddingBottom: 100, minHeight: '100vh' }}>
       {/* Заголовок страницы */}
       <h1 style={{ fontSize: '1.4em', fontWeight: 800, margin: '0 0 16px', textAlign: 'center', padding: '0 16px' }}>
-        📋 Мои объявления
+        <ClipboardList size={22} /> Мои объявления
       </h1>
 
       {/* Табы: Авто / Номера */}
@@ -134,7 +135,7 @@ export default function MyAds() {
               color: tab === t ? '#0B0F19' : '#9CA3AF',
             }}
           >
-            {t === 'cars' ? '🚗 Авто' : '🔢 Номера'}
+            {t === 'cars' ? <><Car size={16} /> Авто</> : <><Hash size={16} /> Номера</>}
             {(t === 'cars' ? cars : plates).length > 0 && ` (${(t === 'cars' ? cars : plates).length})`}
           </button>
         ))}
@@ -161,8 +162,8 @@ export default function MyAds() {
       {/* Пустой список */}
       {!loading && !error && currentAds.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF' }}>
-          <div style={{ fontSize: '3em', marginBottom: 12 }}>
-            {tab === 'cars' ? '🚗' : '🔢'}
+          <div style={{ marginBottom: 12 }}>
+            {tab === 'cars' ? <Car size={48} /> : <Hash size={48} />}
           </div>
           <div style={{ fontSize: 16, marginBottom: 8 }}>Нет объявлений</div>
           <div style={{ fontSize: 14 }}>
@@ -206,7 +207,7 @@ export default function MyAds() {
                       <img src={api.photoUrl(ad.photo)} alt={title} loading="lazy" />
                     ) : (
                       <div className="no-photo">
-                        {ad.ad_type === 'car' ? '🚗' : '🔢'}
+                        {ad.ad_type === 'car' ? <Car size={16} /> : <Hash size={16} />}
                       </div>
                     )}
                   </div>
@@ -222,7 +223,7 @@ export default function MyAds() {
                       fontSize: 12, fontWeight: 600, alignSelf: 'flex-start',
                       backgroundColor: status.bg, color: status.color,
                     }}>
-                      {status.emoji} {status.label}
+                      {status.icon} {status.label}
                     </span>
                   </div>
                 </div>
@@ -233,7 +234,7 @@ export default function MyAds() {
                     onClick={() => handleEdit(ad.ad_type, ad.id)}
                     style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#F59E0B', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRight: '1px solid var(--border)' }}
                   >
-                    ✏️ Изменить
+                    <Pencil size={14} /> Изменить
                   </motion.button>
 
                   {ad.status === 'approved' && (
@@ -241,7 +242,7 @@ export default function MyAds() {
                       onClick={() => markAsSold(ad.ad_type, ad.id)}
                       style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#8B5CF6', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRight: '1px solid var(--border)' }}
                     >
-                      🏷️ Продано
+                      <Tag size={14} /> Продано
                     </motion.button>
                   )}
 
@@ -249,7 +250,7 @@ export default function MyAds() {
                     onClick={() => handleDelete(ad.ad_type, ad.id)}
                     style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#EF4444', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                   >
-                    🗑 Удалить
+                    <Trash2 size={14} /> Удалить
                   </motion.button>
                 </div>
               </motion.div>

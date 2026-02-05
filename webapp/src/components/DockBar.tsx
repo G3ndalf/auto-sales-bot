@@ -7,12 +7,13 @@
  */
 
 import { useLocation, useNavigate } from 'react-router-dom'
+import { User, Search, PlusCircle, Star } from 'lucide-react'
 
-const tabs = [
-  { path: '/catalog', icon: '🔍', activeIcon: '🔍', label: 'Каталог' },
-  { path: '/sell', icon: '✚', activeIcon: '✚', label: 'Продать' },
-  { path: '/favorites', icon: '☆', activeIcon: '⭐', label: 'Избранное' },
-  { path: '/', icon: '👤', activeIcon: '👤', label: 'Профиль' },
+const tabs: { path: string; icon: React.ReactNode; activeIcon: React.ReactNode; label: string }[] = [
+  { path: '/catalog', icon: <Search size={22} />, activeIcon: <Search size={22} strokeWidth={2.5} />, label: 'Каталог' },
+  { path: '/sell', icon: <PlusCircle size={22} />, activeIcon: <PlusCircle size={22} strokeWidth={2.5} />, label: 'Продать' },
+  { path: '/favorites', icon: <Star size={22} />, activeIcon: <Star size={22} fill="currentColor" />, label: 'Избранное' },
+  { path: '/', icon: <User size={22} />, activeIcon: <User size={22} strokeWidth={2.5} />, label: 'Профиль' },
 ]
 
 /** Главные страницы, на которых виден док */

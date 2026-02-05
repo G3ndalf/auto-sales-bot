@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Hash, MapPin, CheckCircle, AlertTriangle, Loader, Pencil, Save } from 'lucide-react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
@@ -122,7 +123,7 @@ export default function EditPlateAd() {
         fontSize: '16px',
         backgroundColor: '#f5f5f5',
       }}>
-        ⏳ Загрузка объявления...
+        <Loader size={16} /> Загрузка объявления...
       </div>
     )
   }
@@ -130,7 +131,7 @@ export default function EditPlateAd() {
   // ===== Рендер формы =====
   return (
     <div className="form-page">
-      <h1>✏️ Редактирование — Номер</h1>
+      <h1><Pencil size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> Редактирование — Номер</h1>
 
       {/* ⚠️ Предупреждение о повторной модерации */}
       <div style={{
@@ -143,7 +144,7 @@ export default function EditPlateAd() {
         fontSize: '13px',
         lineHeight: '1.4',
       }}>
-        ⚠️ После редактирования объявление будет отправлено на повторную модерацию
+        <AlertTriangle size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> После редактирования объявление будет отправлено на повторную модерацию
       </div>
 
       {/* Ошибки формы */}
@@ -161,7 +162,7 @@ export default function EditPlateAd() {
       {/* Section: Номерной знак (аналогично CreatePlateAd) */}
       <div className="form-section">
         <div className="form-section__header">
-          <span className="form-section__icon">🔢</span>
+          <span className="form-section__icon"><Hash size={16} /></span>
           <span>Номерной знак</span>
         </div>
 
@@ -200,7 +201,7 @@ export default function EditPlateAd() {
       {/* Section: Местоположение и контакты */}
       <div className="form-section">
         <div className="form-section__header">
-          <span className="form-section__icon">📍</span>
+          <span className="form-section__icon"><MapPin size={16} /></span>
           <span>Местоположение и контакты</span>
         </div>
 
@@ -265,7 +266,7 @@ export default function EditPlateAd() {
             fontSize: '16px',
             fontWeight: 600,
           }}>
-            ✅ Изменения сохранены! Объявление отправлено на модерацию.
+            <CheckCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', color: '#4CAF50' }} /> Изменения сохранены! Объявление отправлено на модерацию.
           </p>
         ) : (
           <button
@@ -273,7 +274,7 @@ export default function EditPlateAd() {
             onClick={handleSubmit}
             disabled={submitting}
           >
-            {submitting ? 'Сохранение...' : '💾 Сохранить изменения'}
+            {submitting ? 'Сохранение...' : <><Save size={16} /> Сохранить изменения</>}
           </button>
         )}
       </div>
