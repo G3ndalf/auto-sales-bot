@@ -250,7 +250,12 @@ export default function AdminPanel() {
 
   return (
     <div className="admin-page">
-      <h1>{TEXTS.ADMIN_TITLE} <span style={{ fontSize: '12px', opacity: 0.5 }}>v4</span></h1>
+      <h1>{TEXTS.ADMIN_TITLE} <span style={{ fontSize: '12px', opacity: 0.5 }}>v5</span></h1>
+
+      {/* DEBUG: если это видно — код до вкладок работает */}
+      <div style={{ background: 'red', color: 'white', padding: '10px', margin: '10px 16px' }}>
+        DEBUG: Tabs should be below
+      </div>
 
       {/* Tabs */}
       <div
