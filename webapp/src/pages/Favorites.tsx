@@ -49,7 +49,7 @@ export default function Favorites() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <SkeletonList count={3} />
+  if (loading) return null
 
   if (items.length === 0) return (
     /* Мягкое fade-in для пустого состояния */

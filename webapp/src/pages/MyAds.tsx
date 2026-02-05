@@ -173,7 +173,7 @@ export default function MyAds() {
       </div>
 
       {/* Состояние загрузки */}
-      {loading && <SkeletonList count={3} />}
+      {loading && null}
 
       {/* Ошибка загрузки */}
       {error && !loading && (

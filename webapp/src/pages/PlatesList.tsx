@@ -246,9 +246,7 @@ export default function PlatesList({ embedded }: Props) {
   const formatPrice = (n: number) =>
     n.toLocaleString('ru-RU') + ' ₽'
 
-  if (loading && ads.length === 0) {
-    return <SkeletonList count={5} />
-  }
+  if (loading && ads.length === 0) return null
 
   return (
     <div className={embedded ? 'catalog-content' : 'list-page'}>

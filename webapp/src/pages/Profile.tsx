@@ -59,7 +59,7 @@ export default function Profile() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <SkeletonProfile />
+  if (loading) return null
   if (!profile) return null
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user

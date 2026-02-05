@@ -93,7 +93,7 @@ export default function PlateAdDetail() {
     setFavoriteLoading(false)
   }
 
-  if (loading) return <div className="loading">Загрузка...</div>
+  if (loading) return null
   if (!ad) return <div className="loading">Объявление не найдено</div>
 
   const formatPrice = (n: number) => n.toLocaleString('ru-RU') + ' ₽'
