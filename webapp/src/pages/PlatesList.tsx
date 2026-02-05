@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import type { PlateAdPreview } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 
-export default function PlatesList() {
-  useBackButton('/catalog')
-  const [searchParams] = useSearchParams()
-  const city = searchParams.get('city') || ''
+interface Props {
+  embedded?: boolean
+}
+
+export default function PlatesList({ embedded }: Props) {
+  if (!embedded) useBackButton('/catalog')
 
   const [ads, setAds] = useState<PlateAdPreview[]>([])
   const [total, setTotal] = useState(0)
@@ -18,7 +20,6 @@ export default function PlatesList() {
     setLoading(true)
     try {
       const params: Record<string, string> = { offset: String(newOffset), limit: '20' }
-      if (city) params.city = city
       const data = await api.getPlateAds(params)
       if (newOffset === 0) {
         setAds(data.items)
@@ -35,20 +36,30 @@ export default function PlatesList() {
 
   useEffect(() => {
     loadAds(0)
-  }, [city])
+  }, [])
 
   const formatPrice = (n: number) =>
     n.toLocaleString('ru-RU') + ' ₽'
 
-  return (
-    <div className="list-page">
-      <Link to="/catalog" className="back-btn">← Каталог</Link>
-      <h1>🔢 Номера</h1>
-      <p className="list-count">Найдено: {total}</p>
+  if (loading && ads.length === 0) {
+    return <div className="loading">Загрузка...</div>
+  }
 
-      {ads.length === 0 && !loading ? (
+  return (
+    <div className={embedded ? 'catalog-content' : 'list-page'}>
+      {!embedded && (
+        <>
+          <Link to="/catalog" className="back-btn">← Каталог</Link>
+          <h1>🔢 Номера</h1>
+        </>
+      )}
+
+      {total > 0 && <p className="list-count">Найдено: {total}</p>}
+
+      {ads.length === 0 ? (
         <div className="empty-state">
-          <p>Нет объявлений</p>
+          <div className="empty-icon">🔢</div>
+          <p>Пока нет объявлений</p>
         </div>
       ) : (
         <div className="ads-list">
@@ -57,7 +68,7 @@ export default function PlatesList() {
               <div className="plate-number-display">{ad.plate_number}</div>
               <div className="ad-card-info">
                 <div className="ad-card-price">{formatPrice(ad.price)}</div>
-                <div className="ad-card-meta">📍 {ad.city}</div>
+                <div className="ad-card-location">📍 {ad.city}</div>
               </div>
             </Link>
           ))}

@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import type { CarAdPreview } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 
-export default function CarsList() {
-  useBackButton('/catalog')
-  const [searchParams] = useSearchParams()
-  const brand = searchParams.get('brand') || ''
-  const model = searchParams.get('model') || ''
-  const city = searchParams.get('city') || ''
+interface Props {
+  embedded?: boolean
+}
+
+export default function CarsList({ embedded }: Props) {
+  if (!embedded) useBackButton('/catalog')
 
   const [ads, setAds] = useState<CarAdPreview[]>([])
   const [total, setTotal] = useState(0)
@@ -20,9 +20,6 @@ export default function CarsList() {
     setLoading(true)
     try {
       const params: Record<string, string> = { offset: String(newOffset), limit: '20' }
-      if (brand) params.brand = brand
-      if (model) params.model = model
-      if (city) params.city = city
       const data = await api.getCarAds(params)
       if (newOffset === 0) {
         setAds(data.items)
@@ -39,22 +36,30 @@ export default function CarsList() {
 
   useEffect(() => {
     loadAds(0)
-  }, [brand, model, city])
-
-  const title = model ? `${brand} ${model}` : brand || 'Все авто'
+  }, [])
 
   const formatPrice = (n: number) =>
     n.toLocaleString('ru-RU') + ' ₽'
 
-  return (
-    <div className="list-page">
-      <Link to="/catalog" className="back-btn">← Каталог</Link>
-      <h1>{title}</h1>
-      <p className="list-count">Найдено: {total}</p>
+  if (loading && ads.length === 0) {
+    return <div className="loading">Загрузка...</div>
+  }
 
-      {ads.length === 0 && !loading ? (
+  return (
+    <div className={embedded ? 'catalog-content' : 'list-page'}>
+      {!embedded && (
+        <>
+          <Link to="/catalog" className="back-btn">← Каталог</Link>
+          <h1>🚗 Все авто</h1>
+        </>
+      )}
+
+      {total > 0 && <p className="list-count">Найдено: {total}</p>}
+
+      {ads.length === 0 ? (
         <div className="empty-state">
-          <p>Нет объявлений</p>
+          <div className="empty-icon">🚗</div>
+          <p>Пока нет объявлений</p>
         </div>
       ) : (
         <div className="ads-list">
@@ -62,19 +67,18 @@ export default function CarsList() {
             <Link to={`/car/${ad.id}`} key={ad.id} className="ad-card">
               <div className="ad-card-photo">
                 {ad.photo ? (
-                  <img src={api.photoUrl(ad.photo)} alt="" />
+                  <img src={api.photoUrl(ad.photo)} alt="" loading="lazy" />
                 ) : (
                   <div className="no-photo">🚗</div>
                 )}
               </div>
               <div className="ad-card-info">
                 <div className="ad-card-title">{ad.brand} {ad.model}</div>
+                <div className="ad-card-year">{ad.year} г.</div>
                 <div className="ad-card-details">
-                  {ad.year} • {ad.mileage.toLocaleString('ru-RU')} км
+                  {ad.mileage.toLocaleString('ru-RU')} км • {ad.fuel_type} • {ad.transmission}
                 </div>
-                <div className="ad-card-meta">
-                  📍 {ad.city} • {ad.fuel_type} • {ad.transmission}
-                </div>
+                <div className="ad-card-location">📍 {ad.city}</div>
                 <div className="ad-card-price">{formatPrice(ad.price)}</div>
               </div>
             </Link>

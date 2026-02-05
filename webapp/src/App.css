@@ -545,52 +545,44 @@ body {
   animation: fadeInUp 0.35s ease-out;
 }
 
-.catalog-page h1 {
-  font-size: 1.5em;
-  font-weight: 700;
+.catalog-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--secondary-bg);
+  border-radius: var(--radius-lg);
+  padding: 4px;
   margin-bottom: 16px;
 }
 
-.catalog-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.catalog-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  background: var(--section-bg);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: transform var(--transition), box-shadow var(--transition);
-  text-decoration: none;
-  color: var(--text);
-}
-
-.catalog-item:active {
-  transform: scale(0.98);
-  background: var(--secondary-bg);
-}
-
-.catalog-item-name {
-  font-weight: 500;
-}
-
-.catalog-item-count {
+.catalog-tab {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
   color: var(--hint);
-  font-size: 0.85em;
-  background: var(--bg);
-  padding: 3px 12px;
-  border-radius: 10px;
-  font-weight: 500;
+  font-size: 1em;
+  font-weight: 600;
+  border-radius: calc(var(--radius-lg) - 2px);
+  cursor: pointer;
+  transition: all var(--transition);
 }
 
-.catalog-nav {
-  margin-top: 20px;
+.catalog-tab.active {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.catalog-tab:not(.active):active {
+  background: var(--border);
+}
+
+.catalog-content {
+  animation: fadeInUp 0.25s ease-out;
+}
+
+.catalog-content .list-count {
+  margin-bottom: 12px;
 }
 
 /* ═══════════════════════════════════════════════
