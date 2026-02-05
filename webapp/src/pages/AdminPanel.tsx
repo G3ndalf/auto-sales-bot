@@ -6,7 +6,7 @@ import { useBackButton } from '../hooks/useBackButton'
 import { TEXTS } from '../constants/texts'
 
 export default function AdminPanel() {
-  useBackButton('close')
+  useBackButton('/')
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [ads, setAds] = useState<AdminPendingAd[]>([])
   const [loading, setLoading] = useState(true)

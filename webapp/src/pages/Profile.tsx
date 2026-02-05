@@ -14,7 +14,7 @@ import { motion } from 'framer-motion'
 import { api, getUserId, ADMIN_IDS } from '../api'
 import type { UserProfile } from '../api'
 import { SkeletonProfile } from '../components/Skeleton'
-import { ClipboardList, Star, Settings, CheckCircle, ClockCircle, CloseCircle, Chart, Garage, Hashtag } from '@solar-icons/react'
+import { ClipboardList, Settings, CheckCircle, ClockCircle, CloseCircle, Chart, Garage, Hashtag } from '@solar-icons/react'
 
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -52,11 +52,12 @@ export default function Profile() {
   const displayName = tgUser?.first_name || profile.name
   const avatar = displayName.charAt(0).toUpperCase()
 
+  /** Статистика объявлений с цветовой кодировкой фона */
   const stats = [
-    { value: profile.ads.active, label: <><CheckCircle size={14} weight="BoldDuotone" /> Активных</> },
-    { value: profile.ads.pending, label: <><ClockCircle size={14} weight="BoldDuotone" /> На модерации</> },
-    { value: profile.ads.rejected, label: <><CloseCircle size={14} weight="BoldDuotone" /> Отклонённых</> },
-    { value: profile.ads.total, label: <><Chart size={14} weight="BoldDuotone" /> Всего</> },
+    { value: profile.ads.active, label: <><CheckCircle size={14} weight="BoldDuotone" /> Активных</>, bg: 'rgba(34, 197, 94, 0.12)', color: '#22C55E', valueColor: '#4ADE80' },
+    { value: profile.ads.pending, label: <><ClockCircle size={14} weight="BoldDuotone" /> На модерации</>, bg: 'rgba(245, 158, 11, 0.12)', color: '#F59E0B', valueColor: '#FBBF24' },
+    { value: profile.ads.rejected, label: <><CloseCircle size={14} weight="BoldDuotone" /> Отклонённых</>, bg: 'rgba(239, 68, 68, 0.12)', color: '#EF4444', valueColor: '#F87171' },
+    { value: profile.ads.total, label: <><Chart size={14} weight="BoldDuotone" /> Всего</>, bg: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', valueColor: '#60A5FA' },
   ]
 
   return (
@@ -85,12 +86,12 @@ export default function Profile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1, duration: 0.3 }}
-              style={{ background: '#1A2332', borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}
+              style={{ background: stat.bg, borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4, border: `1px solid ${stat.color}22` }}
             >
-              <span style={{ fontSize: 24, fontWeight: 700, color: '#F9FAFB', lineHeight: 1.2 }}>
+              <span style={{ fontSize: 24, fontWeight: 700, color: stat.valueColor, lineHeight: 1.2 }}>
                 {stat.value}
               </span>
-              <span style={{ fontSize: 13, color: '#9CA3AF', lineHeight: 1.3 }}>
+              <span style={{ fontSize: 13, color: stat.color, lineHeight: 1.3 }}>
                 {stat.label}
               </span>
             </motion.div>
@@ -126,10 +127,6 @@ export default function Profile() {
                 {profile.ads.total}
               </span>
             )}
-          </div>
-          <div className="profile-action" onClick={() => navigate('/favorites')}>
-            <Star size={20} weight="BoldDuotone" />
-            <span>Избранное</span>
           </div>
           {/* Админ-панель — только для администраторов */}
           {ADMIN_IDS.includes(Number(getUserId())) && (

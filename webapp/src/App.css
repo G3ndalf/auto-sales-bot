@@ -1081,7 +1081,7 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
 }
 
 .dock-tab--active .dock-tab__icon {
-  transform: scale(1.18) translateY(-1px);
+  /* Без увеличения — только подсветка цветом и фоном */
 }
 
 /* ─── Label ─── */

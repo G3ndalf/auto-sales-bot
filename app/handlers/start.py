@@ -22,6 +22,7 @@ import time
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import (
+    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
@@ -98,7 +99,6 @@ async def _send_start_menu(message: Message) -> None:
     поэтому ReplyKeyboard ставится отдельно (удаляется сразу).
     """
     uid = message.from_user.id if message.from_user else 0
-    is_admin = message.from_user and message.from_user.id in settings.admin_ids
 
     # ── Установить ReplyKeyboard (кнопка перезапуска внизу чата) ──
     restart_kb = ReplyKeyboardMarkup(
@@ -122,14 +122,14 @@ async def _send_start_menu(message: Message) -> None:
                 web_app=WebAppInfo(url=_webapp_url(uid=uid)),
             ),
         ])
-        # Кнопка админ-панели — только для администраторов
-        if is_admin:
-            inline_buttons.append([
-                InlineKeyboardButton(
-                    text="⚙️ Админ панель",
-                    web_app=WebAppInfo(url=_webapp_url("/admin", admin=True, uid=uid)),
-                ),
-            ])
+
+    # Кнопка перезагрузки — удобно при разработке
+    inline_buttons.append([
+        InlineKeyboardButton(
+            text="🔄 Перезагрузить",
+            callback_data="restart",
+        ),
+    ])
 
     inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_buttons) if inline_buttons else None
     await message.answer(START_WELCOME, reply_markup=inline_kb)
@@ -167,6 +167,20 @@ async def handle_restart_button(message: Message, session: AsyncSession):
     cache-busting URL для Mini App кнопок.
     """
     await _send_start_menu(message)
+
+
+@router.callback_query(F.data == "restart")
+async def handle_restart_callback(callback: CallbackQuery, session: AsyncSession):
+    """Обработчик inline-кнопки "🔄 Перезагрузить".
+
+    Отвечает на callback (убирает часики), затем отправляет
+    новое меню /start с обновлёнными cache-busting URL.
+    Удобно при разработке — перезагружает кнопки без набора /start.
+    """
+    await callback.answer()
+    if callback.message:
+        # Используем callback.message для отправки ответа в тот же чат
+        await _send_start_menu(callback.message)
 
 
 def _extract_deep_link_arg(text: str) -> re.Match | None:

@@ -9,7 +9,7 @@ import { api } from '../api'
 import type { FavoriteItem } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 import { SkeletonList } from '../components/Skeleton'
-import { Star, HeartBroken, Garage, Hashtag } from '@solar-icons/react'
+import { Star, HeartBroken, Garage, Hashtag, MapPoint, Eye } from '@solar-icons/react'
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -79,7 +79,12 @@ export default function Favorites() {
             </div>
             <div className="ad-card-info">
               <div className="ad-card-title">{item.title}</div>
-              <div className="ad-card-details">{item.city} · 👁 {item.view_count}</div>
+              <div className="ad-card-location">
+                <MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {item.city}
+                <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2, verticalAlign: 'middle' }}>
+                  <Eye size={14} weight="BoldDuotone" /> {item.view_count}
+                </span>
+              </div>
               <div className="ad-card-price">{item.price.toLocaleString('ru-RU')} ₽</div>
             </div>
           </motion.div>

@@ -321,7 +321,7 @@ export default function PlatesList({ embedded }: Props) {
                 <div className="plate-number-display">{ad.plate_number}</div>
                 <div className="ad-card-info">
                   <div className="ad-card-price">{formatPrice(ad.price)}</div>
-                  <div className="ad-card-location"><MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={14} weight="BoldDuotone" /> {ad.view_count}</span></div>
+                  <div className="ad-card-location"><MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2, verticalAlign: 'middle' }}><Eye size={14} weight="BoldDuotone" /> {ad.view_count}</span></div>
                 </div>
               </Link>
             </motion.div>

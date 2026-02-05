@@ -371,7 +371,7 @@ export default function CarsList({ embedded }: Props) {
                   <div className="ad-card-details">
                     {ad.mileage.toLocaleString('ru-RU')} км • {ad.fuel_type} • {ad.transmission}
                   </div>
-                  <div className="ad-card-location"><MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Eye size={14} weight="BoldDuotone" /> {ad.view_count}</span></div>
+                  <div className="ad-card-location"><MapPoint size={14} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2, verticalAlign: 'middle' }}><Eye size={14} weight="BoldDuotone" /> {ad.view_count}</span></div>
                   <div className="ad-card-price">{formatPrice(ad.price)}</div>
                 </div>
               </Link>
