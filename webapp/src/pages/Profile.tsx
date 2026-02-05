@@ -1,3 +1,15 @@
+/**
+ * Profile.tsx — Главная страница профиля пользователя.
+ *
+ * Показывает:
+ * - Аватар, имя, username
+ * - Дата регистрации
+ * - Кнопка "Мои объявления" (навигация на /my-ads)
+ *
+ * Статистика по объявлениям и кнопки продажи убраны —
+ * статистика есть в "Мои объявления", продажа — в докбаре.
+ */
+
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, getUserId } from '../api'
@@ -6,6 +18,7 @@ import type { UserProfile } from '../api'
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const uid = getUserId()
@@ -31,8 +44,6 @@ export default function Profile() {
       .finally(() => setLoading(false))
   }, [])
 
-  const navigate = useNavigate()
-
   if (loading) return <div className="loading">Загрузка...</div>
   if (!profile) return null
 
@@ -42,7 +53,7 @@ export default function Profile() {
 
   return (
     <div className="profile-page">
-      {/* Hero */}
+      {/* Hero — аватар, имя, дата регистрации */}
       <div className="profile-hero">
         <div className="profile-avatar">{avatar}</div>
         <h1 className="profile-name">{displayName}</h1>
@@ -54,55 +65,26 @@ export default function Profile() {
         )}
       </div>
 
-      {/* Stats */}
-      <div className="profile-stats">
-        <div className="profile-stat">
-          <span className="profile-stat__value">{profile.ads.total}</span>
-          <span className="profile-stat__label">Всего</span>
-        </div>
-        <div className="profile-stat profile-stat--active">
-          <span className="profile-stat__value">{profile.ads.active}</span>
-          <span className="profile-stat__label">Активных</span>
-        </div>
-        <div className="profile-stat profile-stat--pending">
-          <span className="profile-stat__value">{profile.ads.pending}</span>
-          <span className="profile-stat__label">На проверке</span>
-        </div>
-      </div>
-
-      {/* Breakdown */}
+      {/* Единственная кнопка — переход к объявлениям */}
       <div className="profile-section">
-        <div className="profile-section__header">Мои объявления</div>
-        <div className="profile-breakdown">
-          <div className="profile-row">
-            <span className="profile-row__icon">🚗</span>
-            <span className="profile-row__label">Автомобили</span>
-            <span className="profile-row__value">{profile.ads.cars}</span>
-          </div>
-          <div className="profile-row">
-            <span className="profile-row__icon">🔢</span>
-            <span className="profile-row__label">Номера</span>
-            <span className="profile-row__value">{profile.ads.plates}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick actions — используем navigate() для client-side навигации.
-          <a href> делает полную перезагрузку → теряет uid query param → ломает контекст. */}
-      <div className="profile-section">
-        <div className="profile-section__header">Быстрые действия</div>
         <div className="profile-actions">
           <div className="profile-action" onClick={() => navigate('/my-ads')}>
             <span className="profile-action__icon">📋</span>
             <span>Мои объявления</span>
-          </div>
-          <div className="profile-action" onClick={() => navigate('/car/new')}>
-            <span className="profile-action__icon">🚗</span>
-            <span>Продать авто</span>
-          </div>
-          <div className="profile-action" onClick={() => navigate('/plate/new')}>
-            <span className="profile-action__icon">🔢</span>
-            <span>Продать номер</span>
+            {/* Бейдж с общим количеством объявлений */}
+            {profile.ads.total > 0 && (
+              <span style={{
+                marginLeft: 'auto',
+                backgroundColor: 'var(--accent, #6366f1)',
+                color: '#fff',
+                borderRadius: '12px',
+                padding: '2px 10px',
+                fontSize: '13px',
+                fontWeight: 600,
+              }}>
+                {profile.ads.total}
+              </span>
+            )}
           </div>
         </div>
       </div>
