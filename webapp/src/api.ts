@@ -139,6 +139,23 @@ export interface AdminStats {
   rejected: number;
 }
 
+/**
+ * Объявление пользователя (универсальный тип для "Мои объявления").
+ * Может быть авто или номером — определяется по ad_type.
+ */
+export interface UserAd {
+  id: number;
+  ad_type: 'car' | 'plate';
+  brand?: string;
+  model?: string;
+  plate_number?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  price: number;
+  city: string;
+  photo: string | null;
+  created_at: string | null;
+}
+
 export interface UserProfile {
   name: string;
   username: string | null;
@@ -236,6 +253,40 @@ export const api = {
   getCities: () => fetchJSON<City[]>('/api/cities'),
   photoUrl: (fileId: string) => `${API_BASE}/api/photos/${fileId}`,
   getProfile: (telegramId: number) => fetchJSON<UserProfile>(`/api/profile/${telegramId}`),
+
+  // ===== Мои объявления =====
+
+  /** Получить все объявления пользователя (авто + номера) */
+  getUserAds: (telegramId: number) =>
+    fetchJSON<{ cars: UserAd[]; plates: UserAd[] }>(`/api/user/${telegramId}/ads`),
+
+  /** Обновить объявление авто (PUT). После редактирования — повторная модерация */
+  updateCarAd: (adId: number, data: Record<string, unknown>) => {
+    const uid = getUserId();
+    return fetchJSON<{ ok: boolean }>(`/api/ads/car/${adId}?user_id=${uid}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Обновить объявление номера (PUT). После редактирования — повторная модерация */
+  updatePlateAd: (adId: number, data: Record<string, unknown>) => {
+    const uid = getUserId();
+    return fetchJSON<{ ok: boolean }>(`/api/ads/plate/${adId}?user_id=${uid}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** Удалить объявление (авто или номер) */
+  deleteAd: (adType: 'car' | 'plate', adId: number) => {
+    const uid = getUserId();
+    return fetchJSON<{ ok: boolean }>(`/api/ads/${adType}/${adId}?user_id=${uid}`, {
+      method: 'DELETE',
+    });
+  },
 
   // Admin
   adminGetPending: () => {

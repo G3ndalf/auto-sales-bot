@@ -9,6 +9,9 @@ import CarAdDetail from './pages/CarAdDetail'
 import PlatesList from './pages/PlatesList'
 import PlateAdDetail from './pages/PlateAdDetail'
 import AdminPanel from './pages/AdminPanel'
+import MyAds from './pages/MyAds'
+import EditCarAd from './pages/EditCarAd'
+import EditPlateAd from './pages/EditPlateAd'
 import DockBar from './components/DockBar'
 import './App.css'
 
@@ -25,6 +28,9 @@ function App() {
         <Route path="/car/:id" element={<CarAdDetail />} />
         <Route path="/plates" element={<PlatesList />} />
         <Route path="/plate/:id" element={<PlateAdDetail />} />
+        <Route path="/my-ads" element={<MyAds />} />
+        <Route path="/car/:id/edit" element={<EditCarAd />} />
+        <Route path="/plate/:id/edit" element={<EditPlateAd />} />
         <Route path="/admin" element={<AdminPanel />} />
       </Routes>
       <DockBar />

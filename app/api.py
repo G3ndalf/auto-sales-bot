@@ -1,4 +1,33 @@
-"""REST API for Mini App catalog (aiohttp)."""
+"""REST API for Mini App catalog (aiohttp).
+
+Endpoints:
+  Public:
+    GET  /api/brands                          — list brands with approved car ads
+    GET  /api/brands/{brand}/models           — list models for a brand
+    GET  /api/cars                            — approved car ads (filters: brand, model, city, q, sort)
+    GET  /api/cars/{ad_id}                    — single car ad with all photos
+    GET  /api/plates                          — approved plate ads (filters: city, q, sort)
+    GET  /api/plates/{ad_id}                  — single plate ad
+    GET  /api/cities                          — cities with approved ads
+    GET  /api/photos/{file_id}                — proxy Telegram photo
+    GET  /api/profile/{telegram_id}           — user profile with ad stats
+    GET  /api/user/{telegram_id}/ads          — all user's ads (any status) for "My Ads" page
+
+  User (owner-only):
+    PUT    /api/ads/car/{ad_id}?user_id=      — partial update car ad (re-moderation if was approved)
+    PUT    /api/ads/plate/{ad_id}?user_id=    — partial update plate ad
+    DELETE /api/ads/car/{ad_id}?user_id=      — soft-delete car ad (status → rejected)
+    DELETE /api/ads/plate/{ad_id}?user_id=    — soft-delete plate ad
+
+  Submit (Mini App fallback):
+    POST /api/submit                          — create ad from Mini App
+
+  Admin:
+    GET  /api/admin/pending                   — pending ads for moderation
+    GET  /api/admin/stats                     — ad statistics
+    POST /api/admin/approve/{ad_type}/{ad_id} — approve ad
+    POST /api/admin/reject/{ad_type}/{ad_id}  — reject ad
+"""
 
 import hmac
 import json
@@ -8,7 +37,7 @@ import re
 from aiohttp import web
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.storage.base import StorageKey
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.config import settings
@@ -39,6 +68,30 @@ MAX_SUBMIT_BODY_SIZE = 10 * 1024
 # Telegram file_id: alphanumeric, underscores, dashes only
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
+# ---------------------------------------------------------------------------
+# Allowed sort options for car and plate listings.
+#
+# Keys are the `sort` query param values accepted by GET /api/cars and
+# GET /api/plates.  Values are *callables* that, given the model class,
+# return an ORDER BY clause element.  Using callables (lambdas) avoids
+# creating SQLAlchemy column expressions at import-time, which keeps the
+# module free of side-effects.
+# ---------------------------------------------------------------------------
+_CAR_SORT_OPTIONS: dict[str, object] = {
+    "price_asc":   lambda: CarAd.price.asc(),
+    "price_desc":  lambda: CarAd.price.desc(),
+    "date_new":    lambda: CarAd.created_at.desc(),
+    "date_old":    lambda: CarAd.created_at.asc(),
+    "mileage_asc": lambda: CarAd.mileage.asc(),
+}
+
+_PLATE_SORT_OPTIONS: dict[str, object] = {
+    "price_asc":  lambda: PlateAd.price.asc(),
+    "price_desc": lambda: PlateAd.price.desc(),
+    "date_new":   lambda: PlateAd.created_at.desc(),
+    "date_old":   lambda: PlateAd.created_at.asc(),
+}
+
 
 def _safe_int(val, default: int = 0) -> int:
     """Safely convert to int, return default on failure."""
@@ -54,6 +107,19 @@ def _safe_float(val, default: float = 0.0) -> float:
         return float(val) if val not in (None, "", " ") else default
     except (ValueError, TypeError):
         return default
+
+
+def _get_first_photos(photos_list: list[AdPhoto]) -> dict[int, str]:
+    """Build {ad_id: file_id} map keeping only the first photo per ad.
+
+    Assumes *photos_list* is already ordered by position so the first
+    occurrence for each ad_id is the cover photo.
+    """
+    result: dict[int, str] = {}
+    for p in photos_list:
+        if p.ad_id not in result:
+            result[p.ad_id] = p.file_id
+    return result
 
 
 def create_api_app(
@@ -83,6 +149,15 @@ def create_api_app(
     app.router.add_get("/api/cities", get_cities)
     app.router.add_get("/api/photos/{file_id}", proxy_photo)
     app.router.add_get("/api/profile/{telegram_id}", get_profile)
+
+    # ── User "My Ads" endpoint ─────────────────────────────────────
+    app.router.add_get("/api/user/{telegram_id}/ads", get_user_ads)
+
+    # ── User ad edit / delete ──────────────────────────────────────
+    app.router.add_put("/api/ads/car/{ad_id}", edit_car_ad_endpoint)
+    app.router.add_put("/api/ads/plate/{ad_id}", edit_plate_ad_endpoint)
+    app.router.add_delete("/api/ads/car/{ad_id}", delete_car_ad_endpoint)
+    app.router.add_delete("/api/ads/plate/{ad_id}", delete_plate_ad_endpoint)
 
     # Admin routes
     app.router.add_get("/api/admin/pending", admin_get_pending)
@@ -135,13 +210,17 @@ def _check_admin_access(request: web.Request) -> bool:
 
 @web.middleware
 async def cors_middleware(request: web.Request, handler):
-    """Add CORS headers to all responses."""
+    """Add CORS headers to all responses.
+
+    Allows GET, POST, PUT, DELETE, OPTIONS for cross-origin requests
+    from the Mini App frontend.
+    """
     if request.method == "OPTIONS":
         response = web.Response()
     else:
         response = await handler(request)
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-User-Id"
     response.headers["Access-Control-Expose-Headers"] = "X-Telegram-User-Id"
     return response
@@ -181,11 +260,24 @@ async def get_models(request: web.Request) -> web.Response:
 
 
 async def get_car_ads(request: web.Request) -> web.Response:
-    """GET /api/cars — list approved car ads with filters."""
+    """GET /api/cars — list approved car ads with filters, search, and sort.
+
+    Query params:
+      brand  — exact match on brand
+      model  — exact match on model
+      city   — exact match on city
+      q      — ILIKE search across brand, model, description (OR)
+      sort   — ordering: price_asc | price_desc | date_new (default) |
+               date_old | mileage_asc
+      offset — pagination offset (default 0)
+      limit  — page size, capped at 50 (default 20)
+    """
     pool = request.app["session_pool"]
     brand = request.query.get("brand")
     model = request.query.get("model")
     city = request.query.get("city")
+    q = request.query.get("q")          # full-text-like search term
+    sort = request.query.get("sort")    # sort option key
     offset = _safe_int(request.query.get("offset"), 0)
     limit = min(_safe_int(request.query.get("limit"), 20), 50)
 
@@ -193,6 +285,7 @@ async def get_car_ads(request: web.Request) -> web.Response:
         stmt = select(CarAd).where(CarAd.status == AdStatus.APPROVED)
         count_stmt = select(func.count()).select_from(CarAd).where(CarAd.status == AdStatus.APPROVED)
 
+        # ── Exact filters ──────────────────────────────────────────
         if brand:
             stmt = stmt.where(CarAd.brand == brand)
             count_stmt = count_stmt.where(CarAd.brand == brand)
@@ -203,16 +296,31 @@ async def get_car_ads(request: web.Request) -> web.Response:
             stmt = stmt.where(CarAd.city == city)
             count_stmt = count_stmt.where(CarAd.city == city)
 
+        # ── Search (q) — ILIKE по brand, model, description (OR) ──
+        # Позволяет пользователю искать "BMW" и найти по марке/модели/описанию.
+        if q:
+            q_pattern = f"%{q}%"
+            search_filter = or_(
+                CarAd.brand.ilike(q_pattern),
+                CarAd.model.ilike(q_pattern),
+                CarAd.description.ilike(q_pattern),
+            )
+            stmt = stmt.where(search_filter)
+            count_stmt = count_stmt.where(search_filter)
+
+        # ── Sort ───────────────────────────────────────────────────
+        # Если sort не указан или невалидный — используем date_new (новые первыми).
+        sort_fn = _CAR_SORT_OPTIONS.get(sort, _CAR_SORT_OPTIONS["date_new"])
+        stmt = stmt.order_by(sort_fn())
+
         total = (await session.execute(count_stmt)).scalar_one()
         ads = (
-            await session.execute(
-                stmt.order_by(CarAd.created_at.desc()).offset(offset).limit(limit)
-            )
+            await session.execute(stmt.offset(offset).limit(limit))
         ).scalars().all()
 
         # Get first photo for each ad
         ad_ids = [ad.id for ad in ads]
-        photos_map = {}
+        photos_map: dict[int, str] = {}
         if ad_ids:
             photo_stmt = (
                 select(AdPhoto)
@@ -220,9 +328,7 @@ async def get_car_ads(request: web.Request) -> web.Response:
                 .order_by(AdPhoto.position)
             )
             all_photos = (await session.execute(photo_stmt)).scalars().all()
-            for p in all_photos:
-                if p.ad_id not in photos_map:
-                    photos_map[p.ad_id] = p.file_id
+            photos_map = _get_first_photos(all_photos)
 
         items = [
             {
@@ -286,9 +392,19 @@ async def get_car_ad(request: web.Request) -> web.Response:
 
 
 async def get_plate_ads(request: web.Request) -> web.Response:
-    """GET /api/plates — list approved plate ads."""
+    """GET /api/plates — list approved plate ads with filters, search, and sort.
+
+    Query params:
+      city   — exact match on city
+      q      — ILIKE search across plate_number, description (OR)
+      sort   — ordering: price_asc | price_desc | date_new (default) | date_old
+      offset — pagination offset (default 0)
+      limit  — page size, capped at 50 (default 20)
+    """
     pool = request.app["session_pool"]
     city = request.query.get("city")
+    q = request.query.get("q")          # full-text-like search term
+    sort = request.query.get("sort")    # sort option key
     offset = _safe_int(request.query.get("offset"), 0)
     limit = min(_safe_int(request.query.get("limit"), 20), 50)
 
@@ -296,20 +412,34 @@ async def get_plate_ads(request: web.Request) -> web.Response:
         stmt = select(PlateAd).where(PlateAd.status == AdStatus.APPROVED)
         count_stmt = select(func.count()).select_from(PlateAd).where(PlateAd.status == AdStatus.APPROVED)
 
+        # ── Exact filters ──────────────────────────────────────────
         if city:
             stmt = stmt.where(PlateAd.city == city)
             count_stmt = count_stmt.where(PlateAd.city == city)
 
+        # ── Search (q) — ILIKE по plate_number, description (OR) ──
+        if q:
+            q_pattern = f"%{q}%"
+            search_filter = or_(
+                PlateAd.plate_number.ilike(q_pattern),
+                PlateAd.description.ilike(q_pattern),
+            )
+            stmt = stmt.where(search_filter)
+            count_stmt = count_stmt.where(search_filter)
+
+        # ── Sort ───────────────────────────────────────────────────
+        # mileage_asc не применим к номерам — при невалидном sort используем date_new.
+        sort_fn = _PLATE_SORT_OPTIONS.get(sort, _PLATE_SORT_OPTIONS["date_new"])
+        stmt = stmt.order_by(sort_fn())
+
         total = (await session.execute(count_stmt)).scalar_one()
         ads = (
-            await session.execute(
-                stmt.order_by(PlateAd.created_at.desc()).offset(offset).limit(limit)
-            )
+            await session.execute(stmt.offset(offset).limit(limit))
         ).scalars().all()
 
         # Photos
         ad_ids = [ad.id for ad in ads]
-        photos_map = {}
+        photos_map: dict[int, str] = {}
         if ad_ids:
             photo_stmt = (
                 select(AdPhoto)
@@ -317,9 +447,7 @@ async def get_plate_ads(request: web.Request) -> web.Response:
                 .order_by(AdPhoto.position)
             )
             all_photos = (await session.execute(photo_stmt)).scalars().all()
-            for p in all_photos:
-                if p.ad_id not in photos_map:
-                    photos_map[p.ad_id] = p.file_id
+            photos_map = _get_first_photos(all_photos)
 
         items = [
             {
@@ -501,6 +629,402 @@ async def get_profile(request: web.Request) -> web.Response:
                 "plates": sum(plate_counts.values()),
             },
         })
+
+
+# ---------------------------------------------------------------------------
+# "My Ads" endpoint — all user's ads regardless of status
+# ---------------------------------------------------------------------------
+
+
+async def get_user_ads(request: web.Request) -> web.Response:
+    """GET /api/user/{telegram_id}/ads — все объявления пользователя.
+
+    Возвращает JSON:
+      {
+        "cars":   [{id, title, status, price, city, photo, created_at}, ...],
+        "plates": [{id, title, status, price, city, photo, created_at}, ...]
+      }
+
+    Не требует админской авторизации — пользователь видит только свои.
+    Включает ВСЕ статусы: pending, approved, rejected.
+    """
+    telegram_id = _safe_int(request.match_info.get("telegram_id"), 0)
+    if not telegram_id:
+        return web.json_response({"error": "Invalid telegram_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        # ── Найти пользователя по telegram_id ──────────────────────
+        user_stmt = select(User).where(User.telegram_id == telegram_id)
+        user = (await session.execute(user_stmt)).scalar_one_or_none()
+        if not user:
+            # Пользователь ещё не подавал объявлений — пустой ответ
+            return web.json_response({"cars": [], "plates": []})
+
+        # ── Загрузить все car ads пользователя ─────────────────────
+        car_stmt = (
+            select(CarAd)
+            .where(CarAd.user_id == user.id)
+            .order_by(CarAd.created_at.desc())
+        )
+        car_ads = (await session.execute(car_stmt)).scalars().all()
+
+        # ── Загрузить все plate ads пользователя ───────────────────
+        plate_stmt = (
+            select(PlateAd)
+            .where(PlateAd.user_id == user.id)
+            .order_by(PlateAd.created_at.desc())
+        )
+        plate_ads = (await session.execute(plate_stmt)).scalars().all()
+
+        # ── Собрать первые фото для всех объявлений ────────────────
+        car_ids = [ad.id for ad in car_ads]
+        plate_ids = [ad.id for ad in plate_ads]
+        car_photos: dict[int, str] = {}
+        plate_photos: dict[int, str] = {}
+
+        if car_ids:
+            photo_stmt = (
+                select(AdPhoto)
+                .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(car_ids))
+                .order_by(AdPhoto.position)
+            )
+            car_photos = _get_first_photos(
+                (await session.execute(photo_stmt)).scalars().all()
+            )
+
+        if plate_ids:
+            photo_stmt = (
+                select(AdPhoto)
+                .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(plate_ids))
+                .order_by(AdPhoto.position)
+            )
+            plate_photos = _get_first_photos(
+                (await session.execute(photo_stmt)).scalars().all()
+            )
+
+        # ── Формировать ответ ──────────────────────────────────────
+        cars_list = [
+            {
+                "id": ad.id,
+                "title": f"{ad.brand} {ad.model}",
+                "status": ad.status.value,
+                "price": ad.price,
+                "city": ad.city,
+                "photo": car_photos.get(ad.id),
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            }
+            for ad in car_ads
+        ]
+
+        plates_list = [
+            {
+                "id": ad.id,
+                "title": ad.plate_number,
+                "status": ad.status.value,
+                "price": ad.price,
+                "city": ad.city,
+                "photo": plate_photos.get(ad.id),
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            }
+            for ad in plate_ads
+        ]
+
+    return web.json_response({"cars": cars_list, "plates": plates_list})
+
+
+# ---------------------------------------------------------------------------
+# Edit ad endpoints — partial update with owner check
+# ---------------------------------------------------------------------------
+
+
+async def edit_car_ad_endpoint(request: web.Request) -> web.Response:
+    """PUT /api/ads/car/{ad_id}?user_id=<telegram_id> — редактирование авто-объявления.
+
+    Тело запроса — JSON с полями для обновления (частичное обновление).
+
+    Правила:
+    - user_id (query param) должен совпадать с владельцем объявления
+    - Редактировать можно только PENDING или APPROVED объявления
+    - Если объявление было APPROVED — после редактирования статус → PENDING
+      (повторная модерация, чтобы не пропустить невалидные правки)
+    - Поля валидируются через validate_car_ad (на основе слитого словаря)
+
+    HTTP-ошибки: 400 (валидация), 403 (не владелец), 404 (не найдено / уже rejected)
+    """
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    if not ad_id:
+        return web.json_response({"error": "Invalid ad_id"}, status=400)
+
+    # user_id — telegram_id владельца, передаётся как query param
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    if not user_id_tg:
+        return web.json_response({"error": "Missing user_id"}, status=400)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        # ── Загрузить объявление ───────────────────────────────────
+        ad = (await session.execute(
+            select(CarAd).where(CarAd.id == ad_id)
+        )).scalar_one_or_none()
+
+        if not ad:
+            return web.json_response({"error": "Ad not found"}, status=404)
+
+        # ── Проверка статуса (rejected нельзя редактировать) ───────
+        if ad.status not in (AdStatus.PENDING, AdStatus.APPROVED):
+            return web.json_response(
+                {"error": "Cannot edit rejected ad"}, status=400,
+            )
+
+        # ── Проверка владельца ─────────────────────────────────────
+        owner = (await session.execute(
+            select(User).where(User.id == ad.user_id)
+        )).scalar_one_or_none()
+
+        if not owner or owner.telegram_id != user_id_tg:
+            return web.json_response({"error": "Forbidden"}, status=403)
+
+        # ── Подготовить merged dict для валидации ──────────────────
+        # Берём текущие значения объявления и мержим с присланными,
+        # чтобы валидатор проверял полную картину.
+        current_data = {
+            "brand": ad.brand,
+            "model": ad.model,
+            "year": ad.year,
+            "price": ad.price,
+            "mileage": ad.mileage,
+            "engine_volume": ad.engine_volume,
+            "fuel_type": ad.fuel_type.value if ad.fuel_type else "",
+            "transmission": ad.transmission.value if ad.transmission else "",
+            "color": ad.color,
+            "city": ad.city,
+            "contact_phone": ad.contact_phone,
+            "contact_telegram": ad.contact_telegram,
+            "description": ad.description,
+        }
+        merged = {**current_data, **body}
+
+        # ── Валидация ──────────────────────────────────────────────
+        errors = validate_car_ad(merged)
+        if errors:
+            return web.json_response({"errors": errors}, status=400)
+
+        # ── Список полей, разрешённых к обновлению ─────────────────
+        # Только поля из модели CarAd. Игнорируем всё постороннее.
+        ALLOWED_FIELDS = {
+            "brand", "model", "year", "mileage", "engine_volume",
+            "fuel_type", "transmission", "color", "price",
+            "description", "city", "contact_phone", "contact_telegram",
+        }
+
+        updated = False
+        for field, value in body.items():
+            if field not in ALLOWED_FIELDS:
+                continue
+
+            # Маппинг enum-полей из строковых значений
+            if field == "fuel_type":
+                value = FUEL_TYPE_MAP.get(value, ad.fuel_type)
+            elif field == "transmission":
+                value = TRANSMISSION_MAP.get(value, ad.transmission)
+            elif field in ("year", "mileage", "price"):
+                value = _safe_int(value)
+            elif field == "engine_volume":
+                value = _safe_float(value)
+            else:
+                value = str(value).strip() if value is not None else None
+
+            setattr(ad, field, value)
+            updated = True
+
+        # ── Если было APPROVED — сбросить на PENDING для повторной модерации
+        if updated and ad.status == AdStatus.APPROVED:
+            ad.status = AdStatus.PENDING
+
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def edit_plate_ad_endpoint(request: web.Request) -> web.Response:
+    """PUT /api/ads/plate/{ad_id}?user_id=<telegram_id> — редактирование номер-объявления.
+
+    Аналогично edit_car_ad_endpoint, но для PlateAd.
+
+    Тело запроса — JSON с полями для обновления (частичное обновление).
+    Если объявление было APPROVED → статус сбрасывается на PENDING.
+
+    HTTP-ошибки: 400 (валидация), 403 (не владелец), 404 (не найдено / уже rejected)
+    """
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    if not ad_id:
+        return web.json_response({"error": "Invalid ad_id"}, status=400)
+
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    if not user_id_tg:
+        return web.json_response({"error": "Missing user_id"}, status=400)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        # ── Загрузить объявление ───────────────────────────────────
+        ad = (await session.execute(
+            select(PlateAd).where(PlateAd.id == ad_id)
+        )).scalar_one_or_none()
+
+        if not ad:
+            return web.json_response({"error": "Ad not found"}, status=404)
+
+        if ad.status not in (AdStatus.PENDING, AdStatus.APPROVED):
+            return web.json_response(
+                {"error": "Cannot edit rejected ad"}, status=400,
+            )
+
+        # ── Проверка владельца ─────────────────────────────────────
+        owner = (await session.execute(
+            select(User).where(User.id == ad.user_id)
+        )).scalar_one_or_none()
+
+        if not owner or owner.telegram_id != user_id_tg:
+            return web.json_response({"error": "Forbidden"}, status=403)
+
+        # ── Merged dict для валидации ──────────────────────────────
+        current_data = {
+            "plate_number": ad.plate_number,
+            "price": ad.price,
+            "city": ad.city,
+            "contact_phone": ad.contact_phone,
+            "contact_telegram": ad.contact_telegram,
+            "description": ad.description,
+        }
+        merged = {**current_data, **body}
+
+        errors = validate_plate_ad(merged)
+        if errors:
+            return web.json_response({"errors": errors}, status=400)
+
+        # ── Применить обновления ───────────────────────────────────
+        ALLOWED_FIELDS = {
+            "plate_number", "price", "description",
+            "city", "contact_phone", "contact_telegram",
+        }
+
+        updated = False
+        for field, value in body.items():
+            if field not in ALLOWED_FIELDS:
+                continue
+            if field == "price":
+                value = _safe_int(value)
+            else:
+                value = str(value).strip() if value is not None else None
+            setattr(ad, field, value)
+            updated = True
+
+        # Повторная модерация при изменении одобренного объявления
+        if updated and ad.status == AdStatus.APPROVED:
+            ad.status = AdStatus.PENDING
+
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Delete ad endpoints — soft delete (status → rejected)
+# ---------------------------------------------------------------------------
+
+
+async def delete_car_ad_endpoint(request: web.Request) -> web.Response:
+    """DELETE /api/ads/car/{ad_id}?user_id=<telegram_id> — мягкое удаление авто-объявления.
+
+    Мягкое удаление: статус → REJECTED, rejection_reason = "Удалено владельцем".
+    Это позволяет сохранить данные для истории / аналитики, но объявление
+    пропадёт из каталога и из модерации.
+
+    HTTP-ошибки: 403 (не владелец), 404 (не найдено)
+    """
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    if not ad_id:
+        return web.json_response({"error": "Invalid ad_id"}, status=400)
+
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    if not user_id_tg:
+        return web.json_response({"error": "Missing user_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        ad = (await session.execute(
+            select(CarAd).where(CarAd.id == ad_id)
+        )).scalar_one_or_none()
+
+        if not ad:
+            return web.json_response({"error": "Ad not found"}, status=404)
+
+        # ── Проверка владельца ─────────────────────────────────────
+        owner = (await session.execute(
+            select(User).where(User.id == ad.user_id)
+        )).scalar_one_or_none()
+
+        if not owner or owner.telegram_id != user_id_tg:
+            return web.json_response({"error": "Forbidden"}, status=403)
+
+        # ── Мягкое удаление ────────────────────────────────────────
+        ad.status = AdStatus.REJECTED
+        ad.rejection_reason = "Удалено владельцем"
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def delete_plate_ad_endpoint(request: web.Request) -> web.Response:
+    """DELETE /api/ads/plate/{ad_id}?user_id=<telegram_id> — мягкое удаление номер-объявления.
+
+    Аналогично delete_car_ad_endpoint, но для PlateAd.
+    Мягкое удаление: статус → REJECTED, rejection_reason = "Удалено владельцем".
+
+    HTTP-ошибки: 403 (не владелец), 404 (не найдено)
+    """
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    if not ad_id:
+        return web.json_response({"error": "Invalid ad_id"}, status=400)
+
+    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    if not user_id_tg:
+        return web.json_response({"error": "Missing user_id"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        ad = (await session.execute(
+            select(PlateAd).where(PlateAd.id == ad_id)
+        )).scalar_one_or_none()
+
+        if not ad:
+            return web.json_response({"error": "Ad not found"}, status=404)
+
+        # ── Проверка владельца ─────────────────────────────────────
+        owner = (await session.execute(
+            select(User).where(User.id == ad.user_id)
+        )).scalar_one_or_none()
+
+        if not owner or owner.telegram_id != user_id_tg:
+            return web.json_response({"error": "Forbidden"}, status=403)
+
+        # ── Мягкое удаление ────────────────────────────────────────
+        ad.status = AdStatus.REJECTED
+        ad.rejection_reason = "Удалено владельцем"
+        await session.commit()
+
+    return web.json_response({"ok": True})
 
 
 # --- Submit endpoint (sendData fallback) ---
@@ -694,9 +1218,9 @@ async def admin_get_pending(request: web.Request) -> web.Response:
                 .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(car_ids))
                 .order_by(AdPhoto.position)
             )
-            for p in (await session.execute(photo_stmt)).scalars().all():
-                if p.ad_id not in photos_map["car"]:
-                    photos_map["car"][p.ad_id] = p.file_id
+            photos_map["car"] = _get_first_photos(
+                (await session.execute(photo_stmt)).scalars().all()
+            )
 
         if plate_ids:
             photo_stmt = (
@@ -704,9 +1228,9 @@ async def admin_get_pending(request: web.Request) -> web.Response:
                 .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(plate_ids))
                 .order_by(AdPhoto.position)
             )
-            for p in (await session.execute(photo_stmt)).scalars().all():
-                if p.ad_id not in photos_map["plate"]:
-                    photos_map["plate"][p.ad_id] = p.file_id
+            photos_map["plate"] = _get_first_photos(
+                (await session.execute(photo_stmt)).scalars().all()
+            )
 
         items = []
         for ad in car_ads:

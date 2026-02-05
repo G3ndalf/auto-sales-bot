@@ -88,6 +88,10 @@ export default function Profile() {
       <div className="profile-section">
         <div className="profile-section__header">Быстрые действия</div>
         <div className="profile-actions">
+          <a href="/my-ads" className="profile-action">
+            <span className="profile-action__icon">📋</span>
+            <span>Мои объявления</span>
+          </a>
           <a href="/car/new" className="profile-action">
             <span className="profile-action__icon">🚗</span>
             <span>Продать авто</span>

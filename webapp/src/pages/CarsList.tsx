@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import type { CarAdPreview, Brand, City } from '../api'
@@ -8,6 +8,15 @@ interface Props {
   embedded?: boolean
 }
 
+/**
+ * CarsList — страница каталога автомобилей.
+ *
+ * Поддерживает:
+ * - Фильтрацию по марке и городу (dropdowns)
+ * - Полнотекстовый поиск с debounce 400ms (параметр API: q)
+ * - Сортировку по дате, цене, пробегу (параметр API: sort)
+ * - Пагинацию «Показать ещё»
+ */
 export default function CarsList({ embedded }: Props) {
   if (!embedded) useBackButton('/catalog')
 
@@ -16,33 +25,68 @@ export default function CarsList({ embedded }: Props) {
   const [loading, setLoading] = useState(true)
   const [offset, setOffset] = useState(0)
 
-  // Filters
+  // ─── Фильтры (марка, город) ────────────────────────────────
   const [brands, setBrands] = useState<Brand[]>([])
   const [cities, setCities] = useState<City[]>([])
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedCity, setSelectedCity] = useState('')
 
-  // Load filter options
+  // ─── Поиск (debounce 400ms) ────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('')
+  /** Ref для хранения таймера debounce — очищается при каждом новом вводе */
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ─── Сортировка ────────────────────────────────────────────
+  // Варианты: date_new (default), date_old, price_asc, price_desc, mileage_asc
+  const [sortOrder, setSortOrder] = useState('date_new')
+
+  // Загружаем справочники фильтров один раз при монтировании
   useEffect(() => {
     api.getBrands().then(setBrands).catch(() => {})
     api.getCities().then(setCities).catch(() => {})
   }, [])
 
-  const buildParams = (newOffset: number, brand = selectedBrand, city = selectedCity) => {
+  /**
+   * buildParams — собирает все query-параметры для API-запроса.
+   * Включает offset, limit, brand, city, q (поиск), sort (сортировка).
+   */
+  const buildParams = (
+    newOffset: number,
+    brand = selectedBrand,
+    city = selectedCity,
+    q = searchQuery,
+    sort = sortOrder
+  ) => {
     const params: Record<string, string> = { offset: String(newOffset), limit: '20' }
     if (brand) params.brand = brand
     if (city) params.city = city
+    // Поисковый запрос передаём только если непустой
+    if (q.trim()) params.q = q.trim()
+    // Сортировку передаём всегда (бэкенд использует default если не указана)
+    if (sort) params.sort = sort
     return params
   }
 
-  const loadAds = async (newOffset = 0, brand = selectedBrand, city = selectedCity) => {
+  /**
+   * loadAds — загружает список объявлений.
+   * При newOffset=0 заменяет список, иначе дозагружает (пагинация).
+   */
+  const loadAds = async (
+    newOffset = 0,
+    brand = selectedBrand,
+    city = selectedCity,
+    q = searchQuery,
+    sort = sortOrder
+  ) => {
     setLoading(true)
     try {
-      const params = buildParams(newOffset, brand, city)
+      const params = buildParams(newOffset, brand, city, q, sort)
       const data = await api.getCarAds(params)
       if (newOffset === 0) {
+        // Первая страница — заменяем полностью
         setAds(data.items)
       } else {
+        // Подгрузка — добавляем к существующим
         setAds(prev => [...prev, ...data.items])
       }
       setTotal(data.total)
@@ -53,22 +97,66 @@ export default function CarsList({ embedded }: Props) {
     setLoading(false)
   }
 
+  // Начальная загрузка при монтировании
   useEffect(() => {
     loadAds(0)
   }, [])
+
+  // ─── Обработчики фильтров ──────────────────────────────────
 
   const handleBrandChange = (brand: string) => {
     setSelectedBrand(brand)
     setOffset(0)
     setAds([])
-    loadAds(0, brand, selectedCity)
+    loadAds(0, brand, selectedCity, searchQuery, sortOrder)
   }
 
   const handleCityChange = (city: string) => {
     setSelectedCity(city)
     setOffset(0)
     setAds([])
-    loadAds(0, selectedBrand, city)
+    loadAds(0, selectedBrand, city, searchQuery, sortOrder)
+  }
+
+  // ─── Обработчик поиска с debounce ─────────────────────────
+
+  /**
+   * handleSearchChange — обновляет поле ввода мгновенно,
+   * но запрос к API отправляет только через 400ms после
+   * последнего нажатия (debounce).
+   */
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    // Сбрасываем предыдущий таймер
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    searchTimeout.current = setTimeout(() => {
+      // Сбрасываем offset и загружаем с новым поисковым запросом
+      setOffset(0)
+      setAds([])
+      loadAds(0, selectedBrand, selectedCity, value, sortOrder)
+    }, 400)
+  }
+
+  /** clearSearch — очистка поля поиска и перезагрузка без q */
+  const clearSearch = () => {
+    setSearchQuery('')
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    setOffset(0)
+    setAds([])
+    loadAds(0, selectedBrand, selectedCity, '', sortOrder)
+  }
+
+  // ─── Обработчик сортировки ─────────────────────────────────
+
+  /**
+   * handleSortChange — при смене сортировки сбрасываем offset
+   * и перезагружаем список с новым параметром sort.
+   */
+  const handleSortChange = (sort: string) => {
+    setSortOrder(sort)
+    setOffset(0)
+    setAds([])
+    loadAds(0, selectedBrand, selectedCity, searchQuery, sort)
   }
 
   const formatPrice = (n: number) =>
@@ -87,6 +175,69 @@ export default function CarsList({ embedded }: Props) {
         </>
       )}
 
+      {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}
+      <div
+        style={{
+          position: 'relative',     // для абсолютного позиционирования иконки 🔍
+          marginBottom: '10px',
+        }}
+      >
+        {/* Иконка поиска слева */}
+        <span
+          style={{
+            position: 'absolute',
+            left: '10px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: '16px',
+            pointerEvents: 'none',    // клик проходит сквозь иконку к полю
+            color: 'var(--tg-theme-hint-color, #999)',
+          }}
+        >
+          🔍
+        </span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => handleSearchChange(e.target.value)}
+          placeholder="Поиск по марке, модели..."
+          style={{
+            width: '100%',
+            padding: '10px 36px',         // 36px слева для иконки, 36px справа для кнопки ✕
+            borderRadius: '10px',
+            fontSize: '15px',
+            border: '1px solid var(--tg-theme-hint-color, #ccc)',
+            backgroundColor: 'var(--tg-theme-secondary-bg-color, #f0f0f0)',
+            color: 'var(--tg-theme-text-color, #000)',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        {/* Кнопка очистки ✕ — показываем только при непустом поле */}
+        {searchQuery && (
+          <button
+            onClick={clearSearch}
+            style={{
+              position: 'absolute',
+              right: '8px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              fontSize: '18px',
+              cursor: 'pointer',
+              color: 'var(--tg-theme-hint-color, #999)',
+              padding: '4px',
+              lineHeight: 1,
+            }}
+            aria-label="Очистить поиск"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* ─── Панель фильтров + сортировка ────────────────────── */}
       <div className="filters-bar">
         <select
           className="filter-select"
@@ -112,6 +263,19 @@ export default function CarsList({ embedded }: Props) {
               {c.city} ({c.count})
             </option>
           ))}
+        </select>
+
+        {/* Dropdown сортировки — в одну строку с фильтрами */}
+        <select
+          className="filter-select"
+          value={sortOrder}
+          onChange={e => handleSortChange(e.target.value)}
+        >
+          <option value="date_new">Сначала новые</option>
+          <option value="date_old">Сначала старые</option>
+          <option value="price_asc">Цена ↑</option>
+          <option value="price_desc">Цена ↓</option>
+          <option value="mileage_asc">Пробег ↑</option>
         </select>
       </div>
 
