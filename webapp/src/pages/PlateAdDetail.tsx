@@ -107,11 +107,11 @@ export default function PlateAdDetail() {
             disabled={favoriteLoading}
             style={{
               background: 'none', border: 'none', fontSize: '1.5em', cursor: 'pointer',
-              color: isFavorite ? '#ef4444' : 'var(--hint)',
+              color: isFavorite ? '#f59e0b' : 'var(--hint)',
               opacity: favoriteLoading ? 0.5 : 1,
             }}
           >
-            {isFavorite ? '❤️' : '🤍'}
+            {isFavorite ? '⭐' : '☆'}
           </button>
         </div>
       </div>

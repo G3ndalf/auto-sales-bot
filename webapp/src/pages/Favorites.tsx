@@ -27,7 +27,7 @@ export default function Favorites() {
     <div style={{ textAlign: 'center', padding: '60px 16px', color: 'var(--hint)' }}>
       <p style={{ fontSize: '3em', marginBottom: '12px' }}>💔</p>
       <p style={{ fontSize: '1.1em', fontWeight: 600 }}>Нет избранных</p>
-      <p style={{ marginTop: '8px' }}>Нажмите ❤️ на объявлении чтобы сохранить</p>
+      <p style={{ marginTop: '8px' }}>Нажмите ☆ на объявлении чтобы сохранить</p>
     </div>
   )
 
