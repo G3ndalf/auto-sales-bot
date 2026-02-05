@@ -14,15 +14,18 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        'ad_views',
-        sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('user_id', sa.BigInteger, nullable=False, index=True),
-        sa.Column('ad_type', sa.Enum('car', 'plate', name='adtype', create_type=False), nullable=False),
-        sa.Column('ad_id', sa.Integer, nullable=False),
-        sa.Column('viewed_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.UniqueConstraint('user_id', 'ad_type', 'ad_id', name='uq_ad_view_user_ad'),
-    )
+    # Используем raw SQL чтобы избежать повторного CREATE TYPE adtype
+    op.execute("""
+        CREATE TABLE ad_views (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            ad_type adtype NOT NULL,
+            ad_id INTEGER NOT NULL,
+            viewed_at TIMESTAMPTZ DEFAULT now(),
+            CONSTRAINT uq_ad_view_user_ad UNIQUE (user_id, ad_type, ad_id)
+        )
+    """)
+    op.create_index('ix_ad_views_user_id', 'ad_views', ['user_id'])
 
 
 def downgrade():
