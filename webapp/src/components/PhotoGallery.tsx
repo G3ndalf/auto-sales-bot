@@ -1,16 +1,9 @@
 /**
- * PhotoGallery.tsx — v4: нативный scroll-snap.
+ * PhotoGallery.tsx — v4.1: scroll-snap + вертикальный dismiss.
  *
- * Предыдущие подходы (framer-motion drag, React touch events,
- * native touch listeners) зависали после первого свайпа в iOS
- * Telegram WebView. Проблема в конфликте JS touch handling
- * с WebView gesture system.
- *
- * Решение: CSS scroll-snap. Браузер обрабатывает ВСЕ свайпы нативно.
- * JS только отслеживает текущий index через scroll event.
- *
- * Карточка: overflow-x scroll + scroll-snap-type: x mandatory
- * Фуллскрин: тот же scroll-snap + тап/кнопка для закрытия
+ * Карточка: CSS scroll-snap (браузер обрабатывает свайпы).
+ * Фуллскрин: scroll-snap по горизонтали + native touch для
+ * вертикального свайпа вниз → закрытие (двигаем overlay по Y).
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
@@ -22,6 +15,11 @@ interface Props {
   fallbackIcon: React.ReactNode
 }
 
+/** Минимум px вертикального свайпа для закрытия */
+const DISMISS_PX = 80
+/** Максимум px чтобы считать тапом */
+const TAP_PX = 10
+
 export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) {
   const [index, setIndex] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
@@ -29,11 +27,9 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
   /* ─── Refs ───────────────────────────────────────────── */
   const scrollRef = useRef<HTMLDivElement>(null)
   const fsScrollRef = useRef<HTMLDivElement>(null)
+  const fsOverlayRef = useRef<HTMLDivElement>(null)
 
-  /**
-   * Флаг: был ли скролл между touchstart и click.
-   * Нужен чтобы отличить тап от свайпа для открытия fullscreen.
-   */
+  /** Флаг: был ли скролл (чтобы отличить тап от свайпа) */
   const didScroll = useRef(false)
   const scrollTimer = useRef<ReturnType<typeof setTimeout>>()
 
@@ -49,23 +45,15 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
 
     const onScroll = () => {
       didScroll.current = true
-
-      // Debounce: сбрасываем флаг через 200ms после остановки скролла
       clearTimeout(scrollTimer.current)
-      scrollTimer.current = setTimeout(() => {
-        didScroll.current = false
-      }, 200)
+      scrollTimer.current = setTimeout(() => { didScroll.current = false }, 200)
 
       if (ticking) return
       ticking = true
-
       requestAnimationFrame(() => {
         ticking = false
         const w = el.clientWidth
-        if (w > 0) {
-          const newIdx = Math.round(el.scrollLeft / w)
-          setIndex(newIdx)
-        }
+        if (w > 0) setIndex(Math.round(el.scrollLeft / w))
       })
     }
 
@@ -76,48 +64,41 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
     }
   }, [photos.length])
 
-  /** Тап на фото → fullscreen (если не было свайпа) */
+  /** Тап на карточке → fullscreen */
   const onCardClick = useCallback(() => {
-    if (!didScroll.current) {
-      setFullscreen(true)
-    }
+    if (!didScroll.current) setFullscreen(true)
   }, [])
 
   // ═══════════════════════════════════════════════════════════
-  //  Fullscreen
+  //  Fullscreen: scroll-snap (горизонталь) + dismiss (вертикаль)
   // ═══════════════════════════════════════════════════════════
 
-  /** Блокируем body scroll в fullscreen */
+  /** Блокируем body scroll */
   useEffect(() => {
     document.body.style.overflow = fullscreen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [fullscreen])
 
-  /** При открытии fullscreen — скроллим к текущему фото */
+  /** При открытии → скролл к текущему фото */
   useEffect(() => {
     if (fullscreen && fsScrollRef.current) {
-      const w = window.innerWidth
-      fsScrollRef.current.scrollLeft = index * w
+      fsScrollRef.current.scrollLeft = index * window.innerWidth
     }
   }, [fullscreen, index])
 
-  /** Fullscreen: отслеживаем index */
+  /** Отслеживаем index при горизонтальном скролле */
   useEffect(() => {
     const el = fsScrollRef.current
     if (!el || !fullscreen || photos.length <= 1) return
 
     let ticking = false
-
     const onScroll = () => {
       if (ticking) return
       ticking = true
       requestAnimationFrame(() => {
         ticking = false
         const w = el.clientWidth
-        if (w > 0) {
-          const newIdx = Math.round(el.scrollLeft / w)
-          setIndex(newIdx)
-        }
+        if (w > 0) setIndex(Math.round(el.scrollLeft / w))
       })
     }
 
@@ -125,24 +106,102 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
     return () => el.removeEventListener('scroll', onScroll)
   }, [fullscreen, photos.length])
 
-  /** Тап на фото в fullscreen → закрыть */
-  const fsTapRef = useRef(false)
-  const onFsPointerDown = useCallback(() => { fsTapRef.current = true }, [])
-  const onFsScroll = useCallback(() => { fsTapRef.current = false }, [])
-  const onFsClick = useCallback(() => {
-    if (fsTapRef.current) setFullscreen(false)
-  }, [])
+  // ─── Вертикальный dismiss: native touch на fsScrollRef ────
+  useEffect(() => {
+    const el = fsScrollRef.current
+    const overlay = fsOverlayRef.current
+    if (!el || !overlay || !fullscreen) return
 
-  // ═══════════════════════════════════════════════════════════
-  //  Sync card scroll position при выходе из fullscreen
-  // ═══════════════════════════════════════════════════════════
+    let startX = 0
+    let startY = 0
+    let dx = 0
+    let dy = 0
+    let locked = false
+    let dir: 'h' | 'v' | null = null
+    let active = false
 
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      startX = t.clientX
+      startY = t.clientY
+      dx = 0; dy = 0
+      locked = false; dir = null
+      active = true
+    }
+
+    const onMove = (e: TouchEvent) => {
+      if (!active) return
+      const t = e.touches[0]
+      dx = t.clientX - startX
+      dy = t.clientY - startY
+
+      // Определяем направление
+      if (!locked) {
+        const ax = Math.abs(dx)
+        const ay = Math.abs(dy)
+        if (ax > 8 || ay > 8) {
+          dir = ay > ax ? 'v' : 'h'
+          locked = true
+        }
+      }
+
+      if (dir === 'v') {
+        // Вертикальный свайп → двигаем overlay + fade
+        e.preventDefault()
+        el.style.transform = `translateY(${dy}px)`
+        el.style.transition = 'none'
+        const opacity = Math.max(0.2, 1 - Math.abs(dy) / 400)
+        overlay.style.backgroundColor = `rgba(0, 0, 0, ${opacity * 0.96})`
+      }
+      // Горизонтальный → не мешаем scroll-snap
+    }
+
+    const onEnd = () => {
+      if (!active) return
+      active = false
+
+      if (dir === 'v') {
+        if (Math.abs(dy) > DISMISS_PX) {
+          // Dismiss: анимируем уход + закрываем
+          el.style.transition = 'transform 0.2s ease-out'
+          el.style.transform = `translateY(${dy > 0 ? 300 : -300}px)`
+          overlay.style.transition = 'background-color 0.2s ease-out'
+          overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)'
+          setTimeout(() => setFullscreen(false), 200)
+        } else {
+          // Snap back
+          el.style.transition = 'transform 0.2s ease-out'
+          el.style.transform = 'translateY(0)'
+          overlay.style.transition = 'background-color 0.2s ease-out'
+          overlay.style.backgroundColor = ''
+        }
+      } else if (!dir || (Math.abs(dx) < TAP_PX && Math.abs(dy) < TAP_PX)) {
+        // Тап → закрыть
+        setFullscreen(false)
+      }
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd, { passive: true })
+    el.addEventListener('touchcancel', onEnd, { passive: true })
+
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+      // Reset стилей при cleanup
+      el.style.transform = ''
+      el.style.transition = ''
+    }
+  }, [fullscreen])
+
+  // ─── Sync card scroll при выходе из fullscreen ────────────
   const prevFullscreen = useRef(fullscreen)
   useEffect(() => {
-    // При закрытии fullscreen — скроллим card gallery к текущему фото
     if (prevFullscreen.current && !fullscreen && scrollRef.current) {
-      const w = scrollRef.current.clientWidth
-      scrollRef.current.scrollLeft = index * w
+      scrollRef.current.scrollLeft = index * scrollRef.current.clientWidth
     }
     prevFullscreen.current = fullscreen
   }, [fullscreen, index])
@@ -157,12 +216,8 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
 
   return (
     <>
-      {/* ─── Card Gallery ────────────────────────────────── */}
-      <div
-        ref={scrollRef}
-        className="gallery-scroll"
-        onClick={onCardClick}
-      >
+      {/* Card Gallery */}
+      <div ref={scrollRef} className="gallery-scroll" onClick={onCardClick}>
         {photos.map((photo, i) => (
           <img
             key={i}
@@ -182,11 +237,12 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
         </div>
       )}
 
-      {/* ─── Fullscreen ──────────────────────────────────── */}
+      {/* Fullscreen */}
       <AnimatePresence>
         {fullscreen && (
           <motion.div
             className="gallery-fullscreen"
+            ref={fsOverlayRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -197,13 +253,7 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
             )}
             <button className="gallery-fs-close" onClick={() => setFullscreen(false)}>✕</button>
 
-            <div
-              ref={fsScrollRef}
-              className="gallery-fs-scroll"
-              onPointerDown={onFsPointerDown}
-              onScroll={onFsScroll}
-              onClick={onFsClick}
-            >
+            <div ref={fsScrollRef} className="gallery-fs-scroll">
               {photos.map((photo, i) => (
                 <img
                   key={i}
