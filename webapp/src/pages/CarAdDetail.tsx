@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Garage, Star, Eye, Phone, ChatRound, ChatSquare } from '@solar-icons/react'
+import { Garage, Star, Eye, Phone, ChatSquare } from '@solar-icons/react'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
@@ -158,28 +158,32 @@ export default function CarAdDetail() {
           <Eye size={14} weight="BoldDuotone" /> {ad.view_count} просмотров
         </motion.p>
 
-        {/* Характеристики */}
+        {/* Характеристики — только заполненные поля */}
         <motion.div variants={fadeUpItem} className="detail-specs">
-          <div className="spec-row">
-            <span className="spec-label">Год</span>
-            <span className="spec-value">{ad.year}</span>
-          </div>
-          <div className="spec-row">
-            <span className="spec-label">Пробег</span>
-            <span className="spec-value">{ad.mileage.toLocaleString('ru-RU')} км</span>
-          </div>
-          <div className="spec-row">
-            <span className="spec-label">Двигатель</span>
-            <span className="spec-value">{ad.engine_volume}л, {ad.fuel_type}</span>
-          </div>
-          <div className="spec-row">
-            <span className="spec-label">КПП</span>
-            <span className="spec-value">{ad.transmission}</span>
-          </div>
-          <div className="spec-row">
-            <span className="spec-label">Цвет</span>
-            <span className="spec-value">{ad.color}</span>
-          </div>
+          {ad.year > 0 && (
+            <div className="spec-row">
+              <span className="spec-label">Год</span>
+              <span className="spec-value">{ad.year}</span>
+            </div>
+          )}
+          {ad.mileage > 0 && (
+            <div className="spec-row">
+              <span className="spec-label">Пробег</span>
+              <span className="spec-value">{ad.mileage.toLocaleString('ru-RU')} км</span>
+            </div>
+          )}
+          {ad.transmission && (
+            <div className="spec-row">
+              <span className="spec-label">КПП</span>
+              <span className="spec-value">{ad.transmission}</span>
+            </div>
+          )}
+          {ad.color && (
+            <div className="spec-row">
+              <span className="spec-label">Цвет</span>
+              <span className="spec-value">{ad.color}</span>
+            </div>
+          )}
           <div className="spec-row">
             <span className="spec-label">Город</span>
             <span className="spec-value">{ad.city}</span>

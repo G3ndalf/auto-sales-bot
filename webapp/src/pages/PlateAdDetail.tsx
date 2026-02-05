@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Hashtag, Star, Eye, Phone, ChatRound, ChatSquare } from '@solar-icons/react'
+import { Hashtag, Star, Eye, Phone, ChatSquare } from '@solar-icons/react'
 import { api } from '../api'
 import type { PlateAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
