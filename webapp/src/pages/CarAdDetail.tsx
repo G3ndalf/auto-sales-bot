@@ -118,7 +118,7 @@ export default function CarAdDetail() {
             onClick={toggleFavorite}
             disabled={favoriteLoading}
             className="bg-transparent border-none text-2xl cursor-pointer"
-            style={{ color: isFavorite ? '#f59e0b' : 'var(--hint)', opacity: favoriteLoading ? 0.5 : 1 }}
+            style={{ color: isFavorite ? '#F59E0B' : '#9CA3AF', opacity: favoriteLoading ? 0.5 : 1 }}
           >
             {isFavorite ? '⭐' : '☆'}
           </motion.button>
@@ -126,7 +126,7 @@ export default function CarAdDetail() {
       </div>
 
       {/* Просмотры */}
-      <p className="text-[var(--hint,#999)] text-sm px-4 pb-2 m-0">
+      <p className="text-[#9CA3AF] text-sm px-4 pb-2 m-0">
         👁 {ad.view_count} просмотров
       </p>
 

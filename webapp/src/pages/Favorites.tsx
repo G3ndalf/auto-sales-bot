@@ -8,6 +8,7 @@ import { motion } from 'framer-motion'
 import { api } from '../api'
 import type { FavoriteItem } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
+import { SkeletonList } from '../components/Skeleton'
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -36,10 +37,10 @@ export default function Favorites() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="loading">Загрузка...</div>
+  if (loading) return <SkeletonList count={3} />
 
   if (items.length === 0) return (
-    <div className="text-center px-4 py-15 text-[var(--hint)]">
+    <div className="text-center px-4 py-15 text-[#9CA3AF] bg-[#111827] rounded-2xl">
       <motion.p
         className="text-5xl mb-3"
         animate={floatAnimation}

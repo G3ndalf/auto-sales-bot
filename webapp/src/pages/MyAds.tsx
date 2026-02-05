@@ -14,6 +14,7 @@ import { motion } from 'framer-motion'
 import { api, getUserId } from '../api'
 import type { UserAd } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
+import { SkeletonList } from '../components/Skeleton'
 
 /** Тип текущего таба */
 type Tab = 'cars' | 'plates'
@@ -25,10 +26,10 @@ type Tab = 'cars' | 'plates'
  * - rejected (Отклонено) — красный
  */
 const STATUS_CONFIG: Record<string, { label: string; emoji: string; bg: string; color: string }> = {
-  pending: { label: 'На проверке', emoji: '🟡', bg: '#FFA50033', color: '#FFA500' },
-  approved: { label: 'Активно', emoji: '🟢', bg: '#4CAF5033', color: '#4CAF50' },
-  rejected: { label: 'Отклонено', emoji: '🔴', bg: '#F4433633', color: '#F44336' },
-  sold: { label: 'Продано', emoji: '🟣', bg: '#9C27B033', color: '#9C27B0' },
+  pending: { label: 'На проверке', emoji: '🟡', bg: 'rgba(245,158,11,0.15)', color: '#F59E0B' },
+  approved: { label: 'Активно', emoji: '🟢', bg: 'rgba(16,185,129,0.15)', color: '#10B981' },
+  rejected: { label: 'Отклонено', emoji: '🔴', bg: 'rgba(239,68,68,0.15)', color: '#EF4444' },
+  sold: { label: 'Продано', emoji: '🟣', bg: 'rgba(139,92,246,0.15)', color: '#8B5CF6' },
 }
 
 export default function MyAds() {
@@ -113,20 +114,20 @@ export default function MyAds() {
   // ===== Рендер =====
 
   return (
-    <div className="p-4 pb-[100px] min-h-screen bg-[var(--tg-theme-bg-color)]">
+    <div className="p-4 pb-[100px] min-h-screen bg-[#0B0F19]">
       {/* Заголовок страницы */}
-      <h1 className="text-2xl font-bold text-[var(--tg-theme-text-color)] m-0 mb-4 text-center">
+      <h1 className="text-2xl font-bold text-[#F9FAFB] m-0 mb-4 text-center">
         📋 Мои объявления
       </h1>
 
       {/* Табы: Авто / Номера (аналогично Catalog) */}
-      <div className="flex gap-2 mb-4 bg-[var(--tg-theme-secondary-bg-color)] rounded-xl p-1">
+      <div className="flex gap-2 mb-4 bg-[#111827] rounded-xl p-1">
         <button
           onClick={() => setTab('cars')}
           className={`flex-1 p-2.5 border-none rounded-[10px] text-sm font-semibold cursor-pointer transition-all duration-200 ${
             tab === 'cars'
-              ? 'bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]'
-              : 'bg-transparent text-[var(--tg-theme-hint-color)]'
+              ? 'bg-[#F59E0B] text-[#0B0F19]'
+              : 'bg-transparent text-[#9CA3AF]'
           }`}
         >
           🚗 Авто {cars.length > 0 && `(${cars.length})`}
@@ -135,8 +136,8 @@ export default function MyAds() {
           onClick={() => setTab('plates')}
           className={`flex-1 p-2.5 border-none rounded-[10px] text-sm font-semibold cursor-pointer transition-all duration-200 ${
             tab === 'plates'
-              ? 'bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]'
-              : 'bg-transparent text-[var(--tg-theme-hint-color)]'
+              ? 'bg-[#F59E0B] text-[#0B0F19]'
+              : 'bg-transparent text-[#9CA3AF]'
           }`}
         >
           🔢 Номера {plates.length > 0 && `(${plates.length})`}
@@ -145,20 +146,18 @@ export default function MyAds() {
 
       {/* Состояние загрузки */}
       {loading && (
-        <div className="text-center py-10 text-[var(--tg-theme-hint-color)] text-base">
-          Загрузка...
-        </div>
+        <SkeletonList count={3} />
       )}
 
       {/* Ошибка загрузки */}
       {error && !loading && (
-        <div className="text-center py-10 px-4 text-[#F44336] text-sm">
+        <div className="text-center py-10 px-4 text-[#EF4444] text-sm">
           {error}
           <br />
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={loadAds}
-            className="mt-3 px-5 py-2 border-none rounded-lg bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] text-sm cursor-pointer"
+            className="mt-3 px-5 py-2 border-none rounded-lg bg-[#F59E0B] text-[#0B0F19] text-sm cursor-pointer"
           >
             Повторить
           </motion.button>
@@ -167,7 +166,7 @@ export default function MyAds() {
 
       {/* Пустой список */}
       {!loading && !error && currentAds.length === 0 && (
-        <div className="text-center py-10 px-4 text-[var(--tg-theme-hint-color)]">
+        <div className="text-center py-10 px-4 text-[#9CA3AF]">
           <div className="text-5xl mb-3">
             {tab === 'cars' ? '🚗' : '🔢'}
           </div>
@@ -182,7 +181,7 @@ export default function MyAds() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate(tab === 'cars' ? '/car/new' : '/plate/new')}
-            className="mt-4 px-6 py-2.5 border-none rounded-[10px] bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] text-sm font-semibold cursor-pointer"
+            className="mt-4 px-6 py-2.5 border-none rounded-[10px] bg-[#F59E0B] text-[#0B0F19] text-sm font-semibold cursor-pointer"
           >
             + Подать объявление
           </motion.button>
@@ -208,12 +207,12 @@ export default function MyAds() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, duration: 0.3 }}
-                className="bg-[var(--tg-theme-secondary-bg-color)] rounded-xl overflow-hidden"
+                className="bg-[#1A2332] rounded-xl overflow-hidden"
               >
                 {/* Верхняя часть карточки: фото + информация */}
                 <div className="flex gap-3 p-3">
                   {/* Фото или placeholder */}
-                  <div className="w-20 h-20 rounded-[10px] bg-[var(--tg-theme-bg-color)] shrink-0 flex items-center justify-center overflow-hidden">
+                  <div className="w-20 h-20 rounded-[10px] bg-[#111827] shrink-0 flex items-center justify-center overflow-hidden">
                     {ad.photo ? (
                       <img
                         src={api.photoUrl(ad.photo)}
@@ -231,17 +230,17 @@ export default function MyAds() {
                   {/* Текстовая информация */}
                   <div className="flex-1 min-w-0">
                     {/* Название объявления */}
-                    <div className="text-base font-semibold text-[var(--tg-theme-text-color)] mb-1 truncate">
+                    <div className="text-base font-semibold text-[#F9FAFB] mb-1 truncate">
                       {title}
                     </div>
 
                     {/* Цена */}
-                    <div className="text-[15px] font-bold text-[var(--tg-theme-text-color)] mb-1.5">
+                    <div className="text-[15px] font-bold text-[#F9FAFB] mb-1.5">
                       {formatPrice(ad.price)}
                     </div>
 
                     {/* Город */}
-                    <div className="text-[13px] text-[var(--tg-theme-hint-color)] mb-1.5">
+                    <div className="text-[13px] text-[#9CA3AF] mb-1.5">
                       📍 {ad.city}
                     </div>
 
@@ -256,12 +255,12 @@ export default function MyAds() {
                 </div>
 
                 {/* Кнопки действий */}
-                <div className="flex border-t border-[var(--tg-theme-bg-color)]">
+                <div className="flex border-t border-[rgba(255,255,255,0.08)]">
                   {/* Кнопка "Редактировать" */}
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleEdit(ad.ad_type, ad.id)}
-                    className="flex-1 p-2.5 border-none bg-transparent text-[var(--tg-theme-button-color)] text-sm font-semibold cursor-pointer border-r border-r-[var(--tg-theme-bg-color)]"
+                    className="flex-1 p-2.5 border-none bg-transparent text-[#F59E0B] text-sm font-semibold cursor-pointer border-r border-r-[rgba(255,255,255,0.08)]"
                   >
                     ✏️ Редактировать
                   </motion.button>
@@ -271,7 +270,7 @@ export default function MyAds() {
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={() => markAsSold(ad.ad_type, ad.id)}
-                      className="flex-1 p-2.5 border-none bg-transparent text-[#9C27B0] text-sm font-semibold cursor-pointer border-r border-r-[var(--tg-theme-bg-color)]"
+                      className="flex-1 p-2.5 border-none bg-transparent text-[#8B5CF6] text-sm font-semibold cursor-pointer border-r border-r-[rgba(255,255,255,0.08)]"
                     >
                       🏷️ Продано
                     </motion.button>
@@ -281,7 +280,7 @@ export default function MyAds() {
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleDelete(ad.ad_type, ad.id)}
-                    className="flex-1 p-2.5 border-none bg-transparent text-[#F44336] text-sm font-semibold cursor-pointer"
+                    className="flex-1 p-2.5 border-none bg-transparent text-[#EF4444] text-sm font-semibold cursor-pointer"
                   >
                     🗑 Удалить
                   </motion.button>

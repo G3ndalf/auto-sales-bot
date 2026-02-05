@@ -5,6 +5,7 @@ import { api } from '../api'
 import type { CarAdPreview, Brand } from '../api'
 import { TEXTS } from '../constants/texts'
 import { useBackButton } from '../hooks/useBackButton'
+import { SkeletonList } from '../components/Skeleton'
 
 interface Props {
   embedded?: boolean
@@ -187,7 +188,7 @@ export default function CarsList({ embedded }: Props) {
     n.toLocaleString('ru-RU') + ' ₽'
 
   if (loading && ads.length === 0) {
-    return <div className="loading">Загрузка...</div>
+    return <SkeletonList count={5} />
   }
 
   return (
@@ -202,7 +203,7 @@ export default function CarsList({ embedded }: Props) {
       {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}
       <div className="relative mb-2.5">
         {/* Иконка поиска слева */}
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-base pointer-events-none [color:var(--tg-theme-hint-color,#999)]">
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-base pointer-events-none text-[#9CA3AF]">
           🔍
         </span>
         <input
@@ -210,13 +211,13 @@ export default function CarsList({ embedded }: Props) {
           value={searchQuery}
           onChange={e => handleSearchChange(e.target.value)}
           placeholder="Поиск по марке, модели..."
-          className="w-full py-2.5 px-9 rounded-[10px] text-[15px] border border-solid [border-color:var(--tg-theme-hint-color,#ccc)] [background-color:var(--tg-theme-secondary-bg-color,#f0f0f0)] [color:var(--tg-theme-text-color,#000)] outline-none box-border"
+          className="w-full py-2.5 px-9 rounded-[10px] text-[15px] border border-solid border-[rgba(255,255,255,0.08)] bg-[#1F2937] text-[#F9FAFB] outline-none box-border"
         />
         {/* Кнопка очистки ✕ — показываем только при непустом поле */}
         {searchQuery && (
           <button
             onClick={clearSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-lg cursor-pointer [color:var(--tg-theme-hint-color,#999)] p-1 leading-none"
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-lg cursor-pointer text-[#9CA3AF] p-1 leading-none"
             aria-label="Очистить поиск"
           >
             ✕
@@ -233,11 +234,11 @@ export default function CarsList({ embedded }: Props) {
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => setFiltersOpen(prev => !prev)}
-            className={`flex items-center justify-center gap-1.5 w-full p-2.5 mb-2 border-[1.5px] border-solid [border-color:var(--border-input,#ddd)] rounded-xl [color:var(--text)] text-[0.95em] font-semibold cursor-pointer transition-[background] duration-200 ${filtersOpen ? '[background:var(--accent-light,#e0e7ff)]' : '[background:var(--section-bg,#f9fafb)]'}`}
+            className={`flex items-center justify-center gap-1.5 w-full p-2.5 mb-2 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[#F9FAFB] text-[0.95em] font-semibold cursor-pointer transition-[background] duration-200 ${filtersOpen ? 'bg-[rgba(245,158,11,0.15)]' : 'bg-[#1A2332]'}`}
           >
             <span>🔍 Фильтры</span>
             {activeCount > 0 && (
-              <span className="[background:var(--accent,#3b82f6)] text-white rounded-[10px] px-[7px] py-px text-[0.8em] font-bold min-w-[18px] text-center">
+              <span className="bg-[#F59E0B] text-[#0B0F19] rounded-[10px] px-[7px] py-px text-[0.8em] font-bold min-w-[18px] text-center">
                 {activeCount}
               </span>
             )}
@@ -257,7 +258,7 @@ export default function CarsList({ embedded }: Props) {
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="p-3 mb-2 border-[1.5px] border-solid [border-color:var(--border-input,#ddd)] rounded-xl [background:var(--section-bg,#f9fafb)]">
+            <div className="p-3 mb-2 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl bg-[#1A2332]">
               {/* Марка + Город */}
               <div className="flex gap-2 mb-2">
                 <select className="filter-select flex-1" value={selectedBrand}
@@ -292,20 +293,20 @@ export default function CarsList({ embedded }: Props) {
               <div className="flex gap-2 mb-2">
                 <input type="number" placeholder="Цена от" value={priceMin}
                   onChange={e => setPriceMin(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:var(--border-input)] rounded-xl text-[0.9em] [background:var(--bg,#fff)] [color:var(--text)]" />
+                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
                 <input type="number" placeholder="Цена до" value={priceMax}
                   onChange={e => setPriceMax(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:var(--border-input)] rounded-xl text-[0.9em] [background:var(--bg,#fff)] [color:var(--text)]" />
+                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
               </div>
 
               {/* Год от-до */}
               <div className="flex gap-2 mb-3">
                 <input type="number" placeholder="Год от" value={yearMin}
                   onChange={e => setYearMin(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:var(--border-input)] rounded-xl text-[0.9em] [background:var(--bg,#fff)] [color:var(--text)]" />
+                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
                 <input type="number" placeholder="Год до" value={yearMax}
                   onChange={e => setYearMax(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:var(--border-input)] rounded-xl text-[0.9em] [background:var(--bg,#fff)] [color:var(--text)]" />
+                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
               </div>
 
               {/* Кнопки: Применить + Сбросить */}
@@ -314,7 +315,7 @@ export default function CarsList({ embedded }: Props) {
                   onClick={() => { setOffset(0); setAds([]); loadAds(0); setFiltersOpen(false) }}>
                   Применить
                 </button>
-                <button className="btn px-4 py-2.5 rounded-xl text-[0.9em] [background:var(--bg-secondary,#f3f4f6)] [color:var(--text)]"
+                <button className="btn px-4 py-2.5 rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]"
                   onClick={() => {
                     setSelectedBrand(''); setSelectedCity(''); setSortOrder('date_new')
                     setPriceMin(''); setPriceMax(''); setYearMin(''); setYearMax('')
@@ -332,7 +333,7 @@ export default function CarsList({ embedded }: Props) {
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
       {error && (
-        <div className="text-center py-10 px-4 [color:var(--hint,#6b7280)]">
+        <div className="text-center py-10 px-4 text-[#9CA3AF]">
           <p className="text-[2em] mb-3">😕</p>
           <p className="mb-4">Не удалось загрузить объявления</p>
           <button
@@ -372,7 +373,7 @@ export default function CarsList({ embedded }: Props) {
                   <div className="ad-card-details">
                     {ad.mileage.toLocaleString('ru-RU')} км • {ad.fuel_type} • {ad.transmission}
                   </div>
-                  <div className="ad-card-location">📍 {ad.city} <span className="[color:var(--hint,#999)] text-[0.85em] ml-1.5">👁 {ad.view_count}</span></div>
+                  <div className="ad-card-location">📍 {ad.city} <span className="text-[#9CA3AF] text-[0.85em] ml-1.5">👁 {ad.view_count}</span></div>
                   <div className="ad-card-price">{formatPrice(ad.price)}</div>
                 </div>
               </Link>

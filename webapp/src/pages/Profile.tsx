@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { api, getUserId } from '../api'
 import type { UserProfile } from '../api'
+import { SkeletonProfile } from '../components/Skeleton'
 
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -43,7 +44,7 @@ export default function Profile() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="loading">Загрузка...</div>
+  if (loading) return <SkeletonProfile />
   if (!profile) return null
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
@@ -73,7 +74,7 @@ export default function Profile() {
 
       {/* Статистика объявлений */}
       <div className="profile-section">
-        <h2 className="text-[15px] font-semibold text-[var(--text-secondary,#8e8e93)] uppercase tracking-wide m-0 mb-3 ml-1">
+        <h2 className="text-[15px] font-semibold text-[#9CA3AF] uppercase tracking-wide m-0 mb-3 ml-1">
           Мои объявления
         </h2>
         <div className="grid grid-cols-2 gap-2.5">
@@ -83,12 +84,12 @@ export default function Profile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1, duration: 0.3 }}
-              className="bg-[var(--card-bg,#f2f2f7)] rounded-[14px] px-4 py-3.5 flex flex-col gap-1"
+              className="bg-[#1A2332] rounded-[14px] px-4 py-3.5 flex flex-col gap-1"
             >
-              <span className="text-2xl font-bold text-[var(--text,#000)]">
+              <span className="text-2xl font-bold text-[#F9FAFB]">
                 {stat.value}
               </span>
-              <span className="text-[13px] text-[var(--text-secondary,#8e8e93)]">
+              <span className="text-[13px] text-[#9CA3AF]">
                 {stat.label}
               </span>
             </motion.div>
@@ -103,10 +104,10 @@ export default function Profile() {
             transition={{ delay: 0.5, duration: 0.3 }}
             className="flex gap-2 mt-2.5 justify-center"
           >
-            <span className="text-[13px] text-[var(--text-secondary,#8e8e93)] bg-[var(--card-bg,#f2f2f7)] rounded-[10px] px-3.5 py-1.5">
+            <span className="text-[13px] text-[#9CA3AF] bg-[#1A2332] rounded-[10px] px-3.5 py-1.5">
               🚗 Авто: {profile.ads.cars}
             </span>
-            <span className="text-[13px] text-[var(--text-secondary,#8e8e93)] bg-[var(--card-bg,#f2f2f7)] rounded-[10px] px-3.5 py-1.5">
+            <span className="text-[13px] text-[#9CA3AF] bg-[#1A2332] rounded-[10px] px-3.5 py-1.5">
               🔢 Номера: {profile.ads.plates}
             </span>
           </motion.div>
@@ -120,7 +121,7 @@ export default function Profile() {
             <span className="profile-action__icon">📋</span>
             <span>Мои объявления</span>
             {profile.ads.total > 0 && (
-              <span className="ml-auto bg-[var(--accent,#6366f1)] text-white rounded-xl px-2.5 py-0.5 text-[13px] font-semibold">
+              <span className="ml-auto bg-[#F59E0B] text-[#0B0F19] rounded-xl px-2.5 py-0.5 text-[13px] font-semibold">
                 {profile.ads.total}
               </span>
             )}

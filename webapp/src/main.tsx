@@ -84,9 +84,13 @@ window.addEventListener('unhandledrejection', (event) => {
   )
 })
 
-// ─── Telegram WebApp: раскрыть на полный экран ───
+// ─── Telegram WebApp: раскрыть на полный экран + тёмная тема ───
 try {
-  window.Telegram?.WebApp?.expand()
+  const wa = window.Telegram?.WebApp
+  wa?.expand()
+  // Принудительно устанавливаем тёмные цвета шапки и фона
+  wa?.setHeaderColor?.('#0B0F19')
+  wa?.setBackgroundColor?.('#0B0F19')
 } catch { /* ignore */ }
 
 // ─── Рендер приложения ───

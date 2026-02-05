@@ -141,13 +141,13 @@ export default function CreateCarAd() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-[64px]"
           >⚠️</motion.span>
-          <h2 className="text-[1.3em]">Похожее объявление уже существует</h2>
-          <p className="text-[var(--hint)] max-w-[280px] leading-normal">
+          <h2 className="text-[1.3em] text-[#F59E0B]">Похожее объявление уже существует</h2>
+          <p className="text-[#9CA3AF] max-w-[280px] leading-normal">
             Вы уже подавали похожее объявление за последние 7 дней. Возможно, стоит отредактировать существующее.
           </p>
           <div className="flex gap-3 mt-4">
             <button
-              className="btn bg-[var(--bg-secondary,#f3f4f6)] text-[var(--text)]"
+              className="btn bg-[#1F2937] text-[#F9FAFB]"
               onClick={() => setShowDuplicateWarning(false)}
             >
               ← Назад
@@ -175,11 +175,11 @@ export default function CreateCarAd() {
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
         >
-          <span className="text-[64px]">✅</span>
+          <span className="text-[64px]" style={{ filter: 'drop-shadow(0 4px 16px rgba(245, 158, 11, 0.4))' }}>✅</span>
           <h2 className="text-[1.4em]">
             {published ? 'Объявление опубликовано!' : 'Отправлено на модерацию!'}
           </h2>
-          <p className="text-[var(--hint)]">
+          <p className="text-[#9CA3AF]">
             {published ? 'Ваше объявление уже в каталоге' : 'Мы проверим и опубликуем'}
           </p>
           <button
@@ -360,7 +360,7 @@ export default function CreateCarAd() {
           />
           {/* Счётчик символов */}
           <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
-            description.length > 900 ? 'text-[var(--red,#ef4444)]' : 'text-[var(--hint,#6b7280)]'
+            description.length > 900 ? 'text-[#EF4444]' : 'text-[#6B7280]'
           }`}>
             {description.length}/1000
           </span>
