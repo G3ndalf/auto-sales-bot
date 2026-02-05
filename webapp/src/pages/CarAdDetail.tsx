@@ -213,9 +213,17 @@ export default function CarAdDetail() {
         <button
           className="btn btn-gradient detail-footer__btn"
           onClick={() => {
-            const wa = window.Telegram?.WebApp
-            if (wa?.openLink) wa.openLink(`tel:${ad.contact_phone}`)
-            else window.location.href = `tel:${ad.contact_phone}`
+            const url = `tel:${ad.contact_phone}`
+            try {
+              const wa = window.Telegram?.WebApp
+              if (wa?.openLink) wa.openLink(url)
+              else window.location.href = url
+            } catch {
+              /* openLink может не поддерживать tel: — fallback через <a> */
+              const a = document.createElement('a')
+              a.href = url
+              a.click()
+            }
           }}
         >
           <Phone size={16} weight="BoldDuotone" /> Позвонить
