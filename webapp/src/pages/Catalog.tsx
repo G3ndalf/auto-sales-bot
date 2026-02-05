@@ -11,6 +11,7 @@ export default function Catalog() {
 
   return (
     <div className="catalog-page">
+      <h1>📋 Каталог</h1>
       <div className="catalog-tabs">
         <button
           className={`catalog-tab ${tab === 'cars' ? 'active' : ''}`}
