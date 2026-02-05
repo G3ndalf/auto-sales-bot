@@ -32,15 +32,14 @@ const EditPlateAd = lazy(() => import('./pages/EditPlateAd'))
 const AdminPanel = lazy(() => import('./pages/AdminPanel'))
 const Favorites = lazy(() => import('./pages/Favorites'))
 
-/** Анимация перехода между страницами */
+/** Анимация перехода между страницами (fast fade-in, no exit delay) */
 const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
 }
 
 const pageTransition = {
-  duration: 0.25,
+  duration: 0.15,
   ease: [0.4, 0, 0.2, 1], // cubic-bezier
 }
 
@@ -63,7 +62,6 @@ function AnimatedPage({ children }: { children: React.ReactNode }) {
       variants={pageVariants}
       initial="initial"
       animate="animate"
-      exit="exit"
       transition={pageTransition}
     >
       {children}
@@ -75,7 +73,7 @@ function AnimatedRoutes() {
   const location = useLocation()
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       <Suspense fallback={<Loading />} key={location.pathname}>
         <Routes location={location}>
           <Route path="/" element={<AnimatedPage><Profile /></AnimatedPage>} />
