@@ -63,7 +63,7 @@ function AnimatedRoutes() {
         <Route path="/car/:id/edit" element={<AnimatedPage><EditCarAd /></AnimatedPage>} />
         <Route path="/plate/:id/edit" element={<AnimatedPage><EditPlateAd /></AnimatedPage>} />
         <Route path="/favorites" element={<AnimatedPage><Favorites /></AnimatedPage>} />
-        <Route path="/admin" element={<AnimatedPage><AdminPanel /></AnimatedPage>} />
+        <Route path="/admin-panel" element={<AnimatedPage><AdminPanel /></AnimatedPage>} />
       </Routes>
     </Suspense>
   )

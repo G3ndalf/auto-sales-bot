@@ -294,7 +294,7 @@ export default function Profile() {
               className="profile-action"
               variants={staggerItem}
               whileTap={{ scale: 0.97 }}
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/admin-panel')}
             >
               <Settings size={20} weight="BoldDuotone" />
               <span>Админ-панель</span>
