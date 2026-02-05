@@ -150,8 +150,17 @@ export default function CarsList({ embedded }: Props) {
   // ─── Начальная загрузка / восстановление из кэша ──────────
   useEffect(() => {
     if (restoredCache) {
-      // Данные уже восстановлены через useState — только скролл
-      setTimeout(() => window.scrollTo(0, restoredCache.scrollY), 50)
+      // Данные уже восстановлены через useState — нужно только вернуть скролл.
+      // Несколько попыток: AnimatePresence mode="wait" запускает enter-анимацию
+      // на 250ms после mount, и во время неё скролл может сбрасываться.
+      // Попытки: сразу (0), во время анимации (150), после анимации (400).
+      const target = restoredCache.scrollY
+      if (target > 0) {
+        const timers = [0, 150, 400].map(delay =>
+          setTimeout(() => window.scrollTo(0, target), delay)
+        )
+        return () => timers.forEach(clearTimeout)
+      }
     } else {
       loadAds(0)
     }
