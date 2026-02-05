@@ -201,9 +201,9 @@ export default function CarsList({ embedded }: Props) {
       )}
 
       {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}
-      <div className="relative mb-2.5">
+      <div style={{ position: 'relative', marginBottom: 10 }}>
         {/* Иконка поиска слева */}
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-base pointer-events-none text-[#9CA3AF]">
+        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none', color: '#9CA3AF' }}>
           🔍
         </span>
         <input
@@ -211,13 +211,13 @@ export default function CarsList({ embedded }: Props) {
           value={searchQuery}
           onChange={e => handleSearchChange(e.target.value)}
           placeholder="Поиск по марке, модели..."
-          className="w-full py-2.5 px-9 rounded-[10px] text-[15px] border border-solid border-[rgba(255,255,255,0.08)] bg-[#1F2937] text-[#F9FAFB] outline-none box-border"
+          style={{ width: '100%', padding: '10px 36px', borderRadius: 10, fontSize: 15, border: '1px solid rgba(255,255,255,0.08)', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }}
         />
         {/* Кнопка очистки ✕ — показываем только при непустом поле */}
         {searchQuery && (
           <button
             onClick={clearSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-lg cursor-pointer text-[#9CA3AF] p-1 leading-none"
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9CA3AF', padding: 4, lineHeight: 1 }}
             aria-label="Очистить поиск"
           >
             ✕
@@ -234,15 +234,15 @@ export default function CarsList({ embedded }: Props) {
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => setFiltersOpen(prev => !prev)}
-            className={`flex items-center justify-center gap-1.5 w-full p-2.5 mb-2 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[#F9FAFB] text-[0.95em] font-semibold cursor-pointer transition-[background] duration-200 ${filtersOpen ? 'bg-[rgba(245,158,11,0.15)]' : 'bg-[#1A2332]'}`}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: 10, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#F9FAFB', fontSize: '0.95em', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', background: filtersOpen ? 'rgba(245,158,11,0.15)' : '#1A2332' }}
           >
             <span>🔍 Фильтры</span>
             {activeCount > 0 && (
-              <span className="bg-[#F59E0B] text-[#0B0F19] rounded-[10px] px-[7px] py-px text-[0.8em] font-bold min-w-[18px] text-center">
+              <span style={{ background: '#F59E0B', color: '#0B0F19', borderRadius: 10, padding: '1px 7px', fontSize: '0.8em', fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
                 {activeCount}
               </span>
             )}
-            <span className="ml-auto text-[0.85em] opacity-60">
+            <span style={{ marginLeft: 'auto', fontSize: '0.85em', opacity: 0.6 }}>
               {filtersOpen ? '▲' : '▼'}
             </span>
           </motion.button>
@@ -256,19 +256,19 @@ export default function CarsList({ embedded }: Props) {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="overflow-hidden"
+            style={{ overflow: 'hidden' }}
           >
-            <div className="p-3 mb-2 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl bg-[#1A2332]">
+            <div style={{ padding: 12, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, background: '#1A2332' }}>
               {/* Марка + Город */}
-              <div className="flex gap-2 mb-2">
-                <select className="filter-select flex-1" value={selectedBrand}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <select className="filter-select" style={{ flex: 1 }} value={selectedBrand}
                   onChange={e => setSelectedBrand(e.target.value)}>
                   <option value="">Все марки</option>
                   {brands.map(b => (
                     <option key={b.brand} value={b.brand}>{b.brand} ({b.count})</option>
                   ))}
                 </select>
-                <select className="filter-select flex-1" value={selectedCity}
+                <select className="filter-select" style={{ flex: 1 }} value={selectedCity}
                   onChange={e => setSelectedCity(e.target.value)}>
                   <option value="">Все города</option>
                   {TEXTS.REGIONS.map(r => (
@@ -280,7 +280,7 @@ export default function CarsList({ embedded }: Props) {
               </div>
 
               {/* Сортировка */}
-              <select className="filter-select w-full mb-2" value={sortOrder}
+              <select className="filter-select" style={{ width: '100%', marginBottom: 8 }} value={sortOrder}
                 onChange={e => setSortOrder(e.target.value)}>
                 <option value="date_new">Сначала новые</option>
                 <option value="date_old">Сначала старые</option>
@@ -290,32 +290,32 @@ export default function CarsList({ embedded }: Props) {
               </select>
 
               {/* Цена от-до */}
-              <div className="flex gap-2 mb-2">
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                 <input type="number" placeholder="Цена от" value={priceMin}
                   onChange={e => setPriceMin(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
+                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
                 <input type="number" placeholder="Цена до" value={priceMax}
                   onChange={e => setPriceMax(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
+                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
               </div>
 
               {/* Год от-до */}
-              <div className="flex gap-2 mb-3">
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <input type="number" placeholder="Год от" value={yearMin}
                   onChange={e => setYearMin(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
+                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
                 <input type="number" placeholder="Год до" value={yearMax}
                   onChange={e => setYearMax(e.target.value)}
-                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:rgba(255,255,255,0.08)] rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]" />
+                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }} />
               </div>
 
               {/* Кнопки: Применить + Сбросить */}
-              <div className="flex gap-2">
-                <button className="btn btn-gradient flex-1 p-2.5 rounded-xl text-[0.9em]"
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-gradient" style={{ flex: 1, padding: 10, borderRadius: 12, fontSize: '0.9em' }}
                   onClick={() => { setOffset(0); setAds([]); loadAds(0); setFiltersOpen(false) }}>
                   Применить
                 </button>
-                <button className="btn px-4 py-2.5 rounded-xl text-[0.9em] bg-[#1F2937] text-[#F9FAFB]"
+                <button className="btn" style={{ padding: '10px 16px', borderRadius: 12, fontSize: '0.9em', background: '#1F2937', color: '#F9FAFB' }}
                   onClick={() => {
                     setSelectedBrand(''); setSelectedCity(''); setSortOrder('date_new')
                     setPriceMin(''); setPriceMax(''); setYearMin(''); setYearMax('')
@@ -333,9 +333,9 @@ export default function CarsList({ embedded }: Props) {
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
       {error && (
-        <div className="text-center py-10 px-4 text-[#9CA3AF]">
-          <p className="text-[2em] mb-3">😕</p>
-          <p className="mb-4">Не удалось загрузить объявления</p>
+        <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF' }}>
+          <p style={{ fontSize: '2em', marginBottom: 12 }}>😕</p>
+          <p style={{ marginBottom: 16 }}>Не удалось загрузить объявления</p>
           <button
             className="btn btn-secondary block mx-auto"
             onClick={() => loadAds()}
@@ -373,7 +373,7 @@ export default function CarsList({ embedded }: Props) {
                   <div className="ad-card-details">
                     {ad.mileage.toLocaleString('ru-RU')} км • {ad.fuel_type} • {ad.transmission}
                   </div>
-                  <div className="ad-card-location">📍 {ad.city} <span className="text-[#9CA3AF] text-[0.85em] ml-1.5">👁 {ad.view_count}</span></div>
+                  <div className="ad-card-location">📍 {ad.city} <span style={{ color: '#9CA3AF', fontSize: '0.85em', marginLeft: 6 }}>👁 {ad.view_count}</span></div>
                   <div className="ad-card-price">{formatPrice(ad.price)}</div>
                 </div>
               </Link>
