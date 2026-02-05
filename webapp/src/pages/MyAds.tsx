@@ -211,17 +211,17 @@ export default function MyAds() {
               >
                 {/* Верхняя часть карточки: фото + информация */}
                 <div className="flex gap-3 p-3">
-                  {/* Фото или placeholder */}
-                  <div className="w-20 h-20 rounded-[10px] bg-[#111827] shrink-0 flex items-center justify-center overflow-hidden">
+                  {/* Фото или placeholder (60×60 — компактные превью) */}
+                  <div style={{ width: 60, height: 60, minWidth: 60, borderRadius: 10, background: '#111827', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {ad.photo ? (
                       <img
                         src={api.photoUrl(ad.photo)}
                         alt={title}
-                        className="w-full h-full object-cover"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                       />
                     ) : (
                       /* Emoji-заглушка если фото нет */
-                      <span className="text-[32px]">
+                      <span style={{ fontSize: 26 }}>
                         {ad.ad_type === 'car' ? '🚗' : '🔢'}
                       </span>
                     )}
