@@ -10,6 +10,7 @@ export default function CreateCarAd() {
   const [mileage, setMileage] = useState('')
   const [engineVolume, setEngineVolume] = useState('')
   const [fuelType, setFuelType] = useState('')
+  const [hasGas, setHasGas] = useState(false)
   const [transmission, setTransmission] = useState('')
   const [color, setColor] = useState('')
   const [price, setPrice] = useState('')
@@ -19,25 +20,40 @@ export default function CreateCarAd() {
   const [telegram, setTelegram] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   useBackButton('/')
 
-  // Disable close confirmation so sendData() closes cleanly
   useEffect(() => {
     window.Telegram?.WebApp?.disableClosingConfirmation?.()
   }, [])
 
+  const touch = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }))
+  }
+
+  // Validation state for each required field
+  const fieldState = (value: string, field: string): 'idle' | 'valid' | 'invalid' => {
+    if (!touched[field] && !value) return 'idle'
+    return value.trim() ? 'valid' : 'invalid'
+  }
+
+  const allRequired = brand && model && year && price && city && phone
+
   const handleSubmit = () => {
-    if (!brand || !model || !year || !price || !city || !phone) {
-      alert(TEXTS.VALIDATION_REQUIRED_CAR)
-      return
-    }
+    // Touch all required fields to show validation
+    setTouched({ brand: true, model: true, year: true, price: true, city: true, phone: true })
+
+    if (!allRequired) return
 
     const tg = window.Telegram?.WebApp
     if (!tg?.sendData) {
       alert(TEXTS.MSG_OPEN_VIA_BOT)
       return
     }
+
+    // If gas checkbox is on, append to fuel type
+    const finalFuel = hasGas && fuelType ? `${fuelType}` : fuelType
 
     const data = JSON.stringify({
       type: 'car_ad',
@@ -46,11 +62,11 @@ export default function CreateCarAd() {
       year: parseInt(year),
       mileage: parseInt(mileage) || 0,
       engine_volume: parseFloat(engineVolume) || 0,
-      fuel_type: fuelType,
+      fuel_type: finalFuel,
       transmission,
       color: color.trim(),
       price: parseInt(price),
-      description: description.trim(),
+      description: (description.trim() + (hasGas ? '\n⛽ Установлено ГБО' : '')).trim(),
       city,
       contact_phone: phone.trim(),
       contact_telegram: telegram.trim() || null,
@@ -59,8 +75,6 @@ export default function CreateCarAd() {
     setSubmitting(true)
     try {
       tg.sendData(data)
-      // sendData() normally closes the Mini App instantly.
-      // If still alive after 3s — show fallback message.
       setTimeout(() => {
         setSent(true)
         setSubmitting(false)
@@ -70,6 +84,11 @@ export default function CreateCarAd() {
       const msg = e instanceof Error ? e.message : String(e)
       alert(TEXTS.MSG_ERROR + '\n' + msg)
     }
+  }
+
+  const fc = (field: string, value: string) => {
+    const s = fieldState(value, field)
+    return `form-field ${s === 'valid' ? 'field-valid' : s === 'invalid' ? 'field-invalid' : ''}`
   }
 
   return (
@@ -85,20 +104,24 @@ export default function CreateCarAd() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>{TEXTS.LABEL_BRAND}</label>
+            <label className="required">{TEXTS.LABEL_BRAND}</label>
             <input
+              className={fc('brand', brand)}
               type="text"
               value={brand}
               onChange={e => setBrand(e.target.value)}
+              onBlur={() => touch('brand')}
               placeholder="LADA, BMW..."
             />
           </div>
           <div className="form-group">
-            <label>{TEXTS.LABEL_MODEL}</label>
+            <label className="required">{TEXTS.LABEL_MODEL}</label>
             <input
+              className={fc('model', model)}
               type="text"
               value={model}
               onChange={e => setModel(e.target.value)}
+              onBlur={() => touch('model')}
               placeholder="Vesta, X5..."
             />
           </div>
@@ -106,11 +129,13 @@ export default function CreateCarAd() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>{TEXTS.LABEL_YEAR}</label>
+            <label className="required">{TEXTS.LABEL_YEAR}</label>
             <input
+              className={fc('year', year)}
               type="number"
               value={year}
               onChange={e => setYear(e.target.value)}
+              onBlur={() => touch('year')}
               min={CONFIG.MIN_YEAR}
               max={CONFIG.MAX_YEAR}
               placeholder="2020"
@@ -119,6 +144,7 @@ export default function CreateCarAd() {
           <div className="form-group">
             <label>{TEXTS.LABEL_MILEAGE}</label>
             <input
+              className="form-field"
               type="number"
               value={mileage}
               onChange={e => setMileage(e.target.value)}
@@ -131,6 +157,7 @@ export default function CreateCarAd() {
           <div className="form-group">
             <label>{TEXTS.LABEL_ENGINE}</label>
             <input
+              className="form-field"
               type="number"
               step="0.1"
               value={engineVolume}
@@ -141,6 +168,7 @@ export default function CreateCarAd() {
           <div className="form-group">
             <label>{TEXTS.LABEL_COLOR}</label>
             <input
+              className="form-field"
               type="text"
               value={color}
               onChange={e => setColor(e.target.value)}
@@ -152,7 +180,7 @@ export default function CreateCarAd() {
         <div className="form-row">
           <div className="form-group">
             <label>{TEXTS.LABEL_FUEL}</label>
-            <select value={fuelType} onChange={e => setFuelType(e.target.value)}>
+            <select className="form-field" value={fuelType} onChange={e => setFuelType(e.target.value)}>
               <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
               {TEXTS.FUEL_TYPES.map(ft => (
                 <option key={ft.value} value={ft.value}>{ft.label}</option>
@@ -161,7 +189,7 @@ export default function CreateCarAd() {
           </div>
           <div className="form-group">
             <label>{TEXTS.LABEL_TRANSMISSION}</label>
-            <select value={transmission} onChange={e => setTransmission(e.target.value)}>
+            <select className="form-field" value={transmission} onChange={e => setTransmission(e.target.value)}>
               <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
               {TEXTS.TRANSMISSIONS.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -169,6 +197,15 @@ export default function CreateCarAd() {
             </select>
           </div>
         </div>
+
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={hasGas}
+            onChange={e => setHasGas(e.target.checked)}
+          />
+          <span className="checkbox-label">⛽ Установлено ГБО (газ)</span>
+        </label>
       </div>
 
       {/* Section: Цена и описание */}
@@ -179,11 +216,13 @@ export default function CreateCarAd() {
         </div>
 
         <div className="form-group">
-          <label>{TEXTS.LABEL_PRICE}</label>
+          <label className="required">{TEXTS.LABEL_PRICE}</label>
           <input
+            className={fc('price', price)}
             type="number"
             value={price}
             onChange={e => setPrice(e.target.value)}
+            onBlur={() => touch('price')}
             placeholder="500000"
           />
         </div>
@@ -191,24 +230,29 @@ export default function CreateCarAd() {
         <div className="form-group">
           <label>{TEXTS.LABEL_DESCRIPTION}</label>
           <textarea
+            className="form-field"
             value={description}
             onChange={e => setDescription(e.target.value)}
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
-            placeholder="Дополнительная информация об автомобиле..."
+            placeholder="Дополнительная информация..."
           />
         </div>
       </div>
 
-      {/* Section: Местоположение и контакты */}
+      {/* Section: Контакты */}
       <div className="form-section">
         <div className="form-section__header">
           <span className="form-section__icon">📍</span>
-          <span>Местоположение и контакты</span>
+          <span>Город и контакты</span>
         </div>
 
         <div className="form-group">
-          <label>{TEXTS.LABEL_CITY}</label>
-          <select value={city} onChange={e => setCity(e.target.value)}>
+          <label className="required">{TEXTS.LABEL_CITY}</label>
+          <select
+            className={fc('city', city)}
+            value={city}
+            onChange={e => { setCity(e.target.value); touch('city') }}
+          >
             <option value="">{TEXTS.PLACEHOLDER_SELECT}</option>
             {TEXTS.CITIES.map(c => (
               <option key={c} value={c}>{c}</option>
@@ -218,17 +262,20 @@ export default function CreateCarAd() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>{TEXTS.LABEL_PHONE}</label>
+            <label className="required">{TEXTS.LABEL_PHONE}</label>
             <input
+              className={fc('phone', phone)}
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
+              onBlur={() => touch('phone')}
               placeholder="+7..."
             />
           </div>
           <div className="form-group">
             <label>{TEXTS.LABEL_TELEGRAM}</label>
             <input
+              className="form-field"
               type="text"
               value={telegram}
               onChange={e => setTelegram(e.target.value)}
@@ -244,7 +291,11 @@ export default function CreateCarAd() {
         {sent ? (
           <p className="form-hint">{TEXTS.MSG_SEND_DATA_FALLBACK}</p>
         ) : (
-          <button className="btn btn-gradient" onClick={handleSubmit} disabled={submitting}>
+          <button
+            className={`btn btn-gradient ${!allRequired ? 'btn-disabled' : ''}`}
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
             {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
           </button>
         )}
