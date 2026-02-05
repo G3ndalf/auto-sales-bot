@@ -190,9 +190,9 @@ export default function CreatePlateAd() {
             transition={{ delay: 0.55, duration: 0.3 }}
             whileTap={{ scale: 0.95 }}
             className="btn btn-primary mt-4"
-            onClick={() => window.Telegram?.WebApp?.close()}
+            onClick={() => window.location.hash = '#/plates'}
           >
-            Закрыть
+            В каталог
           </motion.button>
         </motion.div>
       </div>
