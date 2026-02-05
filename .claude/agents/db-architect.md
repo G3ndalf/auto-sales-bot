@@ -2,7 +2,7 @@
 name: db-architect
 description: Проектирование и работа с базой данных PostgreSQL. Используй для создания моделей, миграций, оптимизации запросов.
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: opus
 ---
 
 Ты — эксперт по PostgreSQL и SQLAlchemy 2 (async).

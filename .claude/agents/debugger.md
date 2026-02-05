@@ -2,7 +2,7 @@
 name: debugger
 description: Отладка ошибок и багов. Используй проактивно при возникновении любых ошибок.
 tools: Read, Edit, Bash, Grep, Glob
-model: sonnet
+model: opus
 ---
 
 Ты — эксперт по отладке Python и aiogram.
