@@ -52,26 +52,16 @@ export default function CreateCarAd() {
     })
 
     const tg = window.Telegram?.WebApp
-    alert('DEBUG: data=' + data.length + ' bytes, sendData=' + typeof tg?.sendData + ', initData=' + (tg?.initData ? 'yes' : 'no') + ', platform=' + tg?.platform)
     if (tg?.sendData) {
       try {
         tg.sendData(data)
-        // If we reach here, sendData didn't close the app — something is wrong
-        setTimeout(() => {
-          setSubmitting(false)
-          alert('sendData() вызван но Mini App не закрылось. Попробуй открыть через кнопку в чате.')
-        }, 1000)
       } catch (e: any) {
         setSubmitting(false)
-        alert('sendData ERROR: ' + e.message)
+        alert('Ошибка отправки: ' + e.message)
       }
     } else {
       setSubmitting(false)
-      alert('sendData не доступен. Открой бота через кнопку в чате, а не по ссылке.\n\ntg=' + JSON.stringify({
-        available: !!tg,
-        version: tg?.version,
-        platform: tg?.platform,
-      }))
+      alert('Откройте через кнопку в чате бота')
     }
   }
 
