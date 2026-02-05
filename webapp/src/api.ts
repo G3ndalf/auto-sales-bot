@@ -10,17 +10,56 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
 
 function getAdminUserId(): string | null {
   const tg = window.Telegram?.WebApp;
+
+  // Debug: log all available sources
+  console.log('[AdminAuth] initData:', tg?.initData);
+  console.log('[AdminAuth] initDataUnsafe:', JSON.stringify(tg?.initDataUnsafe));
+  console.log('[AdminAuth] user:', JSON.stringify(tg?.initDataUnsafe?.user));
+  console.log('[AdminAuth] location.hash:', window.location.hash);
+
+  // Source 1: initDataUnsafe.user.id (standard SDK path)
   const userId = tg?.initDataUnsafe?.user?.id;
-  if (userId) return String(userId);
-  // Fallback: try to extract from initData
+  if (userId) {
+    console.log('[AdminAuth] Got user_id from initDataUnsafe:', userId);
+    return String(userId);
+  }
+
+  // Source 2: parse from initData string
   try {
     const params = new URLSearchParams(tg?.initData || '');
     const userJson = params.get('user');
     if (userJson) {
       const user = JSON.parse(userJson);
-      if (user.id) return String(user.id);
+      if (user.id) {
+        console.log('[AdminAuth] Got user_id from initData parse:', user.id);
+        return String(user.id);
+      }
     }
-  } catch {}
+  } catch (e) {
+    console.warn('[AdminAuth] Failed to parse initData:', e);
+  }
+
+  // Source 3: parse from URL hash (#tgWebAppData=...)
+  try {
+    const hash = window.location.hash.slice(1); // remove #
+    const hashParams = new URLSearchParams(hash);
+    const tgWebAppData = hashParams.get('tgWebAppData');
+    if (tgWebAppData) {
+      const dataParams = new URLSearchParams(tgWebAppData);
+      const userJson = dataParams.get('user');
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        if (user.id) {
+          console.log('[AdminAuth] Got user_id from URL hash:', user.id);
+          return String(user.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[AdminAuth] Failed to parse URL hash:', e);
+  }
+
+  console.error('[AdminAuth] Could not extract user_id from any source');
   return null;
 }
 

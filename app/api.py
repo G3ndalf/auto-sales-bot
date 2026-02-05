@@ -48,15 +48,46 @@ def create_api_app(
 
 def _get_admin_user_id(request: web.Request) -> int | None:
     """Extract user_id from request and verify admin access."""
-    uid_str = request.headers.get("X-Telegram-User-Id") or request.query.get("user_id")
+    header_uid = request.headers.get("X-Telegram-User-Id")
+    query_uid = request.query.get("user_id")
+    logger.info(
+        "[AdminAuth] headers X-Telegram-User-Id=%s, query user_id=%s, "
+        "all headers=%s, query=%s",
+        header_uid, query_uid,
+        dict(request.headers), dict(request.query),
+    )
+
+    uid_str = header_uid or query_uid
+
+    # Fallback: try to parse user_id from tgWebAppData query param
     if not uid_str:
+        tg_data = request.query.get("tgWebAppData")
+        if tg_data:
+            try:
+                import json
+                from urllib.parse import unquote, parse_qs
+                decoded = unquote(tg_data)
+                parsed = parse_qs(decoded)
+                user_json = parsed.get("user", [None])[0]
+                if user_json:
+                    user_obj = json.loads(user_json)
+                    uid_str = str(user_obj.get("id", ""))
+                    logger.info("[AdminAuth] Extracted user_id from tgWebAppData: %s", uid_str)
+            except Exception:
+                logger.exception("[AdminAuth] Failed to parse tgWebAppData")
+
+    if not uid_str:
+        logger.warning("[AdminAuth] No user_id found in request")
         return None
     try:
         uid = int(uid_str)
     except (ValueError, TypeError):
+        logger.warning("[AdminAuth] Invalid user_id value: %s", uid_str)
         return None
     if uid not in settings.admin_ids:
+        logger.warning("[AdminAuth] user_id %d not in admin_ids %s", uid, settings.admin_ids)
         return None
+    logger.info("[AdminAuth] Admin access granted for user_id=%d", uid)
     return uid
 
 
@@ -70,6 +101,7 @@ async def cors_middleware(request: web.Request, handler):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-User-Id"
+    response.headers["Access-Control-Expose-Headers"] = "X-Telegram-User-Id"
     return response
 
 
