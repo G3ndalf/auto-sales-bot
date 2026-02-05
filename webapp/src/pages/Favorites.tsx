@@ -89,7 +89,7 @@ export default function Favorites() {
             style={{ cursor: 'pointer' }}
             onClick={() => navigate(`/${item.ad_type}/${item.id}`)}
             variants={cardVariants}
-            initial={i < 6 ? 'hidden' : false}
+            
           >
             <div className="ad-card-photo">
               {item.photo ? (

@@ -453,7 +453,7 @@ export default function CarsList({ embedded }: Props) {
             <motion.div
               key={ad.id}
               variants={listCardVariants}
-              initial={i < 6 ? 'hidden' : false}
+              
             >
               <Link to={`/car/${ad.id}`} className="ad-card">
                 <div className="ad-card-photo">

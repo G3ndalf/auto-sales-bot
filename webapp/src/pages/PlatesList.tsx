@@ -402,7 +402,7 @@ export default function PlatesList({ embedded }: Props) {
             <motion.div
               key={ad.id}
               variants={listCardVariants}
-              initial={i < 6 ? 'hidden' : false}
+              
             >
               <Link to={`/plate/${ad.id}`} className="ad-card plate-card">
                 <div className="plate-number-display">{ad.plate_number}</div>

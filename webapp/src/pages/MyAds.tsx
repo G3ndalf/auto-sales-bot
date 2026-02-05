@@ -234,7 +234,7 @@ export default function MyAds() {
                 <motion.div
                   key={`${ad.ad_type}-${ad.id}`}
                   variants={listItem}
-                  initial={i < 6 ? 'hidden' : false}
+                  
                   style={{ background: 'var(--section-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflow: 'hidden' }}
                 >
                   {/* Верхняя часть: фото 90×90 + инфо (как в каталоге) */}
