@@ -38,12 +38,20 @@ router = Router()
 _DEEP_LINK_RE = re.compile(r"^msg_(car|plate)_(\d+)$")
 
 
-def _webapp_url(path: str = "", admin: bool = False) -> str:
-    """Build webapp URL with cache-busting query param."""
+def _webapp_url(path: str = "", admin: bool = False, uid: int = 0) -> str:
+    """Build webapp URL with cache-busting query param.
+
+    Каждый вызов генерирует уникальный URL с ?v={timestamp},
+    чтобы Telegram iOS WebView не кэшировал старый HTML.
+    Без этого WebView может загрузить старый index.html,
+    который ссылается на JS-бандл, которого уже нет → чёрный экран.
+    """
     base = settings.webapp_url.rstrip("/")
     ts = int(time.time())
     url = f"{base}{path}" if path else base
     params = f"v={ts}"
+    if uid:
+        params += f"&uid={uid}"
     if admin and settings.admin_token:
         params += f"&token={settings.admin_token}"
     return f"{url}?{params}"
@@ -79,19 +87,21 @@ async def cmd_start(message: Message, session: AsyncSession):
     # ── Стандартное меню /start ─────────────────────────────────────
     kb = None
     if settings.webapp_url:
-        base = settings.webapp_url.rstrip("/")
         uid = message.from_user.id if message.from_user else 0
+        # ВСЕ кнопки используют _webapp_url() для cache-busting.
+        # Каждый /start генерирует уникальные URL с ?v={timestamp},
+        # чтобы Telegram WebView не использовал кэшированную версию.
         keyboard_rows = [
             [
                 KeyboardButton(
                     text="🚗 Подать объявление",
-                    web_app=WebAppInfo(url=f"{base}?uid={uid}"),
+                    web_app=WebAppInfo(url=_webapp_url(uid=uid)),
                 ),
             ],
             [
                 KeyboardButton(
                     text="📋 Каталог",
-                    web_app=WebAppInfo(url=f"{base}/catalog"),
+                    web_app=WebAppInfo(url=_webapp_url("/catalog")),
                 ),
             ],
         ]
