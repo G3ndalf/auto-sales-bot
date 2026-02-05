@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { api, Brand, Model } from '../api'
+import { api } from '../api'
+import type { Brand, Model } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 
 type View = 'brands' | 'models'

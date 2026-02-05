@@ -6,6 +6,7 @@ from aiohttp import web
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.config import settings
 from app.models.car_ad import AdStatus, CarAd
 from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
@@ -13,14 +14,19 @@ from app.models.plate_ad import PlateAd
 logger = logging.getLogger(__name__)
 
 
-def create_api_app(session_pool: async_sessionmaker, bot_token: str) -> web.Application:
+def create_api_app(
+    session_pool: async_sessionmaker, bot_token: str, bot=None,
+) -> web.Application:
     """Create aiohttp app with API routes."""
     app = web.Application(
         middlewares=[cors_middleware],
     )
     app["session_pool"] = session_pool
     app["bot_token"] = bot_token
+    if bot:
+        app["bot"] = bot
 
+    # Public routes
     app.router.add_get("/api/brands", get_brands)
     app.router.add_get("/api/brands/{brand}/models", get_models)
     app.router.add_get("/api/cars", get_car_ads)
@@ -30,7 +36,27 @@ def create_api_app(session_pool: async_sessionmaker, bot_token: str) -> web.Appl
     app.router.add_get("/api/cities", get_cities)
     app.router.add_get("/api/photos/{file_id}", proxy_photo)
 
+    # Admin routes
+    app.router.add_get("/api/admin/pending", admin_get_pending)
+    app.router.add_get("/api/admin/stats", admin_get_stats)
+    app.router.add_post("/api/admin/approve/{ad_type}/{ad_id}", admin_approve)
+    app.router.add_post("/api/admin/reject/{ad_type}/{ad_id}", admin_reject)
+
     return app
+
+
+def _get_admin_user_id(request: web.Request) -> int | None:
+    """Extract user_id from request and verify admin access."""
+    uid_str = request.headers.get("X-Telegram-User-Id") or request.query.get("user_id")
+    if not uid_str:
+        return None
+    try:
+        uid = int(uid_str)
+    except (ValueError, TypeError):
+        return None
+    if uid not in settings.admin_ids:
+        return None
+    return uid
 
 
 @web.middleware
@@ -41,8 +67,8 @@ async def cors_middleware(request: web.Request, handler):
     else:
         response = await handler(request)
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-User-Id"
     return response
 
 
@@ -334,3 +360,282 @@ async def proxy_photo(request: web.Request) -> web.Response:
             "Cache-Control": "public, max-age=86400",
         },
     )
+
+
+# --- Admin endpoints ---
+
+
+async def admin_get_pending(request: web.Request) -> web.Response:
+    """GET /api/admin/pending — list all pending ads for moderation."""
+    if not _get_admin_user_id(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        # Pending car ads
+        car_stmt = (
+            select(CarAd)
+            .where(CarAd.status == AdStatus.PENDING)
+            .order_by(CarAd.created_at)
+        )
+        car_ads = (await session.execute(car_stmt)).scalars().all()
+
+        # Pending plate ads
+        plate_stmt = (
+            select(PlateAd)
+            .where(PlateAd.status == AdStatus.PENDING)
+            .order_by(PlateAd.created_at)
+        )
+        plate_ads = (await session.execute(plate_stmt)).scalars().all()
+
+        # Get first photos for all ads
+        car_ids = [ad.id for ad in car_ads]
+        plate_ids = [ad.id for ad in plate_ads]
+        photos_map: dict[str, dict[int, str]] = {"car": {}, "plate": {}}
+
+        if car_ids:
+            photo_stmt = (
+                select(AdPhoto)
+                .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(car_ids))
+                .order_by(AdPhoto.position)
+            )
+            for p in (await session.execute(photo_stmt)).scalars().all():
+                if p.ad_id not in photos_map["car"]:
+                    photos_map["car"][p.ad_id] = p.file_id
+
+        if plate_ids:
+            photo_stmt = (
+                select(AdPhoto)
+                .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(plate_ids))
+                .order_by(AdPhoto.position)
+            )
+            for p in (await session.execute(photo_stmt)).scalars().all():
+                if p.ad_id not in photos_map["plate"]:
+                    photos_map["plate"][p.ad_id] = p.file_id
+
+        items = []
+        for ad in car_ads:
+            items.append({
+                "ad_type": "car",
+                "id": ad.id,
+                "title": f"{ad.brand} {ad.model} ({ad.year})",
+                "brand": ad.brand,
+                "model": ad.model,
+                "year": ad.year,
+                "price": ad.price,
+                "city": ad.city,
+                "mileage": ad.mileage,
+                "engine_volume": ad.engine_volume,
+                "fuel_type": ad.fuel_type.value,
+                "transmission": ad.transmission.value,
+                "color": ad.color,
+                "description": ad.description,
+                "contact_phone": ad.contact_phone,
+                "contact_telegram": ad.contact_telegram,
+                "photo": photos_map["car"].get(ad.id),
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            })
+        for ad in plate_ads:
+            items.append({
+                "ad_type": "plate",
+                "id": ad.id,
+                "title": ad.plate_number,
+                "plate_number": ad.plate_number,
+                "price": ad.price,
+                "city": ad.city,
+                "description": ad.description,
+                "contact_phone": ad.contact_phone,
+                "contact_telegram": ad.contact_telegram,
+                "photo": photos_map["plate"].get(ad.id),
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            })
+
+    return web.json_response({"items": items, "total": len(items)})
+
+
+async def admin_get_stats(request: web.Request) -> web.Response:
+    """GET /api/admin/stats — ad statistics."""
+    if not _get_admin_user_id(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        stats = {}
+        for label, status in [
+            ("pending", AdStatus.PENDING),
+            ("approved", AdStatus.APPROVED),
+            ("rejected", AdStatus.REJECTED),
+        ]:
+            car_count = (
+                await session.execute(
+                    select(func.count()).select_from(CarAd).where(CarAd.status == status)
+                )
+            ).scalar_one()
+            plate_count = (
+                await session.execute(
+                    select(func.count()).select_from(PlateAd).where(PlateAd.status == status)
+                )
+            ).scalar_one()
+            stats[label] = car_count + plate_count
+
+        stats["total"] = stats["pending"] + stats["approved"] + stats["rejected"]
+
+    return web.json_response(stats)
+
+
+async def admin_approve(request: web.Request) -> web.Response:
+    """POST /api/admin/approve/{ad_type}/{ad_id} — approve an ad."""
+    if not _get_admin_user_id(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    ad_type = request.match_info["ad_type"]
+    ad_id = int(request.match_info["ad_id"])
+
+    if ad_type not in ("car", "plate"):
+        raise web.HTTPBadRequest(text="Invalid ad_type")
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        if ad_type == "car":
+            from app.services.car_ad_service import approve_car_ad
+            ad = await approve_car_ad(session, ad_id)
+        else:
+            from app.services.plate_ad_service import approve_plate_ad
+            ad = await approve_plate_ad(session, ad_id)
+
+        if not ad:
+            raise web.HTTPNotFound(text="Ad not found")
+
+        # Notify user
+        try:
+            from app.models.user import User
+            user_stmt = select(User).where(User.id == ad.user_id)
+            user = (await session.execute(user_stmt)).scalar_one_or_none()
+            bot = request.app.get("bot")
+            if user and bot:
+                from app.texts import USER_AD_APPROVED
+                await bot.send_message(user.telegram_id, USER_AD_APPROVED)
+        except Exception:
+            logger.exception("Failed to notify user about approval")
+
+        # Publish to channel
+        bot = request.app.get("bot")
+        if bot:
+            await _api_publish_to_channel(bot, ad, ad_type, session)
+
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def admin_reject(request: web.Request) -> web.Response:
+    """POST /api/admin/reject/{ad_type}/{ad_id} — reject an ad."""
+    if not _get_admin_user_id(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    ad_type = request.match_info["ad_type"]
+    ad_id = int(request.match_info["ad_id"])
+
+    if ad_type not in ("car", "plate"):
+        raise web.HTTPBadRequest(text="Invalid ad_type")
+
+    # Parse optional reason from request body
+    reason = "Не прошло модерацию"
+    try:
+        body = await request.json()
+        if body.get("reason"):
+            reason = body["reason"]
+    except Exception:
+        pass
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        if ad_type == "car":
+            from app.services.car_ad_service import reject_car_ad
+            ad = await reject_car_ad(session, ad_id, reason=reason)
+        else:
+            from app.services.plate_ad_service import reject_plate_ad
+            ad = await reject_plate_ad(session, ad_id, reason=reason)
+
+        if not ad:
+            raise web.HTTPNotFound(text="Ad not found")
+
+        # Notify user
+        try:
+            from app.models.user import User
+            user_stmt = select(User).where(User.id == ad.user_id)
+            user = (await session.execute(user_stmt)).scalar_one_or_none()
+            bot = request.app.get("bot")
+            if user and bot:
+                from app.texts import USER_AD_REJECTED
+                await bot.send_message(user.telegram_id, USER_AD_REJECTED)
+        except Exception:
+            logger.exception("Failed to notify user about rejection")
+
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def _api_publish_to_channel(bot, ad, ad_type: str, session):
+    """Publish approved ad to the channel (called from API endpoints)."""
+    channel_id = settings.channel_id
+    if not channel_id:
+        return
+
+    from aiogram.types import InputMediaPhoto
+
+    # Get photos
+    photo_type = AdType.CAR if ad_type == "car" else AdType.PLATE
+    photo_stmt = (
+        select(AdPhoto)
+        .where(AdPhoto.ad_type == photo_type, AdPhoto.ad_id == ad.id)
+        .order_by(AdPhoto.position)
+    )
+    photos = (await session.execute(photo_stmt)).scalars().all()
+
+    def _fmt_number(n: int) -> str:
+        return f"{n:,}".replace(",", " ")
+
+    if ad_type == "car":
+        text = (
+            f"🚗 <b>{ad.brand} {ad.model}</b> ({ad.year})\n\n"
+            f"💰 {_fmt_number(ad.price)} ₽\n"
+            f"🛣 {_fmt_number(ad.mileage)} км\n"
+            f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
+            f"🎨 {ad.color} | 🏎 {ad.engine_volume}л\n"
+            f"📍 {ad.city}\n"
+        )
+        if ad.description:
+            text += f"\n📝 {ad.description[:500]}\n"
+        text += f"\n📞 {ad.contact_phone}"
+        if ad.contact_telegram:
+            text += f"\n📱 {ad.contact_telegram}"
+    else:
+        text = (
+            f"🔢 <b>{ad.plate_number}</b>\n\n"
+            f"💰 {_fmt_number(ad.price)} ₽\n"
+            f"📍 {ad.city}\n"
+        )
+        if ad.description:
+            text += f"\n📝 {ad.description[:500]}\n"
+        text += f"\n📞 {ad.contact_phone}"
+        if ad.contact_telegram:
+            text += f"\n📱 {ad.contact_telegram}"
+
+    try:
+        if photos:
+            media = []
+            for i, photo in enumerate(photos[:10]):
+                media.append(
+                    InputMediaPhoto(
+                        media=photo.file_id,
+                        caption=text if i == 0 else None,
+                        parse_mode="HTML" if i == 0 else None,
+                    )
+                )
+            await bot.send_media_group(chat_id=channel_id, media=media)
+        else:
+            await bot.send_message(chat_id=channel_id, text=text)
+    except Exception:
+        logger.exception("Failed to publish to channel")

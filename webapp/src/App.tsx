@@ -7,6 +7,7 @@ import CarsList from './pages/CarsList'
 import CarAdDetail from './pages/CarAdDetail'
 import PlatesList from './pages/PlatesList'
 import PlateAdDetail from './pages/PlateAdDetail'
+import AdminPanel from './pages/AdminPanel'
 import './App.css'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
         <Route path="/car/:id" element={<CarAdDetail />} />
         <Route path="/plates" element={<PlatesList />} />
         <Route path="/plate/:id" element={<PlateAdDetail />} />
+        <Route path="/admin" element={<AdminPanel />} />
       </Routes>
     </div>
   )

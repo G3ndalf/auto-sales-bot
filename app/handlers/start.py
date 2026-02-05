@@ -8,7 +8,7 @@ from aiogram.types import (
 )
 
 from app.config import settings
-from app.texts import START_WELCOME
+from app.texts import ADMIN_PANEL_BTN, START_WELCOME
 
 router = Router()
 
@@ -17,21 +17,27 @@ router = Router()
 async def cmd_start(message: Message):
     kb = None
     if settings.webapp_url:
-        kb = ReplyKeyboardMarkup(
-            keyboard=[
-                [
-                    KeyboardButton(
-                        text="🚗 Подать объявление",
-                        web_app=WebAppInfo(url=settings.webapp_url),
-                    ),
-                ],
-                [
-                    KeyboardButton(
-                        text="📋 Каталог",
-                        web_app=WebAppInfo(url=f"{settings.webapp_url}/catalog"),
-                    ),
-                ],
+        keyboard_rows = [
+            [
+                KeyboardButton(
+                    text="🚗 Подать объявление",
+                    web_app=WebAppInfo(url=settings.webapp_url),
+                ),
             ],
-            resize_keyboard=True,
-        )
+            [
+                KeyboardButton(
+                    text="📋 Каталог",
+                    web_app=WebAppInfo(url=f"{settings.webapp_url}/catalog"),
+                ),
+            ],
+        ]
+        # Admin button — only for admins
+        if message.from_user and message.from_user.id in settings.admin_ids:
+            keyboard_rows.append([
+                KeyboardButton(
+                    text=ADMIN_PANEL_BTN,
+                    web_app=WebAppInfo(url=f"{settings.webapp_url}/admin"),
+                ),
+            ])
+        kb = ReplyKeyboardMarkup(keyboard=keyboard_rows, resize_keyboard=True)
     await message.answer(START_WELCOME, reply_markup=kb)

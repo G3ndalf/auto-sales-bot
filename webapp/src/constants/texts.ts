@@ -43,6 +43,22 @@ export const TEXTS = {
   VALIDATION_REQUIRED_PLATE: 'Заполните обязательные поля: номер, цена, город, телефон',
   BTN_SUBMITTING: 'Отправка...',
 
+  // Админ-панель
+  ADMIN_TITLE: 'Админ-панель',
+  ADMIN_STATS_TOTAL: 'Всего',
+  ADMIN_STATS_PENDING: 'На модерации',
+  ADMIN_STATS_APPROVED: 'Одобрено',
+  ADMIN_STATS_REJECTED: 'Отклонено',
+  ADMIN_NO_PENDING: 'Нет объявлений на модерации',
+  ADMIN_BTN_APPROVE: 'Одобрить',
+  ADMIN_BTN_REJECT: 'Отклонить',
+  ADMIN_APPROVED_SUCCESS: 'Объявление одобрено',
+  ADMIN_REJECTED_SUCCESS: 'Объявление отклонено',
+  ADMIN_ERROR: 'Ошибка. Попробуйте ещё раз.',
+  ADMIN_ACCESS_DENIED: 'Нет доступа к админ-панели',
+  ADMIN_CAR_LABEL: 'Авто',
+  ADMIN_PLATE_LABEL: 'Номер',
+
   // Enum labels
   FUEL_TYPES: [
     { value: 'бензин', label: '⛽ Бензин' },

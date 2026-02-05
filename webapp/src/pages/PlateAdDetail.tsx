@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { api, PlateAdFull } from '../api'
+import { api } from '../api'
+import type { PlateAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 
 export default function PlateAdDetail() {
