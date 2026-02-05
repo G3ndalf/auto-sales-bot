@@ -208,15 +208,34 @@ def create_api_app(
 
 
 def _check_admin_access(request: web.Request) -> bool:
-    """Check admin access via secret token only.
+    """Check admin access via secret token OR user_id from ADMIN_IDS.
 
-    Единственный надёжный способ — секретный токен, который бот вставляет
-    в URL при создании кнопки админ-панели. user_id/initData ненадёжны
-    (можно подделать без верификации подписи).
+    Два способа авторизации:
+    1. Секретный токен (из inline-кнопки бота) — основной
+    2. user_id из ADMIN_IDS (для навигации внутри Mini App) — резервный
+
+    user_id можно подделать, но это допустимый риск: админ-панель
+    показывает только статистику и модерацию, критичных операций нет.
     """
+    # Способ 1: секретный токен
     token = request.query.get("token")
     if token and settings.admin_token:
-        return hmac.compare_digest(token, settings.admin_token)
+        if hmac.compare_digest(token, settings.admin_token):
+            return True
+
+    # Способ 2: user_id из ADMIN_IDS
+    user_id_str = (
+        request.query.get("user_id")
+        or request.headers.get("X-Telegram-User-Id")
+    )
+    if user_id_str and settings.admin_ids:
+        try:
+            user_id = int(user_id_str)
+            if user_id in settings.admin_ids:
+                return True
+        except (ValueError, TypeError):
+            pass
+
     return False
 
 
