@@ -194,6 +194,10 @@ export default function Profile() {
               </span>
             )}
           </div>
+          <div className="profile-action" onClick={() => navigate('/favorites')}>
+            <span className="profile-action__icon">⭐</span>
+            <span>Избранное</span>
+          </div>
         </div>
       </div>
     </div>
