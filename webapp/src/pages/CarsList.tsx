@@ -166,16 +166,33 @@ export default function CarsList({ embedded }: Props) {
     }
   }, [])
 
-  // ─── Сохранение в кэш при unmount ──────────────────────────
-  /** Ref для доступа к актуальному state в cleanup-функции */
+  // ─── Сохранение в кэш: данные при unmount, скролл непрерывно ──
+  /**
+   * Ref для доступа к актуальному state в cleanup-функции.
+   * scrollY обновляется через scroll-listener, а не при unmount —
+   * потому что AnimatePresence mode="wait" проигрывает exit-анимацию
+   * 250ms ПЕРЕД unmount, и к моменту cleanup window.scrollY уже 0.
+   */
   const cacheRef = useRef({ ads, total, offset, brand: selectedBrand, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax, yearMin, yearMax })
+  const scrollRef = useRef(0)
+
   useEffect(() => {
     cacheRef.current = { ads, total, offset, brand: selectedBrand, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax, yearMin, yearMax }
   })
+
+  /** Непрерывно сохраняем scroll position (passive, без re-renders) */
+  useEffect(() => {
+    const handler = () => { scrollRef.current = window.scrollY }
+    window.addEventListener('scroll', handler, { passive: true })
+    // Инициализация текущей позицией
+    scrollRef.current = window.scrollY
+    return () => window.removeEventListener('scroll', handler)
+  }, [])
+
+  /** При unmount сохраняем данные + последнюю известную позицию скролла */
   useEffect(() => {
     return () => {
-      const s = cacheRef.current
-      _carsCache = { ...s, scrollY: window.scrollY }
+      _carsCache = { ...cacheRef.current, scrollY: scrollRef.current }
     }
   }, [])
 

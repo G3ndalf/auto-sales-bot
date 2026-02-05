@@ -150,16 +150,26 @@ export default function PlatesList({ embedded }: Props) {
     }
   }, [])
 
-  // ─── Сохранение в кэш при unmount ──────────────────────────
-  /** Ref для доступа к актуальному state в cleanup-функции */
+  // ─── Сохранение в кэш: данные при unmount, скролл непрерывно ──
   const cacheRef = useRef({ ads, total, offset, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax })
+  const scrollRef = useRef(0)
+
   useEffect(() => {
     cacheRef.current = { ads, total, offset, city: selectedCity, query: searchQuery, sort: sortOrder, priceMin, priceMax }
   })
+
+  /** Непрерывно сохраняем scroll position (passive, без re-renders) */
+  useEffect(() => {
+    const handler = () => { scrollRef.current = window.scrollY }
+    window.addEventListener('scroll', handler, { passive: true })
+    scrollRef.current = window.scrollY
+    return () => window.removeEventListener('scroll', handler)
+  }, [])
+
+  /** При unmount сохраняем данные + последнюю известную позицию скролла */
   useEffect(() => {
     return () => {
-      const s = cacheRef.current
-      _platesCache = { ...s, scrollY: window.scrollY }
+      _platesCache = { ...cacheRef.current, scrollY: scrollRef.current }
     }
   }, [])
 
