@@ -9,6 +9,7 @@
  * @param fallbackPath — путь для навигации при нажатии BackButton.
  *   Если не указан, используется navigate(-1) (browser history back).
  *   Если 'close', закрывает Mini App вместо навигации.
+ *   Если null, хук ничего не делает (для безусловного вызова без нарушения Rules of Hooks).
  */
 
 import { useEffect } from 'react'
@@ -47,12 +48,15 @@ declare global {
   }
 }
 
-export function useBackButton(fallbackPath?: string) {
+export function useBackButton(fallbackPath?: string | null) {
   const navigate = useNavigate()
   const location = useLocation()
   const isHome = location.pathname === '/'
 
   useEffect(() => {
+    // Если target === null, хук ничего не делает (ранний выход)
+    if (fallbackPath === null) return
+
     const tg = window.Telegram?.WebApp
     if (!tg?.BackButton) return
 

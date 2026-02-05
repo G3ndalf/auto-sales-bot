@@ -1,6 +1,7 @@
 """Server-side validation for ad submissions."""
 
 import re
+from datetime import datetime
 
 from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
 
@@ -69,15 +70,16 @@ def validate_car_ad(data: dict) -> list[str]:
     # model
     errors.extend(_check_required_string(data, "model", "Модель", 1, 100))
 
-    # year (required, int, 1960-2027)
+    # year (required, int, 1960 — текущий год + 1)
+    max_year = datetime.now().year + 1
     year = data.get("year")
     if year is None or year == "":
         errors.append("Год выпуска — обязательное поле")
     else:
         try:
             year_int = int(year)
-            if year_int < 1960 or year_int > 2027:
-                errors.append("Год выпуска — от 1960 до 2027")
+            if year_int < 1960 or year_int > max_year:
+                errors.append(f"Год выпуска — от 1960 до {max_year}")
         except (ValueError, TypeError):
             errors.append("Год выпуска — должно быть числом")
 

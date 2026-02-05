@@ -95,6 +95,11 @@ _PLATE_SORT_OPTIONS: dict[str, object] = {
 }
 
 
+def _escape_like(s: str) -> str:
+    """Экранировать спецсимволы LIKE/ILIKE: % и _ → \\% и \\_."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _safe_int(val, default: int = 0) -> int:
     """Safely convert to int, return default on failure."""
     try:
@@ -175,42 +180,15 @@ def create_api_app(
 
 
 def _check_admin_access(request: web.Request) -> bool:
-    """Check admin access via token or user_id."""
-    # Method 1: Secret token (most reliable — doesn't depend on Telegram SDK)
+    """Check admin access via secret token only.
+
+    Единственный надёжный способ — секретный токен, который бот вставляет
+    в URL при создании кнопки админ-панели. user_id/initData ненадёжны
+    (можно подделать без верификации подписи).
+    """
     token = request.query.get("token")
     if token and settings.admin_token:
-        if hmac.compare_digest(token, settings.admin_token):
-            return True
-
-    # Method 2: user_id from header or query
-    uid_str = (
-        request.headers.get("X-Telegram-User-Id")
-        or request.query.get("user_id")
-    )
-
-    # Method 3: parse user_id from initData
-    if not uid_str:
-        init_data = request.query.get("initData") or request.query.get("tgWebAppData")
-        if init_data:
-            try:
-                from urllib.parse import parse_qs
-                parsed = parse_qs(init_data)
-                user_json = parsed.get("user", [None])[0]
-                if user_json:
-                    user_obj = json.loads(user_json)
-                    uid_str = str(user_obj.get("id", ""))
-            except Exception:
-                pass
-
-    if uid_str:
-        try:
-            uid = int(uid_str)
-            if uid in settings.admin_ids:
-                return True
-        except (ValueError, TypeError):
-            pass
-
-    logger.warning("[AdminAuth] Access denied (path=%s)", request.path)
+        return hmac.compare_digest(token, settings.admin_token)
     return False
 
 
@@ -225,7 +203,15 @@ async def cors_middleware(request: web.Request, handler):
         response = web.Response()
     else:
         response = await handler(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
+    # Ограничиваем CORS: только разрешённые origin'ы
+    origin = request.headers.get("Origin", "")
+    allowed_origins = {"https://auto.xlmmama.ru"}
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        # Для локальной разработки (localhost)
+        if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
+            response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-User-Id"
     response.headers["Access-Control-Expose-Headers"] = "X-Telegram-User-Id"
@@ -305,7 +291,8 @@ async def get_car_ads(request: web.Request) -> web.Response:
         # ── Search (q) — ILIKE по brand, model, description (OR) ──
         # Позволяет пользователю искать "BMW" и найти по марке/модели/описанию.
         if q:
-            q_pattern = f"%{q}%"
+            q_escaped = _escape_like(q)
+            q_pattern = f"%{q_escaped}%"
             search_filter = or_(
                 CarAd.brand.ilike(q_pattern),
                 CarAd.model.ilike(q_pattern),
@@ -425,7 +412,8 @@ async def get_plate_ads(request: web.Request) -> web.Response:
 
         # ── Search (q) — ILIKE по plate_number, description (OR) ──
         if q:
-            q_pattern = f"%{q}%"
+            q_escaped = _escape_like(q)
+            q_pattern = f"%{q_escaped}%"
             search_filter = or_(
                 PlateAd.plate_number.ilike(q_pattern),
                 PlateAd.description.ilike(q_pattern),

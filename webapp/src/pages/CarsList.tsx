@@ -18,7 +18,7 @@ interface Props {
  * - Пагинацию «Показать ещё»
  */
 export default function CarsList({ embedded }: Props) {
-  if (!embedded) useBackButton('/catalog')
+  useBackButton(embedded ? null : '/catalog')
 
   const [ads, setAds] = useState<CarAdPreview[]>([])
   const [total, setTotal] = useState(0)
@@ -35,6 +35,13 @@ export default function CarsList({ embedded }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   /** Ref для хранения таймера debounce — очищается при каждом новом вводе */
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /** Очистка debounce-таймера при размонтировании компонента */
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    }
+  }, [])
 
   // ─── Сортировка ────────────────────────────────────────────
   // Варианты: date_new (default), date_old, price_asc, price_desc, mileage_asc

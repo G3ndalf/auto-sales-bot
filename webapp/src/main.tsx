@@ -34,14 +34,35 @@ function showGlobalError(message: string, source?: string) {
     font-family: -apple-system, system-ui, monospace;
     font-size: 12px; line-height: 1.4; word-break: break-all;
   `
-  div.innerHTML = `
-    <strong>⚠️ JS Error:</strong><br/>
-    ${message}${source ? `<br/><small>${source}</small>` : ''}
-    <br/><button onclick="location.reload()" style="
-      margin-top:8px; padding:4px 12px; background:white; color:#dc2626;
-      border:none; border-radius:4px; font-size:12px; cursor:pointer;
-    ">Обновить</button>
+  // Безопасная сборка DOM без innerHTML (защита от XSS)
+  const title = document.createElement('strong')
+  title.textContent = '⚠️ JS Error:'
+  div.appendChild(title)
+
+  div.appendChild(document.createElement('br'))
+
+  /** Сообщение об ошибке (textContent — не интерпретирует HTML) */
+  const msgSpan = document.createElement('span')
+  msgSpan.textContent = message
+  div.appendChild(msgSpan)
+
+  if (source) {
+    div.appendChild(document.createElement('br'))
+    const srcSmall = document.createElement('small')
+    srcSmall.textContent = source
+    div.appendChild(srcSmall)
+  }
+
+  div.appendChild(document.createElement('br'))
+
+  const btn = document.createElement('button')
+  btn.textContent = 'Обновить'
+  btn.style.cssText = `
+    margin-top:8px; padding:4px 12px; background:white; color:#dc2626;
+    border:none; border-radius:4px; font-size:12px; cursor:pointer;
   `
+  btn.onclick = () => location.reload()
+  div.appendChild(btn)
   document.body.prepend(div)
 }
 
