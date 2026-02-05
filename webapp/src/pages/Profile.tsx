@@ -11,7 +11,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { api, getUserId } from '../api'
+import { api, getUserId, ADMIN_IDS } from '../api'
 import type { UserProfile } from '../api'
 import { SkeletonProfile } from '../components/Skeleton'
 
@@ -130,6 +130,13 @@ export default function Profile() {
             <span className="profile-action__icon">⭐</span>
             <span>Избранное</span>
           </div>
+          {/* Админ-панель — только для администраторов */}
+          {ADMIN_IDS.includes(Number(getUserId())) && (
+            <div className="profile-action" onClick={() => navigate('/admin')}>
+              <span className="profile-action__icon">⚙️</span>
+              <span>Админ-панель</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,9 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+/** Telegram user IDs с правами администратора (должен совпадать с ADMIN_IDS на бэкенде) */
+export const ADMIN_IDS = [5849807401];
+
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, init);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
