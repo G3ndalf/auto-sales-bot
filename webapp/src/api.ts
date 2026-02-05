@@ -8,59 +8,48 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+function getTelegramInitData(): string {
+  const tg = window.Telegram?.WebApp;
+  // initData is the raw query string Telegram provides
+  return tg?.initData || '';
+}
+
 function getAdminUserId(): string | null {
   const tg = window.Telegram?.WebApp;
 
-  // Debug: log all available sources
-  console.log('[AdminAuth] initData:', tg?.initData);
-  console.log('[AdminAuth] initDataUnsafe:', JSON.stringify(tg?.initDataUnsafe));
-  console.log('[AdminAuth] user:', JSON.stringify(tg?.initDataUnsafe?.user));
-  console.log('[AdminAuth] location.hash:', window.location.hash);
-
   // Source 1: initDataUnsafe.user.id (standard SDK path)
   const userId = tg?.initDataUnsafe?.user?.id;
-  if (userId) {
-    console.log('[AdminAuth] Got user_id from initDataUnsafe:', userId);
-    return String(userId);
-  }
+  if (userId) return String(userId);
 
-  // Source 2: parse from initData string
+  // Source 2: parse from initData string directly
   try {
     const params = new URLSearchParams(tg?.initData || '');
     const userJson = params.get('user');
     if (userJson) {
       const user = JSON.parse(userJson);
-      if (user.id) {
-        console.log('[AdminAuth] Got user_id from initData parse:', user.id);
-        return String(user.id);
-      }
+      if (user.id) return String(user.id);
     }
-  } catch (e) {
-    console.warn('[AdminAuth] Failed to parse initData:', e);
-  }
+  } catch {}
 
-  // Source 3: parse from URL hash (#tgWebAppData=...)
-  try {
-    const hash = window.location.hash.slice(1); // remove #
-    const hashParams = new URLSearchParams(hash);
-    const tgWebAppData = hashParams.get('tgWebAppData');
-    if (tgWebAppData) {
-      const dataParams = new URLSearchParams(tgWebAppData);
-      const userJson = dataParams.get('user');
-      if (userJson) {
-        const user = JSON.parse(userJson);
-        if (user.id) {
-          console.log('[AdminAuth] Got user_id from URL hash:', user.id);
-          return String(user.id);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[AdminAuth] Failed to parse URL hash:', e);
-  }
-
-  console.error('[AdminAuth] Could not extract user_id from any source');
   return null;
+}
+
+function adminQueryParams(): string {
+  const parts: string[] = [];
+
+  // Always pass initData — backend will parse user_id from it
+  const initData = getTelegramInitData();
+  if (initData) {
+    parts.push(`initData=${encodeURIComponent(initData)}`);
+  }
+
+  // Also pass user_id directly if available
+  const uid = getAdminUserId();
+  if (uid) {
+    parts.push(`user_id=${uid}`);
+  }
+
+  return parts.length > 0 ? '?' + parts.join('&') : '';
 }
 
 function adminHeaders(): Record<string, string> {
@@ -190,30 +179,26 @@ export const api = {
 
   // Admin
   adminGetPending: () => {
-    const uid = getAdminUserId();
-    const q = uid ? `?user_id=${uid}` : '';
+    const q = adminQueryParams();
     return fetchJSON<PaginatedResponse<AdminPendingAd>>(`/api/admin/pending${q}`, {
       headers: adminHeaders(),
     });
   },
   adminGetStats: () => {
-    const uid = getAdminUserId();
-    const q = uid ? `?user_id=${uid}` : '';
+    const q = adminQueryParams();
     return fetchJSON<AdminStats>(`/api/admin/stats${q}`, {
       headers: adminHeaders(),
     });
   },
   adminApprove: (adType: string, adId: number) => {
-    const uid = getAdminUserId();
-    const q = uid ? `?user_id=${uid}` : '';
+    const q = adminQueryParams();
     return fetchJSON<{ ok: boolean }>(`/api/admin/approve/${adType}/${adId}${q}`, {
       method: 'POST',
       headers: adminHeaders(),
     });
   },
   adminReject: (adType: string, adId: number, reason?: string) => {
-    const uid = getAdminUserId();
-    const q = uid ? `?user_id=${uid}` : '';
+    const q = adminQueryParams();
     return fetchJSON<{ ok: boolean }>(`/api/admin/reject/${adType}/${adId}${q}`, {
       method: 'POST',
       headers: { ...adminHeaders(), 'Content-Type': 'application/json' },

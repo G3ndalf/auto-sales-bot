@@ -59,22 +59,21 @@ def _get_admin_user_id(request: web.Request) -> int | None:
 
     uid_str = header_uid or query_uid
 
-    # Fallback: try to parse user_id from tgWebAppData query param
+    # Fallback: try to parse user_id from initData query param (Telegram WebApp data)
     if not uid_str:
-        tg_data = request.query.get("tgWebAppData")
-        if tg_data:
+        init_data = request.query.get("initData") or request.query.get("tgWebAppData")
+        if init_data:
             try:
                 import json
-                from urllib.parse import unquote, parse_qs
-                decoded = unquote(tg_data)
-                parsed = parse_qs(decoded)
+                from urllib.parse import parse_qs
+                parsed = parse_qs(init_data)
                 user_json = parsed.get("user", [None])[0]
                 if user_json:
                     user_obj = json.loads(user_json)
                     uid_str = str(user_obj.get("id", ""))
-                    logger.info("[AdminAuth] Extracted user_id from tgWebAppData: %s", uid_str)
+                    logger.info("[AdminAuth] Extracted user_id from initData: %s", uid_str)
             except Exception:
-                logger.exception("[AdminAuth] Failed to parse tgWebAppData")
+                logger.exception("[AdminAuth] Failed to parse initData")
 
     if not uid_str:
         logger.warning("[AdminAuth] No user_id found in request")
