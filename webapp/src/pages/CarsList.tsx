@@ -32,6 +32,9 @@ export default function CarsList({ embedded }: Props) {
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedCity, setSelectedCity] = useState('')
 
+  // ─── Панель фильтров (свёрнута по умолчанию) ──────────────
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
   // ─── Поиск (debounce 400ms) ────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
   /** Ref для хранения таймера debounce — очищается при каждом новом вводе */
@@ -257,80 +260,119 @@ export default function CarsList({ embedded }: Props) {
         )}
       </div>
 
-      {/* ─── Панель фильтров + сортировка ────────────────────── */}
-      <div className="filters-bar">
-        <select
-          className="filter-select"
-          value={selectedBrand}
-          onChange={e => handleBrandChange(e.target.value)}
-        >
-          <option value="">Все марки</option>
-          {brands.map(b => (
-            <option key={b.brand} value={b.brand}>
-              {b.brand} ({b.count})
-            </option>
-          ))}
-        </select>
+      {/* ─── Кнопка фильтров + раскрывающаяся панель ─────────── */}
+      {(() => {
+        /** Считаем количество активных фильтров для бейджа */
+        const activeCount = [selectedBrand, selectedCity, priceMin, priceMax, yearMin, yearMax]
+          .filter(Boolean).length + (sortOrder !== 'date_new' ? 1 : 0)
+        return (
+          <button
+            onClick={() => setFiltersOpen(prev => !prev)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              width: '100%', padding: '10px', marginBottom: '8px',
+              border: '1.5px solid var(--border-input, #ddd)', borderRadius: '12px',
+              background: filtersOpen ? 'var(--accent-light, #e0e7ff)' : 'var(--section-bg, #f9fafb)',
+              color: 'var(--text)', fontSize: '0.95em', fontWeight: 600, cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}
+          >
+            <span>🔍 Фильтры</span>
+            {activeCount > 0 && (
+              <span style={{
+                background: 'var(--accent, #3b82f6)', color: '#fff', borderRadius: '10px',
+                padding: '1px 7px', fontSize: '0.8em', fontWeight: 700, minWidth: '18px',
+                textAlign: 'center',
+              }}>
+                {activeCount}
+              </span>
+            )}
+            <span style={{ marginLeft: 'auto', fontSize: '0.85em', opacity: 0.6 }}>
+              {filtersOpen ? '▲' : '▼'}
+            </span>
+          </button>
+        )
+      })()}
 
-        <select
-          className="filter-select"
-          value={selectedCity}
-          onChange={e => handleCityChange(e.target.value)}
-        >
-          <option value="">Все города</option>
-          {TEXTS.REGIONS.map(r => (
-            <optgroup key={r.name} label={r.name}>
-              {r.cities.map(c => (
-                <option key={c} value={c}>{c}</option>
+      {filtersOpen && (
+        <div style={{
+          padding: '12px', marginBottom: '8px',
+          border: '1.5px solid var(--border-input, #ddd)', borderRadius: '12px',
+          background: 'var(--section-bg, #f9fafb)',
+          animation: 'scaleIn 0.2s ease-out',
+        }}>
+          {/* Марка + Город */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <select className="filter-select" value={selectedBrand}
+              onChange={e => setSelectedBrand(e.target.value)} style={{ flex: 1 }}>
+              <option value="">Все марки</option>
+              {brands.map(b => (
+                <option key={b.brand} value={b.brand}>{b.brand} ({b.count})</option>
               ))}
-            </optgroup>
-          ))}
-        </select>
+            </select>
+            <select className="filter-select" value={selectedCity}
+              onChange={e => setSelectedCity(e.target.value)} style={{ flex: 1 }}>
+              <option value="">Все города</option>
+              {TEXTS.REGIONS.map(r => (
+                <optgroup key={r.name} label={r.name}>
+                  {r.cities.map(c => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
 
-        {/* Dropdown сортировки — в одну строку с фильтрами */}
-        <select
-          className="filter-select"
-          value={sortOrder}
-          onChange={e => handleSortChange(e.target.value)}
-        >
-          <option value="date_new">Сначала новые</option>
-          <option value="date_old">Сначала старые</option>
-          <option value="price_asc">Цена ↑</option>
-          <option value="price_desc">Цена ↓</option>
-          <option value="mileage_asc">Пробег ↑</option>
-        </select>
-      </div>
+          {/* Сортировка */}
+          <select className="filter-select" value={sortOrder}
+            onChange={e => setSortOrder(e.target.value)}
+            style={{ width: '100%', marginBottom: '8px' }}>
+            <option value="date_new">Сначала новые</option>
+            <option value="date_old">Сначала старые</option>
+            <option value="price_asc">Цена ↑</option>
+            <option value="price_desc">Цена ↓</option>
+            <option value="mileage_asc">Пробег ↑</option>
+          </select>
 
-      {/* ─── Фильтры цены ────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
-        <input type="number" placeholder="Цена от" value={priceMin}
-          onChange={e => setPriceMin(e.target.value)}
-          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
-        <input type="number" placeholder="Цена до" value={priceMax}
-          onChange={e => setPriceMax(e.target.value)}
-          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
-      </div>
+          {/* Цена от-до */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <input type="number" placeholder="Цена от" value={priceMin}
+              onChange={e => setPriceMin(e.target.value)}
+              style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--bg, #fff)', color: 'var(--text)' }} />
+            <input type="number" placeholder="Цена до" value={priceMax}
+              onChange={e => setPriceMax(e.target.value)}
+              style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--bg, #fff)', color: 'var(--text)' }} />
+          </div>
 
-      {/* ─── Фильтры года ────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px' }}>
-        <input type="number" placeholder="Год от" value={yearMin}
-          onChange={e => setYearMin(e.target.value)}
-          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
-        <input type="number" placeholder="Год до" value={yearMax}
-          onChange={e => setYearMax(e.target.value)}
-          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--section-bg)', color: 'var(--text)' }} />
-      </div>
+          {/* Год от-до */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            <input type="number" placeholder="Год от" value={yearMin}
+              onChange={e => setYearMin(e.target.value)}
+              style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--bg, #fff)', color: 'var(--text)' }} />
+            <input type="number" placeholder="Год до" value={yearMax}
+              onChange={e => setYearMax(e.target.value)}
+              style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--bg, #fff)', color: 'var(--text)' }} />
+          </div>
 
-      {/* Кнопка применения фильтров цены/года */}
-      <div style={{ padding: '0 16px 8px' }}>
-        <button
-          className="btn btn-secondary"
-          onClick={() => { setOffset(0); setAds([]); loadAds(0) }}
-          style={{ width: '100%', padding: '10px', borderRadius: '12px', fontSize: '0.9em' }}
-        >
-          🔍 Применить фильтры
-        </button>
-      </div>
+          {/* Кнопки: Применить + Сбросить */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-gradient"
+              onClick={() => { setOffset(0); setAds([]); loadAds(0); setFiltersOpen(false) }}
+              style={{ flex: 1, padding: '10px', borderRadius: '12px', fontSize: '0.9em' }}>
+              Применить
+            </button>
+            <button className="btn"
+              onClick={() => {
+                setSelectedBrand(''); setSelectedCity(''); setSortOrder('date_new')
+                setPriceMin(''); setPriceMax(''); setYearMin(''); setYearMax('')
+                setOffset(0); setAds([]); loadAds(0, '', '', searchQuery, 'date_new')
+                setFiltersOpen(false)
+              }}
+              style={{ padding: '10px 16px', borderRadius: '12px', fontSize: '0.9em',
+                background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text)' }}>
+              Сбросить
+            </button>
+          </div>
+        </div>
+      )}
 
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
