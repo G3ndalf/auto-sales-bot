@@ -3,6 +3,7 @@
 import re
 from datetime import datetime
 
+from app.data.brands import BRANDS
 from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
 
 
@@ -69,6 +70,16 @@ def validate_car_ad(data: dict) -> list[str]:
 
     # model
     errors.extend(_check_required_string(data, "model", "Модель", 1, 100))
+
+    # Validate brand/model against static BRANDS list
+    brand_val = str(data.get("brand", "")).strip()
+    model_val = str(data.get("model", "")).strip()
+    if brand_val and brand_val != "Другая":
+        if brand_val not in BRANDS:
+            errors.append(f"Марка «{brand_val}» не найдена в каталоге")
+        elif model_val and model_val != "Другая":
+            if model_val not in BRANDS[brand_val]:
+                errors.append(f"Модель «{model_val}» не найдена для марки «{brand_val}»")
 
     # year (required, int, 1960 — текущий год + 1)
     max_year = datetime.now().year + 1

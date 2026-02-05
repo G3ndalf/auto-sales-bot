@@ -63,6 +63,7 @@ from app.texts import (
 )
 from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
 from app.utils.publish import publish_to_channel
+from app.data.brands import BRANDS
 from app.utils.validators import validate_car_ad, validate_plate_ad
 from app.utils.rate_limiter import submit_limiter
 from app.utils.photo_storage import save_photo, get_photo_path, is_local_photo, ALLOWED_TYPES, MAX_PHOTO_SIZE
@@ -267,35 +268,20 @@ async def cors_middleware(request: web.Request, handler):
 
 
 async def get_brands(request: web.Request) -> web.Response:
-    """GET /api/brands — list brands with approved car ads."""
-    pool = request.app["session_pool"]
-    async with pool() as session:
-        stmt = (
-            select(CarAd.brand, func.count().label("count"))
-            .where(CarAd.status == AdStatus.APPROVED)
-            .group_by(CarAd.brand)
-            .order_by(CarAd.brand)
-        )
-        result = await session.execute(stmt)
-        brands = [{"brand": row.brand, "count": row.count} for row in result.all()]
-
+    """GET /api/brands — fixed list of all brands with their models."""
+    brands = [
+        {"brand": name, "models": models}
+        for name, models in BRANDS.items()
+    ]
     return web.json_response(brands)
 
 
 async def get_models(request: web.Request) -> web.Response:
-    """GET /api/brands/{brand}/models — list models for a brand."""
+    """GET /api/brands/{brand}/models — models for a specific brand (static)."""
     brand = request.match_info["brand"]
-    pool = request.app["session_pool"]
-    async with pool() as session:
-        stmt = (
-            select(CarAd.model, func.count().label("count"))
-            .where(CarAd.status == AdStatus.APPROVED, CarAd.brand == brand)
-            .group_by(CarAd.model)
-            .order_by(CarAd.model)
-        )
-        result = await session.execute(stmt)
-        models = [{"model": row.model, "count": row.count} for row in result.all()]
-
+    models = BRANDS.get(brand)
+    if models is None:
+        raise web.HTTPNotFound(text=f"Brand '{brand}' not found")
     return web.json_response(models)
 
 
