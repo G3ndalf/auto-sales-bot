@@ -29,6 +29,9 @@ interface CarsCache {
 }
 let _carsCache: CarsCache | null = null
 
+/** Регистрируем глобальный сброс кэша для pull-to-refresh */
+;(window as any).__clearCarsCache = () => { _carsCache = null }
+
 interface Props {
   embedded?: boolean
 }

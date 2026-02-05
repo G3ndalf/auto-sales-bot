@@ -26,6 +26,9 @@ interface PlatesCache {
 }
 let _platesCache: PlatesCache | null = null
 
+/** Регистрируем глобальный сброс кэша для pull-to-refresh */
+;(window as any).__clearPlatesCache = () => { _platesCache = null }
+
 interface Props {
   embedded?: boolean
 }
