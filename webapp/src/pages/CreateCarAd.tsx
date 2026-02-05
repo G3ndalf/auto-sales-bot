@@ -456,16 +456,27 @@ export default function CreateCarAd() {
           </div>
         </div>
 
-        {/* Чекбокс ГБО */}
-        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '4px' }}>
-          <input
-            type="checkbox"
-            id="has-gbo"
-            checked={hasGbo}
-            onChange={e => setHasGbo(e.target.checked)}
-            style={{ width: '20px', height: '20px', accentColor: '#F59E0B', cursor: 'pointer' }}
-          />
-          <label htmlFor="has-gbo" style={{ cursor: 'pointer', margin: 0 }}>Установлено ГБО</label>
+        {/* Toggle ГБО — кастомный, т.к. нативный checkbox глючит в TG WebView */}
+        <div
+          className="form-group"
+          onClick={() => setHasGbo(!hasGbo)}
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '4px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <div style={{
+            width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0,
+            background: hasGbo ? '#F59E0B' : 'var(--bg-tertiary)',
+            transition: 'background 0.2s',
+            position: 'relative',
+          }}>
+            <div style={{
+              width: '20px', height: '20px', borderRadius: '10px',
+              background: '#fff', position: 'absolute', top: '2px',
+              left: hasGbo ? '22px' : '2px',
+              transition: 'left 0.2s',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            }} />
+          </div>
+          <span style={{ fontSize: '15px' }}>Установлено ГБО</span>
         </div>
       </div>
 
