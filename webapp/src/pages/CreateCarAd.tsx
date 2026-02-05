@@ -1,12 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
-
-interface PhotoFile {
-  file: File
-  preview: string
-}
 
 export default function CreateCarAd() {
   const [brand, setBrand] = useState('')
@@ -22,80 +17,54 @@ export default function CreateCarAd() {
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
   const [telegram, setTelegram] = useState('')
-  const [photos, setPhotos] = useState<PhotoFile[]>([])
-  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useBackButton('/')
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleAddPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-
-    const remaining = CONFIG.MAX_CAR_PHOTOS - photos.length
-    const newPhotos = Array.from(files).slice(0, remaining).map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }))
-
-    setPhotos(prev => [...prev, ...newPhotos])
-    e.target.value = ''
-  }
-
-  const removePhoto = (index: number) => {
-    setPhotos(prev => {
-      URL.revokeObjectURL(prev[index].preview)
-      return prev.filter((_, i) => i !== index)
-    })
-  }
+  // Disable close confirmation so sendData() closes cleanly
+  useEffect(() => {
+    window.Telegram?.WebApp?.disableClosingConfirmation?.()
+  }, [])
 
   const handleSubmit = () => {
     if (!brand || !model || !year || !price || !city || !phone) {
-      alert('Заполните обязательные поля: марка, модель, год, цена, город, телефон')
+      alert(TEXTS.VALIDATION_REQUIRED_CAR)
       return
     }
 
+    setSubmitting(true)
+
     const data = JSON.stringify({
       type: 'car_ad',
-      brand,
-      model,
+      brand: brand.trim(),
+      model: model.trim(),
       year: parseInt(year),
       mileage: parseInt(mileage) || 0,
       engine_volume: parseFloat(engineVolume) || 0,
       fuel_type: fuelType,
       transmission,
-      color,
+      color: color.trim(),
       price: parseInt(price),
-      description,
+      description: description.trim(),
       city,
-      contact_phone: phone,
-      contact_telegram: telegram || null,
+      contact_phone: phone.trim(),
+      contact_telegram: telegram.trim() || null,
     })
 
     const tg = window.Telegram?.WebApp
-    if (tg) {
+    if (tg?.sendData) {
       try {
         tg.sendData(data)
-        // If sendData succeeds, the app closes automatically
-        // This line only runs if sendData doesn't close the app
-        setSubmitted(true)
+        // sendData() closes the Mini App immediately.
+        // Code below only runs if sendData somehow doesn't close.
       } catch (e: any) {
-        alert('Ошибка отправки: ' + e.message)
+        setSubmitting(false)
+        alert(TEXTS.MSG_ERROR + '\n' + e.message)
       }
     } else {
-      alert('Откройте приложение через Telegram')
+      setSubmitting(false)
+      alert(TEXTS.MSG_OPEN_VIA_TELEGRAM)
     }
-  }
-
-  if (submitted) {
-    return (
-      <div className="success-screen">
-        <div className="icon">🎉</div>
-        <h2>{TEXTS.MSG_SENT}</h2>
-        <p>Мы проверим ваше объявление и опубликуем его.</p>
-      </div>
-    )
   }
 
   return (
@@ -240,41 +209,11 @@ export default function CreateCarAd() {
         </div>
       </div>
 
-      {/* Photos */}
-      <div className="photos-section">
-        <label style={{ fontSize: '0.9em', fontWeight: 500, color: 'var(--hint)' }}>
-          {TEXTS.LABEL_PHOTOS}
-        </label>
-        <p style={{ fontSize: '0.8em', color: 'var(--hint)', margin: '4px 0 8px' }}>
-          {TEXTS.PHOTOS_HINT_CAR}
-        </p>
-        <div className="photos-grid">
-          {photos.map((photo, i) => (
-            <div key={i} className="photo-thumb">
-              <img src={photo.preview} alt={`Фото ${i + 1}`} />
-              <button className="remove-btn" onClick={() => removePhoto(i)}>×</button>
-            </div>
-          ))}
-          {photos.length < CONFIG.MAX_CAR_PHOTOS && (
-            <div className="photo-add-btn" onClick={() => fileInputRef.current?.click()}>
-              <span className="plus">+</span>
-              <span>Фото</span>
-            </div>
-          )}
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png"
-          multiple
-          hidden
-          onChange={handleAddPhotos}
-        />
-      </div>
+      <p className="form-hint">{TEXTS.PHOTOS_HINT_AFTER_SUBMIT}</p>
 
       <div className="submit-section">
-        <button className="btn btn-primary" onClick={handleSubmit}>
-          {TEXTS.BTN_SUBMIT}
+        <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
         </button>
       </div>
     </div>

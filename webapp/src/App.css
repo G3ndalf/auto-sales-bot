@@ -90,6 +90,12 @@ body {
   opacity: 0.9;
 }
 
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .btn-secondary {
   background: var(--section-bg);
   color: var(--text);
@@ -222,6 +228,14 @@ body {
   font-size: 28px;
   line-height: 1;
   margin-bottom: 4px;
+}
+
+/* Form hint */
+.form-hint {
+  font-size: 0.85em;
+  color: var(--hint);
+  text-align: center;
+  margin: 16px 0 8px;
 }
 
 /* Submit */

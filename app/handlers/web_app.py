@@ -107,6 +107,10 @@ async def handle_web_app_data(
 
 async def _create_car_ad(session: AsyncSession, user_id: int, data: dict):
     """Create car ad from Mini App data."""
+    contact_tg = data.get("contact_telegram")
+    if isinstance(contact_tg, str):
+        contact_tg = contact_tg.strip() or None
+
     return await create_car_ad(
         session,
         user_id=user_id,
@@ -122,7 +126,7 @@ async def _create_car_ad(session: AsyncSession, user_id: int, data: dict):
         description=data.get("description", "").strip(),
         city=data["city"].strip(),
         contact_phone=data["contact_phone"].strip(),
-        contact_telegram=data.get("contact_telegram"),
+        contact_telegram=contact_tg,
     )
 
 
@@ -147,6 +151,10 @@ async def _notify_admins(bot: Bot, ad, ad_type: str):
 
 async def _create_plate_ad(session: AsyncSession, user_id: int, data: dict):
     """Create plate ad from Mini App data."""
+    contact_tg = data.get("contact_telegram")
+    if isinstance(contact_tg, str):
+        contact_tg = contact_tg.strip() or None
+
     return await create_plate_ad(
         session,
         user_id=user_id,
@@ -155,5 +163,5 @@ async def _create_plate_ad(session: AsyncSession, user_id: int, data: dict):
         description=data.get("description", "").strip(),
         city=data["city"].strip(),
         contact_phone=data["contact_phone"].strip(),
-        contact_telegram=data.get("contact_telegram"),
+        contact_telegram=contact_tg,
     )

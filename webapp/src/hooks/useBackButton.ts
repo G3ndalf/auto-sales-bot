@@ -13,6 +13,9 @@ declare global {
         }
         sendData: (data: string) => void
         close: () => void
+        isClosingConfirmationEnabled?: boolean
+        enableClosingConfirmation?: () => void
+        disableClosingConfirmation?: () => void
         MainButton: {
           setText: (text: string) => void
           show: () => void

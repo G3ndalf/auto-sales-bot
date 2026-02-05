@@ -200,6 +200,9 @@ async def handle_moderation(
             await callback.answer(ADMIN_AD_NOT_FOUND, show_alert=True)
             return
 
+    elif action == "skip":
+        await callback.answer()
+
     # Show next pending ad
     await _show_next_pending(callback, session)
 
@@ -224,11 +227,14 @@ async def _publish_to_channel(bot: Bot, ad, ad_type: str, session: AsyncSession)
     photos = (await session.execute(photo_stmt)).scalars().all()
 
     # Format text
+    def _fmt_number(n: int) -> str:
+        return f"{n:,}".replace(",", " ")
+
     if ad_type == "car":
         text = (
             f"🚗 <b>{ad.brand} {ad.model}</b> ({ad.year})\n\n"
-            f"💰 {ad.price:,} ₽\n".replace(",", " ") +
-            f"🛣 {ad.mileage:,} км\n".replace(",", " ") +
+            f"💰 {_fmt_number(ad.price)} ₽\n"
+            f"🛣 {_fmt_number(ad.mileage)} км\n"
             f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
             f"🎨 {ad.color} | 🏎 {ad.engine_volume}л\n"
             f"📍 {ad.city}\n"
@@ -241,7 +247,7 @@ async def _publish_to_channel(bot: Bot, ad, ad_type: str, session: AsyncSession)
     else:
         text = (
             f"🔢 <b>{ad.plate_number}</b>\n\n"
-            f"💰 {ad.price:,} ₽\n".replace(",", " ") +
+            f"💰 {_fmt_number(ad.price)} ₽\n"
             f"📍 {ad.city}\n"
         )
         if ad.description:
