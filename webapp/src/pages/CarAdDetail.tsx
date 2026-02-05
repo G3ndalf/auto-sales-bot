@@ -209,14 +209,33 @@ export default function CarAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Кнопка «Позвонить» — настоящий <a href="tel:"> (JS-клики блокируются WebView) */}
-        <a
-          href={`tel:${ad.contact_phone}`}
+        {/* Кнопка «Позвонить» — копирует номер + пытается открыть tel: */}
+        <button
           className="btn btn-gradient detail-footer__btn"
-          style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+          onClick={() => {
+            const phone = ad.contact_phone
+            /* Пытаемся скопировать номер в буфер обмена */
+            navigator.clipboard?.writeText(phone).catch(() => {})
+            /* Показываем нативный Telegram popup с номером */
+            const wa = window.Telegram?.WebApp
+            if (wa?.showPopup) {
+              wa.showPopup({
+                title: 'Телефон',
+                message: phone,
+                buttons: [
+                  { id: 'call', type: 'default', text: 'Позвонить' },
+                  { id: 'close', type: 'cancel' },
+                ],
+              }, (btnId: string) => {
+                if (btnId === 'call') window.location.href = `tel:${phone.replace(/[^+\d]/g, '')}`
+              })
+            } else {
+              window.location.href = `tel:${phone.replace(/[^+\d]/g, '')}`
+            }
+          }}
         >
           <Phone size={16} weight="BoldDuotone" /> Позвонить
-        </a>
+        </button>
         {/* «Написать» — только если у автора есть username */}
         {ad.author_username && (
           <button
