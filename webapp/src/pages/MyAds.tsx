@@ -114,50 +114,44 @@ export default function MyAds() {
   // ===== Рендер =====
 
   return (
-    <div className="p-4 pb-[100px] min-h-screen bg-[#0B0F19]">
+    <div style={{ padding: '16px 0', paddingBottom: 100, minHeight: '100vh' }}>
       {/* Заголовок страницы */}
-      <h1 className="text-2xl font-bold text-[#F9FAFB] m-0 mb-4 text-center">
+      <h1 style={{ fontSize: '1.4em', fontWeight: 800, margin: '0 0 16px', textAlign: 'center', padding: '0 16px' }}>
         📋 Мои объявления
       </h1>
 
-      {/* Табы: Авто / Номера (аналогично Catalog) */}
-      <div className="flex gap-2 mb-4 bg-[#111827] rounded-xl p-1">
-        <button
-          onClick={() => setTab('cars')}
-          className={`flex-1 p-2.5 border-none rounded-[10px] text-sm font-semibold cursor-pointer transition-all duration-200 ${
-            tab === 'cars'
-              ? 'bg-[#F59E0B] text-[#0B0F19]'
-              : 'bg-transparent text-[#9CA3AF]'
-          }`}
-        >
-          🚗 Авто {cars.length > 0 && `(${cars.length})`}
-        </button>
-        <button
-          onClick={() => setTab('plates')}
-          className={`flex-1 p-2.5 border-none rounded-[10px] text-sm font-semibold cursor-pointer transition-all duration-200 ${
-            tab === 'plates'
-              ? 'bg-[#F59E0B] text-[#0B0F19]'
-              : 'bg-transparent text-[#9CA3AF]'
-          }`}
-        >
-          🔢 Номера {plates.length > 0 && `(${plates.length})`}
-        </button>
+      {/* Табы: Авто / Номера */}
+      <div style={{ display: 'flex', gap: 0, background: '#111827', borderRadius: 12, padding: 4, margin: '0 12px 16px' }}>
+        {(['cars', 'plates'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              flex: 1, padding: 10, border: 'none', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, cursor: 'pointer',
+              transition: 'all 0.2s',
+              background: tab === t ? '#F59E0B' : 'transparent',
+              color: tab === t ? '#0B0F19' : '#9CA3AF',
+            }}
+          >
+            {t === 'cars' ? '🚗 Авто' : '🔢 Номера'}
+            {(t === 'cars' ? cars : plates).length > 0 && ` (${(t === 'cars' ? cars : plates).length})`}
+          </button>
+        ))}
       </div>
 
       {/* Состояние загрузки */}
-      {loading && (
-        <SkeletonList count={3} />
-      )}
+      {loading && <SkeletonList count={3} />}
 
       {/* Ошибка загрузки */}
       {error && !loading && (
-        <div className="text-center py-10 px-4 text-[#EF4444] text-sm">
+        <div style={{ textAlign: 'center', padding: '40px 16px', color: '#EF4444', fontSize: 14 }}>
           {error}
           <br />
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={loadAds}
-            className="mt-3 px-5 py-2 border-none rounded-lg bg-[#F59E0B] text-[#0B0F19] text-sm cursor-pointer"
+            style={{ marginTop: 12, padding: '8px 20px', border: 'none', borderRadius: 8, background: '#F59E0B', color: '#0B0F19', fontSize: 14, cursor: 'pointer' }}
           >
             Повторить
           </motion.button>
@@ -166,14 +160,12 @@ export default function MyAds() {
 
       {/* Пустой список */}
       {!loading && !error && currentAds.length === 0 && (
-        <div className="text-center py-10 px-4 text-[#9CA3AF]">
-          <div className="text-5xl mb-3">
+        <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF' }}>
+          <div style={{ fontSize: '3em', marginBottom: 12 }}>
             {tab === 'cars' ? '🚗' : '🔢'}
           </div>
-          <div className="text-base mb-2">
-            Нет объявлений
-          </div>
-          <div className="text-sm">
+          <div style={{ fontSize: 16, marginBottom: 8 }}>Нет объявлений</div>
+          <div style={{ fontSize: 14 }}>
             {tab === 'cars'
               ? 'Подайте объявление о продаже авто'
               : 'Подайте объявление о продаже номера'}
@@ -181,21 +173,18 @@ export default function MyAds() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate(tab === 'cars' ? '/car/new' : '/plate/new')}
-            className="mt-4 px-6 py-2.5 border-none rounded-[10px] bg-[#F59E0B] text-[#0B0F19] text-sm font-semibold cursor-pointer"
+            style={{ marginTop: 16, padding: '10px 24px', border: 'none', borderRadius: 10, background: '#F59E0B', color: '#0B0F19', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
           >
             + Подать объявление
           </motion.button>
         </div>
       )}
 
-      {/* Карточки объявлений */}
+      {/* Карточки объявлений — единый стиль ad-card */}
       {!loading && !error && currentAds.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="ads-list">
           {currentAds.map((ad, i) => {
-            /** Конфигурация бейджа для текущего статуса */
             const status = STATUS_CONFIG[ad.status] || STATUS_CONFIG.pending
-
-            /** Название: из поля title (API возвращает "brand model" для авто, plate_number для номеров) */
             const title = (ad as unknown as Record<string, string>).title
               || (ad.ad_type === 'car'
                 ? `${ad.brand || ''} ${ad.model || ''}`.trim() || 'Автомобиль'
@@ -207,80 +196,58 @@ export default function MyAds() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, duration: 0.3 }}
-                className="bg-[#1A2332] rounded-xl overflow-hidden"
+                style={{ background: 'var(--section-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflow: 'hidden' }}
               >
-                {/* Верхняя часть карточки: фото + информация */}
-                <div className="flex gap-3 p-3">
-                  {/* Фото или placeholder (60×60 — компактные превью) */}
-                  <div style={{ width: 60, height: 60, minWidth: 60, borderRadius: 10, background: '#111827', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Верхняя часть: фото 90×90 + инфо (как в каталоге) */}
+                <div style={{ display: 'flex', gap: 12, padding: 10 }}>
+                  {/* Фото — квадрат с закруглёнными углами */}
+                  <div className="ad-card-photo">
                     {ad.photo ? (
-                      <img
-                        src={api.photoUrl(ad.photo)}
-                        alt={title}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                      />
+                      <img src={api.photoUrl(ad.photo)} alt={title} loading="lazy" />
                     ) : (
-                      /* Emoji-заглушка если фото нет */
-                      <span style={{ fontSize: 26 }}>
+                      <div className="no-photo">
                         {ad.ad_type === 'car' ? '🚗' : '🔢'}
-                      </span>
+                      </div>
                     )}
                   </div>
 
                   {/* Текстовая информация */}
-                  <div className="flex-1 min-w-0">
-                    {/* Название объявления */}
-                    <div className="text-base font-semibold text-[#F9FAFB] mb-1 truncate">
-                      {title}
-                    </div>
-
-                    {/* Цена */}
-                    <div className="text-[15px] font-bold text-[#F9FAFB] mb-1.5">
-                      {formatPrice(ad.price)}
-                    </div>
-
-                    {/* Город */}
-                    <div className="text-[13px] text-[#9CA3AF] mb-1.5">
-                      📍 {ad.city}
-                    </div>
-
+                  <div className="ad-card-info">
+                    <div className="ad-card-title">{title}</div>
+                    <div className="ad-card-price">{formatPrice(ad.price)}</div>
+                    <div className="ad-card-location">📍 {ad.city}</div>
                     {/* Бейдж статуса */}
-                    <span
-                      className="inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold"
-                      style={{ backgroundColor: status.bg, color: status.color }}
-                    >
+                    <span style={{
+                      display: 'inline-block', padding: '2px 10px', borderRadius: 6,
+                      fontSize: 12, fontWeight: 600, alignSelf: 'flex-start',
+                      backgroundColor: status.bg, color: status.color,
+                    }}>
                       {status.emoji} {status.label}
                     </span>
                   </div>
                 </div>
 
                 {/* Кнопки действий */}
-                <div className="flex border-t border-[rgba(255,255,255,0.08)]">
-                  {/* Кнопка "Редактировать" */}
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
+                <div style={{ display: 'flex', borderTop: '1px solid var(--border)' }}>
+                  <motion.button whileTap={{ scale: 0.95 }}
                     onClick={() => handleEdit(ad.ad_type, ad.id)}
-                    className="flex-1 p-2.5 border-none bg-transparent text-[#F59E0B] text-sm font-semibold cursor-pointer border-r border-r-[rgba(255,255,255,0.08)]"
+                    style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#F59E0B', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRight: '1px solid var(--border)' }}
                   >
-                    ✏️ Редактировать
+                    ✏️ Изменить
                   </motion.button>
 
-                  {/* Кнопка "Продано" — только для активных объявлений */}
                   {ad.status === 'approved' && (
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
+                    <motion.button whileTap={{ scale: 0.95 }}
                       onClick={() => markAsSold(ad.ad_type, ad.id)}
-                      className="flex-1 p-2.5 border-none bg-transparent text-[#8B5CF6] text-sm font-semibold cursor-pointer border-r border-r-[rgba(255,255,255,0.08)]"
+                      style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#8B5CF6', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRight: '1px solid var(--border)' }}
                     >
                       🏷️ Продано
                     </motion.button>
                   )}
 
-                  {/* Кнопка "Удалить" */}
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
+                  <motion.button whileTap={{ scale: 0.95 }}
                     onClick={() => handleDelete(ad.ad_type, ad.id)}
-                    className="flex-1 p-2.5 border-none bg-transparent text-[#EF4444] text-sm font-semibold cursor-pointer"
+                    style={{ flex: 1, padding: 10, border: 'none', background: 'transparent', color: '#EF4444', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                   >
                     🗑 Удалить
                   </motion.button>
