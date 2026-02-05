@@ -4,6 +4,8 @@
  * Вкладки: Модерация | Пользователи
  * Анимации: stagger статистика, stagger карточки модерации/пользователей,
  * whileTap кнопки одобрить/отклонить/бан
+ *
+ * v3: tabs fix
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -51,6 +53,7 @@ type TabType = 'moderation' | 'users'
 
 export default function AdminPanel() {
   useBackButton('/')
+  console.log('[AdminPanel] v3 with tabs: Moderation | Users')
   const [activeTab, setActiveTab] = useState<TabType>('moderation')
 
   // === Moderation state ===
