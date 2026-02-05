@@ -50,36 +50,50 @@ async def handle_web_app_data(
     bot: Bot,
 ):
     """Process data received from Telegram Mini App."""
-    logger.info(f"Received web_app_data: {message.web_app_data.data[:200]}")
+    logger.info(
+        "Received web_app_data from user %s: %s",
+        message.from_user.id,
+        message.web_app_data.data[:200],
+    )
     try:
         data = json.loads(message.web_app_data.data)
     except (json.JSONDecodeError, AttributeError):
-        logger.error(f"Invalid JSON in web_app_data")
+        logger.error("Invalid JSON in web_app_data")
         await message.answer(WEB_APP_INVALID_DATA)
         return
 
     ad_type = data.get("type")
     if ad_type not in ("car_ad", "plate_ad"):
+        logger.warning("Unknown ad_type=%s in web_app_data", ad_type)
         await message.answer(WEB_APP_INVALID_DATA)
         return
 
     try:
-        # Get or create user
+        # Step 1: Get or create user
+        logger.info("[Step 1] Getting/creating user telegram_id=%s", message.from_user.id)
         user = await get_or_create_user(
             session,
             telegram_id=message.from_user.id,
             username=message.from_user.username,
             full_name=message.from_user.full_name,
         )
+        logger.info("[Step 1] User ready: id=%s", user.id)
 
+        # Step 2: Create ad
+        logger.info("[Step 2] Creating %s for user_id=%s", ad_type, user.id)
         if ad_type == "car_ad":
             ad = await _create_car_ad(session, user.id, data)
+            logger.info("[Step 2] Car ad created: id=%s", ad.id)
             await message.answer(WEB_APP_CAR_CREATED)
+            logger.info("[Step 2] Confirmation message sent")
         else:
             ad = await _create_plate_ad(session, user.id, data)
+            logger.info("[Step 2] Plate ad created: id=%s", ad.id)
             await message.answer(WEB_APP_PLATE_CREATED)
+            logger.info("[Step 2] Confirmation message sent")
 
-        # Ask for photos
+        # Step 3: Ask for photos
+        logger.info("[Step 3] Sending photo request to user %s", message.from_user.id)
         from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
         skip_kb = ReplyKeyboardMarkup(
@@ -88,20 +102,25 @@ async def handle_web_app_data(
             one_time_keyboard=True,
         )
         await message.answer(WEB_APP_SEND_PHOTOS, reply_markup=skip_kb)
+        logger.info("[Step 3] Photo request sent successfully")
 
-        # Set FSM state for photo collection
+        # Step 4: Set FSM state for photo collection
+        logger.info("[Step 4] Setting FSM state to waiting_photos")
         await state.set_state(PhotoCollectStates.waiting_photos)
         await state.update_data(
             ad_id=ad.id,
             ad_type=ad_type,
             photo_count=0,
         )
+        logger.info("[Step 4] FSM state set: ad_id=%s, ad_type=%s", ad.id, ad_type)
 
-        # Notify admins
+        # Step 5: Notify admins
+        logger.info("[Step 5] Notifying admins about new %s id=%s", ad_type, ad.id)
         await _notify_admins(bot, ad, ad_type)
+        logger.info("[Step 5] Admin notification complete")
 
     except Exception as e:
-        logger.exception("Error creating ad from web_app_data")
+        logger.exception("Error creating ad from web_app_data: %s", e)
         await message.answer(WEB_APP_ERROR)
 
 
@@ -135,6 +154,8 @@ async def _notify_admins(bot: Bot, ad, ad_type: str):
     from app.config import settings
     from app.handlers.admin import _format_car_ad, _format_plate_ad, _moderation_keyboard
 
+    logger.info("_notify_admins called: ad_type=%s, ad_id=%s", ad_type, ad.id)
+
     if ad_type == "car_ad":
         text = f"🆕 Новое объявление!\n\n{_format_car_ad(ad)}"
         kb = _moderation_keyboard("car", ad.id)
@@ -142,11 +163,14 @@ async def _notify_admins(bot: Bot, ad, ad_type: str):
         text = f"🆕 Новое объявление!\n\n{_format_plate_ad(ad)}"
         kb = _moderation_keyboard("plate", ad.id)
 
+    logger.info("Admin IDs to notify: %s", settings.admin_ids)
     for admin_id in settings.admin_ids:
         try:
+            logger.info("Sending moderation message to admin %s", admin_id)
             await bot.send_message(admin_id, text, reply_markup=kb)
+            logger.info("Successfully notified admin %s", admin_id)
         except Exception:
-            logger.exception(f"Failed to notify admin {admin_id}")
+            logger.exception("Failed to notify admin %s", admin_id)
 
 
 async def _create_plate_ad(session: AsyncSession, user_id: int, data: dict):

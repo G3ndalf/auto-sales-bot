@@ -1,5 +1,6 @@
 """Admin moderation handlers."""
 
+import html
 import logging
 
 from aiogram import Bot, Router
@@ -76,19 +77,19 @@ def _format_car_ad(ad) -> str:
     """Format car ad for moderation view."""
     return ADMIN_CAR_AD_CARD.format(
         id=ad.id,
-        brand=ad.brand,
-        model=ad.model,
+        brand=html.escape(ad.brand),
+        model=html.escape(ad.model),
         year=ad.year,
         mileage=f"{ad.mileage:,}".replace(",", " "),
         engine=ad.engine_volume,
         fuel=ad.fuel_type.value,
         transmission=ad.transmission.value,
-        color=ad.color,
+        color=html.escape(ad.color),
         price=f"{ad.price:,}".replace(",", " "),
-        city=ad.city,
-        phone=ad.contact_phone,
-        telegram=ad.contact_telegram or "—",
-        description=ad.description[:300] if ad.description else "—",
+        city=html.escape(ad.city),
+        phone=html.escape(ad.contact_phone),
+        telegram=html.escape(ad.contact_telegram) if ad.contact_telegram else "—",
+        description=html.escape(ad.description[:300]) if ad.description else "—",
     )
 
 
@@ -96,12 +97,12 @@ def _format_plate_ad(ad) -> str:
     """Format plate ad for moderation view."""
     return ADMIN_PLATE_AD_CARD.format(
         id=ad.id,
-        plate=ad.plate_number,
+        plate=html.escape(ad.plate_number),
         price=f"{ad.price:,}".replace(",", " "),
-        city=ad.city,
-        phone=ad.contact_phone,
-        telegram=ad.contact_telegram or "—",
-        description=ad.description[:300] if ad.description else "—",
+        city=html.escape(ad.city),
+        phone=html.escape(ad.contact_phone),
+        telegram=html.escape(ad.contact_telegram) if ad.contact_telegram else "—",
+        description=html.escape(ad.description[:300]) if ad.description else "—",
     )
 
 
@@ -232,29 +233,29 @@ async def _publish_to_channel(bot: Bot, ad, ad_type: str, session: AsyncSession)
 
     if ad_type == "car":
         text = (
-            f"🚗 <b>{ad.brand} {ad.model}</b> ({ad.year})\n\n"
+            f"🚗 <b>{html.escape(ad.brand)} {html.escape(ad.model)}</b> ({ad.year})\n\n"
             f"💰 {_fmt_number(ad.price)} ₽\n"
             f"🛣 {_fmt_number(ad.mileage)} км\n"
             f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
-            f"🎨 {ad.color} | 🏎 {ad.engine_volume}л\n"
-            f"📍 {ad.city}\n"
+            f"🎨 {html.escape(ad.color)} | 🏎 {ad.engine_volume}л\n"
+            f"📍 {html.escape(ad.city)}\n"
         )
         if ad.description:
-            text += f"\n📝 {ad.description[:500]}\n"
-        text += f"\n📞 {ad.contact_phone}"
+            text += f"\n📝 {html.escape(ad.description[:500])}\n"
+        text += f"\n📞 {html.escape(ad.contact_phone)}"
         if ad.contact_telegram:
-            text += f"\n📱 {ad.contact_telegram}"
+            text += f"\n📱 {html.escape(ad.contact_telegram)}"
     else:
         text = (
-            f"🔢 <b>{ad.plate_number}</b>\n\n"
+            f"🔢 <b>{html.escape(ad.plate_number)}</b>\n\n"
             f"💰 {_fmt_number(ad.price)} ₽\n"
-            f"📍 {ad.city}\n"
+            f"📍 {html.escape(ad.city)}\n"
         )
         if ad.description:
-            text += f"\n📝 {ad.description[:500]}\n"
-        text += f"\n📞 {ad.contact_phone}"
+            text += f"\n📝 {html.escape(ad.description[:500])}\n"
+        text += f"\n📞 {html.escape(ad.contact_phone)}"
         if ad.contact_telegram:
-            text += f"\n📱 {ad.contact_telegram}"
+            text += f"\n📱 {html.escape(ad.contact_telegram)}"
 
     try:
         if photos:
