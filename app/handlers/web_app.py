@@ -1,6 +1,5 @@
 """Handler for Mini App web_app_data submissions."""
 
-import html
 import json
 import logging
 

@@ -610,7 +610,3 @@ async def admin_reject(request: web.Request) -> web.Response:
             logger.exception("Failed to notify user about rejection")
 
     return web.json_response({"ok": True})
-
-
-
-# _api_publish_to_channel removed — using shared app.utils.publish.publish_to_channel

@@ -14,17 +14,14 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.car_ad import AdStatus
 from app.services.car_ad_service import (
     approve_car_ad,
-    get_car_ad,
     get_pending_car_ads,
     reject_car_ad,
 )
 from app.services.plate_ad_service import (
     approve_plate_ad,
     get_pending_plate_ads,
-    get_plate_ad,
     reject_plate_ad,
 )
 from app.texts import (
@@ -35,7 +32,6 @@ from app.texts import (
     ADMIN_APPROVED,
     ADMIN_REJECTED,
     ADMIN_AD_NOT_FOUND,
-    ADMIN_NEXT,
     USER_AD_APPROVED,
     USER_AD_REJECTED,
 )
