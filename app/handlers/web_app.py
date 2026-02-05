@@ -12,6 +12,7 @@ from app.handlers.photos import PhotoCollectStates
 from app.models.car_ad import FuelType, Transmission
 from app.services.car_ad_service import create_car_ad
 from app.services.plate_ad_service import create_plate_ad
+from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
 from app.services.user_service import get_or_create_user
 from app.texts import (
     WEB_APP_CAR_CREATED,
@@ -25,22 +26,6 @@ from app.texts import (
 
 logger = logging.getLogger(__name__)
 router = Router()
-
-
-FUEL_TYPE_MAP = {
-    "бензин": FuelType.PETROL,
-    "дизель": FuelType.DIESEL,
-    "газ": FuelType.GAS,
-    "электро": FuelType.ELECTRIC,
-    "гибрид": FuelType.HYBRID,
-}
-
-TRANSMISSION_MAP = {
-    "механика": Transmission.MANUAL,
-    "автомат": Transmission.AUTOMATIC,
-    "робот": Transmission.ROBOT,
-    "вариатор": Transmission.VARIATOR,
-}
 
 
 @router.message(lambda m: m.web_app_data is not None)

@@ -23,24 +23,26 @@ from app.texts import (
     WEB_APP_SEND_PHOTOS,
     WEB_APP_SKIP_PHOTOS,
 )
+from app.utils.mappings import FUEL_TYPE_MAP, TRANSMISSION_MAP
 from app.utils.publish import publish_to_channel
 
 logger = logging.getLogger(__name__)
 
-FUEL_TYPE_MAP = {
-    "бензин": FuelType.PETROL,
-    "дизель": FuelType.DIESEL,
-    "газ": FuelType.GAS,
-    "электро": FuelType.ELECTRIC,
-    "гибрид": FuelType.HYBRID,
-}
 
-TRANSMISSION_MAP = {
-    "механика": Transmission.MANUAL,
-    "автомат": Transmission.AUTOMATIC,
-    "робот": Transmission.ROBOT,
-    "вариатор": Transmission.VARIATOR,
-}
+def _safe_int(val, default: int = 0) -> int:
+    """Safely convert to int, return default on failure."""
+    try:
+        return int(val) if val not in (None, "", " ") else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_float(val, default: float = 0.0) -> float:
+    """Safely convert to float, return default on failure."""
+    try:
+        return float(val) if val not in (None, "", " ") else default
+    except (ValueError, TypeError):
+        return default
 
 
 def create_api_app(
@@ -467,45 +469,41 @@ async def handle_submit(request: web.Request) -> web.Response:
             logger.info("[api/submit] User ready: id=%d, tg=%d", user.id, user_id_tg)
 
             # Create ad
-            if ad_type == "car_ad":
-                contact_tg = data.get("contact_telegram")
-                if isinstance(contact_tg, str):
-                    contact_tg = contact_tg.strip() or None
+            contact_tg = data.get("contact_telegram")
+            if isinstance(contact_tg, str):
+                contact_tg = contact_tg.strip() or None
 
+            if ad_type == "car_ad":
                 fuel = FUEL_TYPE_MAP.get(data.get("fuel_type", ""), FuelType.PETROL)
                 trans = TRANSMISSION_MAP.get(data.get("transmission", ""), Transmission.MANUAL)
 
                 ad = await create_car_ad(
                     session,
                     user_id=user.id,
-                    brand=data.get("brand", "").strip(),
-                    model=data.get("model", "").strip(),
-                    year=int(data.get("year", 2020)),
-                    mileage=int(data.get("mileage", 0) or 0),
-                    engine_volume=float(data.get("engine_volume", 0) or 0),
+                    brand=str(data.get("brand", "")).strip() or "Без марки",
+                    model=str(data.get("model", "")).strip() or "Без модели",
+                    year=_safe_int(data.get("year"), 2020),
+                    mileage=_safe_int(data.get("mileage"), 0),
+                    engine_volume=_safe_float(data.get("engine_volume"), 0),
                     fuel_type=fuel,
                     transmission=trans,
-                    color=data.get("color", "").strip(),
-                    price=int(data.get("price", 0)),
-                    description=data.get("description", "").strip(),
-                    city=data.get("city", "").strip(),
-                    contact_phone=data.get("contact_phone", "").strip(),
+                    color=str(data.get("color", "")).strip(),
+                    price=_safe_int(data.get("price"), 0),
+                    description=str(data.get("description", "")).strip(),
+                    city=str(data.get("city", "")).strip() or "Другой",
+                    contact_phone=str(data.get("contact_phone", "")).strip(),
                     contact_telegram=contact_tg,
                 )
                 logger.info("[api/submit] Car ad created: id=%d", ad.id)
             else:
-                contact_tg = data.get("contact_telegram")
-                if isinstance(contact_tg, str):
-                    contact_tg = contact_tg.strip() or None
-
                 ad = await create_plate_ad(
                     session,
                     user_id=user.id,
-                    plate_number=data.get("plate_number", "").strip(),
-                    price=int(data.get("price", 0)),
-                    description=data.get("description", "").strip(),
-                    city=data.get("city", "").strip(),
-                    contact_phone=data.get("contact_phone", "").strip(),
+                    plate_number=str(data.get("plate_number", "")).strip(),
+                    price=_safe_int(data.get("price"), 0),
+                    description=str(data.get("description", "")).strip(),
+                    city=str(data.get("city", "")).strip() or "Другой",
+                    contact_phone=str(data.get("contact_phone", "")).strip(),
                     contact_telegram=contact_tg,
                 )
                 logger.info("[api/submit] Plate ad created: id=%d", ad.id)
