@@ -8,54 +8,33 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-function getTelegramInitData(): string {
-  const tg = window.Telegram?.WebApp;
-  // initData is the raw query string Telegram provides
-  return tg?.initData || '';
-}
-
-function getAdminUserId(): string | null {
-  const tg = window.Telegram?.WebApp;
-
-  // Source 1: initDataUnsafe.user.id (standard SDK path)
-  const userId = tg?.initDataUnsafe?.user?.id;
-  if (userId) return String(userId);
-
-  // Source 2: parse from initData string directly
+function getAdminToken(): string | null {
+  // Token is passed in the webapp URL by the bot: /admin?v=123&token=xxx
   try {
-    const params = new URLSearchParams(tg?.initData || '');
-    const userJson = params.get('user');
-    if (userJson) {
-      const user = JSON.parse(userJson);
-      if (user.id) return String(user.id);
-    }
-  } catch {}
-
-  return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('token');
+  } catch {
+    return null;
+  }
 }
 
 function adminQueryParams(): string {
   const parts: string[] = [];
 
-  // Always pass initData — backend will parse user_id from it
-  const initData = getTelegramInitData();
-  if (initData) {
-    parts.push(`initData=${encodeURIComponent(initData)}`);
+  // Pass secret token from URL (set by bot in KeyboardButton)
+  const token = getAdminToken();
+  if (token) {
+    parts.push(`token=${encodeURIComponent(token)}`);
   }
 
-  // Also pass user_id directly if available
-  const uid = getAdminUserId();
-  if (uid) {
-    parts.push(`user_id=${uid}`);
+  // Also try Telegram SDK user_id as fallback
+  const tg = window.Telegram?.WebApp;
+  const userId = tg?.initDataUnsafe?.user?.id;
+  if (userId) {
+    parts.push(`user_id=${userId}`);
   }
 
   return parts.length > 0 ? '?' + parts.join('&') : '';
-}
-
-function adminHeaders(): Record<string, string> {
-  const userId = getAdminUserId();
-  if (!userId) return {};
-  return { 'X-Telegram-User-Id': userId };
 }
 
 // Types
@@ -179,29 +158,20 @@ export const api = {
 
   // Admin
   adminGetPending: () => {
-    const q = adminQueryParams();
-    return fetchJSON<PaginatedResponse<AdminPendingAd>>(`/api/admin/pending${q}`, {
-      headers: adminHeaders(),
-    });
+    return fetchJSON<PaginatedResponse<AdminPendingAd>>(`/api/admin/pending${adminQueryParams()}`);
   },
   adminGetStats: () => {
-    const q = adminQueryParams();
-    return fetchJSON<AdminStats>(`/api/admin/stats${q}`, {
-      headers: adminHeaders(),
-    });
+    return fetchJSON<AdminStats>(`/api/admin/stats${adminQueryParams()}`);
   },
   adminApprove: (adType: string, adId: number) => {
-    const q = adminQueryParams();
-    return fetchJSON<{ ok: boolean }>(`/api/admin/approve/${adType}/${adId}${q}`, {
+    return fetchJSON<{ ok: boolean }>(`/api/admin/approve/${adType}/${adId}${adminQueryParams()}`, {
       method: 'POST',
-      headers: adminHeaders(),
     });
   },
   adminReject: (adType: string, adId: number, reason?: string) => {
-    const q = adminQueryParams();
-    return fetchJSON<{ ok: boolean }>(`/api/admin/reject/${adType}/${adId}${q}`, {
+    return fetchJSON<{ ok: boolean }>(`/api/admin/reject/${adType}/${adId}${adminQueryParams()}`, {
       method: 'POST',
-      headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: reason || 'Не прошло модерацию' }),
     });
   },

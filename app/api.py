@@ -46,20 +46,21 @@ def create_api_app(
     return app
 
 
-def _get_admin_user_id(request: web.Request) -> int | None:
-    """Extract user_id from request and verify admin access."""
-    header_uid = request.headers.get("X-Telegram-User-Id")
-    query_uid = request.query.get("user_id")
-    logger.info(
-        "[AdminAuth] headers X-Telegram-User-Id=%s, query user_id=%s, "
-        "all headers=%s, query=%s",
-        header_uid, query_uid,
-        dict(request.headers), dict(request.query),
+def _check_admin_access(request: web.Request) -> bool:
+    """Check admin access via token or user_id."""
+    # Method 1: Secret token (most reliable — doesn't depend on Telegram SDK)
+    token = request.query.get("token")
+    if token and settings.admin_token and token == settings.admin_token:
+        logger.info("[AdminAuth] Access granted via admin_token")
+        return True
+
+    # Method 2: user_id from header or query
+    uid_str = (
+        request.headers.get("X-Telegram-User-Id")
+        or request.query.get("user_id")
     )
 
-    uid_str = header_uid or query_uid
-
-    # Fallback: try to parse user_id from initData query param (Telegram WebApp data)
+    # Method 3: parse user_id from initData
     if not uid_str:
         init_data = request.query.get("initData") or request.query.get("tgWebAppData")
         if init_data:
@@ -71,23 +72,20 @@ def _get_admin_user_id(request: web.Request) -> int | None:
                 if user_json:
                     user_obj = json.loads(user_json)
                     uid_str = str(user_obj.get("id", ""))
-                    logger.info("[AdminAuth] Extracted user_id from initData: %s", uid_str)
             except Exception:
-                logger.exception("[AdminAuth] Failed to parse initData")
+                pass
 
-    if not uid_str:
-        logger.warning("[AdminAuth] No user_id found in request")
-        return None
-    try:
-        uid = int(uid_str)
-    except (ValueError, TypeError):
-        logger.warning("[AdminAuth] Invalid user_id value: %s", uid_str)
-        return None
-    if uid not in settings.admin_ids:
-        logger.warning("[AdminAuth] user_id %d not in admin_ids %s", uid, settings.admin_ids)
-        return None
-    logger.info("[AdminAuth] Admin access granted for user_id=%d", uid)
-    return uid
+    if uid_str:
+        try:
+            uid = int(uid_str)
+            if uid in settings.admin_ids:
+                logger.info("[AdminAuth] Access granted for user_id=%d", uid)
+                return True
+        except (ValueError, TypeError):
+            pass
+
+    logger.warning("[AdminAuth] Access denied. query=%s", dict(request.query))
+    return False
 
 
 @web.middleware
@@ -399,7 +397,7 @@ async def proxy_photo(request: web.Request) -> web.Response:
 
 async def admin_get_pending(request: web.Request) -> web.Response:
     """GET /api/admin/pending — list all pending ads for moderation."""
-    if not _get_admin_user_id(request):
+    if not _check_admin_access(request):
         raise web.HTTPForbidden(text="Access denied")
 
     pool = request.app["session_pool"]
@@ -487,7 +485,7 @@ async def admin_get_pending(request: web.Request) -> web.Response:
 
 async def admin_get_stats(request: web.Request) -> web.Response:
     """GET /api/admin/stats — ad statistics."""
-    if not _get_admin_user_id(request):
+    if not _check_admin_access(request):
         raise web.HTTPForbidden(text="Access denied")
 
     pool = request.app["session_pool"]
@@ -517,7 +515,7 @@ async def admin_get_stats(request: web.Request) -> web.Response:
 
 async def admin_approve(request: web.Request) -> web.Response:
     """POST /api/admin/approve/{ad_type}/{ad_id} — approve an ad."""
-    if not _get_admin_user_id(request):
+    if not _check_admin_access(request):
         raise web.HTTPForbidden(text="Access denied")
 
     ad_type = request.match_info["ad_type"]
@@ -563,7 +561,7 @@ async def admin_approve(request: web.Request) -> web.Response:
 
 async def admin_reject(request: web.Request) -> web.Response:
     """POST /api/admin/reject/{ad_type}/{ad_id} — reject an ad."""
-    if not _get_admin_user_id(request):
+    if not _check_admin_access(request):
         raise web.HTTPForbidden(text="Access denied")
 
     ad_type = request.match_info["ad_type"]

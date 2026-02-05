@@ -15,12 +15,15 @@ from app.texts import ADMIN_PANEL_BTN, START_WELCOME
 router = Router()
 
 
-def _webapp_url(path: str = "") -> str:
+def _webapp_url(path: str = "", admin: bool = False) -> str:
     """Build webapp URL with cache-busting query param."""
     base = settings.webapp_url.rstrip("/")
     ts = int(time.time())
     url = f"{base}{path}" if path else base
-    return f"{url}?v={ts}"
+    params = f"v={ts}"
+    if admin and settings.admin_token:
+        params += f"&token={settings.admin_token}"
+    return f"{url}?{params}"
 
 
 @router.message(CommandStart())
@@ -46,7 +49,7 @@ async def cmd_start(message: Message):
             keyboard_rows.append([
                 KeyboardButton(
                     text=ADMIN_PANEL_BTN,
-                    web_app=WebAppInfo(url=_webapp_url("/admin")),
+                    web_app=WebAppInfo(url=_webapp_url("/admin", admin=True)),
                 ),
             ])
         kb = ReplyKeyboardMarkup(keyboard=keyboard_rows, resize_keyboard=True)

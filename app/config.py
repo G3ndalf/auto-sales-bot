@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     webapp_url: str = ""
     channel_id: str = ""  # @channel_username or -100xxx
+    admin_token: str = ""  # Secret token for admin Mini App auth
 
     model_config = {"env_file": ".env"}
 
