@@ -8,6 +8,7 @@ Create Date: 2026-02-05
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision: str = 'a1b2c3d4e5f6'
 down_revision: Union[str, Sequence[str], None] = '342550911eac'
@@ -20,7 +21,7 @@ def upgrade() -> None:
     op.create_table('favorites',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('ad_type', sa.Enum('CAR', 'PLATE', name='adtype', create_type=False), nullable=False),
+        sa.Column('ad_type', postgresql.ENUM('CAR', 'PLATE', name='adtype', create_type=False), nullable=False),
         sa.Column('ad_id', sa.Integer(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
