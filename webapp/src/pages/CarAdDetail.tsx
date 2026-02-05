@@ -209,23 +209,30 @@ export default function CarAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Кнопка «Позвонить» */}
-        <a
-          href={`tel:${ad.contact_phone}`}
+        {/* Кнопка «Позвонить» — openLink для обхода ограничений Mini App */}
+        <button
           className="btn btn-gradient detail-footer__btn"
+          onClick={() => {
+            const wa = window.Telegram?.WebApp
+            if (wa?.openLink) wa.openLink(`tel:${ad.contact_phone}`)
+            else window.location.href = `tel:${ad.contact_phone}`
+          }}
         >
           <Phone size={16} weight="BoldDuotone" /> Позвонить
-        </a>
+        </button>
         {/* «Написать» — только если у автора есть username */}
         {ad.author_username && (
-          <a
-            href={`https://t.me/${ad.author_username}`}
+          <button
             className="btn btn-secondary detail-footer__btn"
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={() => {
+              const wa = window.Telegram?.WebApp
+              const url = `https://t.me/${ad.author_username}`
+              if (wa?.openTelegramLink) wa.openTelegramLink(url)
+              else window.open(url, '_blank')
+            }}
           >
             <ChatSquare size={16} weight="BoldDuotone" /> Написать
-          </a>
+          </button>
         )}
       </motion.div>
     </div>
