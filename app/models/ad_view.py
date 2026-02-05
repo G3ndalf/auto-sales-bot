@@ -7,7 +7,7 @@ AdView — модель уникальных просмотров объявле
 
 from sqlalchemy import BigInteger, Column, Enum, Integer, DateTime, UniqueConstraint, func
 from .base import Base
-from .car_ad import AdType
+from .photo import AdType
 
 
 class AdView(Base):
