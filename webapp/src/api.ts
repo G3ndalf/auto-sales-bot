@@ -179,5 +179,6 @@ export const api = {
       method: 'POST',
       headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: reason || 'Не прошло модерацию' }),
-    }),
+    });
+  },
 };
