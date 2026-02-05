@@ -209,25 +209,14 @@ export default function CarAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Кнопка «Позвонить» — openLink для обхода ограничений Mini App */}
-        <button
+        {/* Кнопка «Позвонить» — настоящий <a href="tel:"> (JS-клики блокируются WebView) */}
+        <a
+          href={`tel:${ad.contact_phone}`}
           className="btn btn-gradient detail-footer__btn"
-          onClick={() => {
-            const url = `tel:${ad.contact_phone}`
-            try {
-              const wa = window.Telegram?.WebApp
-              if (wa?.openLink) wa.openLink(url)
-              else window.location.href = url
-            } catch {
-              /* openLink может не поддерживать tel: — fallback через <a> */
-              const a = document.createElement('a')
-              a.href = url
-              a.click()
-            }
-          }}
+          style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
         >
           <Phone size={16} weight="BoldDuotone" /> Позвонить
-        </button>
+        </a>
         {/* «Написать» — только если у автора есть username */}
         {ad.author_username && (
           <button
