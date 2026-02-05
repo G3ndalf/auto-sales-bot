@@ -1,188 +1,183 @@
 /**
- * PhotoGallery.tsx — Галерея фотографий с поддержкой свайпов.
+ * PhotoGallery.tsx — Карусельная галерея с плавным свайпом.
  *
- * Управление в карточке:
- * - Свайп влево/вправо → листание фото (с анимацией слайда)
- * - Тап по фото → полноэкранный просмотр
- * - Точки-индикаторы ПОД фото
+ * Все фото рендерятся в горизонтальной ленте (strip), свайп двигает
+ * ленту в реальном времени (без задержки на AnimatePresence).
  *
- * Управление в полноэкранном режиме:
- * - Свайп влево/вправо → листание фото
- * - Свайп вверх/вниз → закрытие полноэкранного режима
- * - Кнопка ✕ → закрытие
- * - Тап → закрытие
+ * Карточка:
+ * - Горизонтальный свайп → листание фото (реал-тайм)
+ * - Тап → полноэкранный просмотр
+ * - touchAction: pan-y — вертикальный скролл страницы не блокируется
  *
- * Используем framer-motion drag API (не raw touch events) —
- * безопасно для iOS WebKit, без конфликтов с React.
+ * Полноэкранный режим:
+ * - Горизонтальный свайп → листание (dragDirectionLock)
+ * - Вертикальный свайп → закрытие
+ * - Тап / кнопка ✕ → закрытие
+ *
+ * Используем framer-motion useMotionValue + animate для плавности.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion'
 
 interface Props {
-  /** Массив URL фотографий (уже полные URL, не file_id) */
   photos: string[]
-  /** Alt-текст для img */
   alt?: string
-  /** Иконка-заглушка при отсутствии фото */
   fallbackIcon: React.ReactNode
 }
 
-/** Порог смещения (px) для срабатывания свайпа */
-const SWIPE_OFFSET = 50
-/** Порог скорости (px/s) для быстрого свайпа */
-const SWIPE_VELOCITY = 300
-/** Порог вертикального смещения для закрытия фуллскрина */
-const VERTICAL_CLOSE = 80
-/** Минимальное смещение, чтобы считать жест свайпом (а не тапом) */
-const TAP_THRESHOLD = 10
-
-/**
- * Варианты анимации слайда — направление зависит от custom (direction).
- * direction > 0: листаем вперёд (enter справа, exit влево)
- * direction < 0: листаем назад (enter слева, exit вправо)
- */
-const slideVariants = {
-  enter: (dir: number) => ({
-    x: dir > 0 ? '25%' : '-25%',
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (dir: number) => ({
-    x: dir > 0 ? '-25%' : '25%',
-    opacity: 0,
-  }),
-}
+/** Порог свайпа: 20% ширины контейнера */
+const SWIPE_RATIO = 0.2
+/** Порог скорости свайпа (px/s) */
+const SWIPE_VEL = 300
+/** Порог вертикального смещения для закрытия фуллскрина (px) */
+const DISMISS_PX = 80
+/** Максимальное смещение, чтобы считать жест тапом (px) */
+const TAP_PX = 10
 
 export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) {
   const [index, setIndex] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
-  /** Направление слайда: 1 = вперёд, -1 = назад */
-  const [direction, setDirection] = useState(0)
-  /** Флаг: был ли значимый drag (чтобы отличить свайп от тапа) */
+  /** Флаг: был drag (для подавления onClick после свайпа) */
   const didDrag = useRef(false)
 
-  /** Блокируем скролл body в полноэкранном режиме */
+  // ─── Card gallery: горизонтальная лента ───────────────────
+  const galleryRef = useRef<HTMLDivElement>(null)
+  const [gW, setGW] = useState(0)
+  const gX = useMotionValue(0)
+
+  // ─── Fullscreen: горизонтальная лента + вертикальный dismiss ─
+  const fsX = useMotionValue(0)
+  const fsY = useMotionValue(0)
+  const wasFs = useRef(false)
+
+  /** Замер ширины контейнера галереи */
+  useEffect(() => {
+    const measure = () => {
+      if (galleryRef.current) setGW(galleryRef.current.clientWidth)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+
+  /** Анимация ленты карточки при смене index */
+  useEffect(() => {
+    if (gW > 0) {
+      animate(gX, -index * gW, { type: 'spring', stiffness: 300, damping: 30 })
+    }
+  }, [index, gW])
+
+  /** Fullscreen: позиция ленты (instant при открытии, animate при свайпе) */
   useEffect(() => {
     if (fullscreen) {
-      document.body.style.overflow = 'hidden'
+      const w = window.innerWidth
+      if (!wasFs.current) {
+        // Только что открыли — позиция без анимации
+        fsX.set(-index * w)
+        fsY.set(0)
+        wasFs.current = true
+      } else {
+        // Уже в фуллскрине, index изменился — плавная анимация
+        animate(fsX, -index * w, { type: 'spring', stiffness: 300, damping: 30 })
+      }
     } else {
-      document.body.style.overflow = ''
+      wasFs.current = false
     }
+  }, [index, fullscreen])
+
+  /** Блокировка скролла body в фуллскрине */
+  useEffect(() => {
+    document.body.style.overflow = fullscreen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [fullscreen])
 
-  const goPrev = useCallback(() => {
-    setDirection(-1)
-    setIndex(i => Math.max(0, i - 1))
-  }, [])
+  // ─── Card: обработчик окончания свайпа ────────────────────
+  const onCardDragEnd = useCallback((_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
+    if (!gW) return
+    const t = gW * SWIPE_RATIO
 
-  const goNext = useCallback(() => {
-    setDirection(1)
-    setIndex(i => Math.min(photos.length - 1, i + 1))
-  }, [photos.length])
-
-  /**
-   * Обработчик окончания горизонтального свайпа.
-   * Если смещение или скорость превышают порог — листаем фото.
-   * Возвращает true если свайп сработал (для подавления тапа).
-   */
-  const handleHorizontalDragEnd = useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
-    const { offset, velocity } = info
-
-    if (offset.x > SWIPE_OFFSET || velocity.x > SWIPE_VELOCITY) {
-      goPrev()
+    if ((info.offset.x > t || info.velocity.x > SWIPE_VEL) && index > 0) {
+      setIndex(i => i - 1)
       didDrag.current = true
-    } else if (offset.x < -SWIPE_OFFSET || velocity.x < -SWIPE_VELOCITY) {
-      goNext()
+    } else if ((info.offset.x < -t || info.velocity.x < -SWIPE_VEL) && index < photos.length - 1) {
+      setIndex(i => i + 1)
       didDrag.current = true
-    } else if (Math.abs(offset.x) > TAP_THRESHOLD) {
-      // Был drag но не достаточный для свайпа — подавляем тап
-      didDrag.current = true
+    } else {
+      // Не дотянул — snap back к текущему фото
+      animate(gX, -index * gW, { type: 'spring', stiffness: 300, damping: 30 })
     }
 
-    // Сбрасываем флаг после обработки click
+    if (Math.abs(info.offset.x) > TAP_PX) didDrag.current = true
     requestAnimationFrame(() => { didDrag.current = false })
-  }, [goPrev, goNext])
+  }, [gW, index, photos.length])
 
-  /**
-   * Обработчик окончания свайпа в полноэкранном режиме.
-   * Горизонтальный свайп → листание, вертикальный → закрытие.
-   * dragDirectionLock блокирует ось после начала жеста.
-   */
-  const handleFullscreenDragEnd = useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
-    const { offset, velocity } = info
-    const isHorizontal = Math.abs(offset.x) > Math.abs(offset.y)
+  // ─── Fullscreen: обработчик окончания свайпа ──────────────
+  const onFsDragEnd = useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
+    const w = window.innerWidth
+    const isH = Math.abs(info.offset.x) > Math.abs(info.offset.y)
 
-    if (isHorizontal) {
-      // Горизонтальный свайп → листание фото
-      if (offset.x > SWIPE_OFFSET || velocity.x > SWIPE_VELOCITY) {
-        goPrev()
-      } else if (offset.x < -SWIPE_OFFSET || velocity.x < -SWIPE_VELOCITY) {
-        goNext()
+    if (isH) {
+      // Горизонтальный свайп → листание
+      const t = w * SWIPE_RATIO
+      if ((info.offset.x > t || info.velocity.x > SWIPE_VEL) && index > 0) {
+        setIndex(i => i - 1)
+      } else if ((info.offset.x < -t || info.velocity.x < -SWIPE_VEL) && index < photos.length - 1) {
+        setIndex(i => i + 1)
+      } else {
+        animate(fsX, -index * w, { type: 'spring', stiffness: 300, damping: 30 })
       }
     } else {
-      // Вертикальный свайп → закрытие фуллскрина
-      if (Math.abs(offset.y) > VERTICAL_CLOSE || Math.abs(velocity.y) > SWIPE_VELOCITY) {
+      // Вертикальный свайп → закрытие или snap back
+      if (Math.abs(info.offset.y) > DISMISS_PX || Math.abs(info.velocity.y) > SWIPE_VEL) {
         setFullscreen(false)
+      } else {
+        animate(fsY, 0, { type: 'spring', stiffness: 300, damping: 30 })
       }
     }
 
-    // Любой значимый drag подавляет тап
-    if (Math.abs(offset.x) > TAP_THRESHOLD || Math.abs(offset.y) > TAP_THRESHOLD) {
+    if (Math.abs(info.offset.x) > TAP_PX || Math.abs(info.offset.y) > TAP_PX) {
       didDrag.current = true
     }
     requestAnimationFrame(() => { didDrag.current = false })
-  }, [goPrev, goNext])
+  }, [index, photos.length])
 
-  /* Если фото нет — показываем заглушку */
+  /* Пустая галерея — заглушка */
   if (photos.length === 0) {
     return <div className="gallery-placeholder">{fallbackIcon}</div>
   }
 
   return (
     <>
-      {/* ─── Обычная галерея (в карточке) ─────────────────── */}
-      <div className="gallery">
+      {/* ─── Карточка: горизонтальная лента фото ─────────── */}
+      <div className="gallery" ref={galleryRef}>
         <motion.div
-          className="gallery-swipe-area"
+          className="gallery-strip"
           drag={photos.length > 1 ? 'x' : false}
-          dragConstraints={{ left: 0, right: 0 }}
+          dragMomentum={false}
           dragElastic={0.15}
-          onDragEnd={handleHorizontalDragEnd}
-          onClick={() => {
-            if (!didDrag.current) setFullscreen(true)
-          }}
-          style={{ touchAction: photos.length > 1 ? 'pan-y' : 'auto' }}
+          dragConstraints={{ left: -(photos.length - 1) * gW, right: 0 }}
+          style={{ x: gX, touchAction: photos.length > 1 ? 'pan-y' : 'auto' }}
+          onDragEnd={onCardDragEnd}
+          onClick={() => { if (!didDrag.current) setFullscreen(true) }}
         >
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.img
-              key={index}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              src={photos[index]}
-              alt={alt}
+          {photos.map((photo, i) => (
+            <img
+              key={i}
+              src={photo}
+              alt={i === 0 ? alt : ''}
               className="gallery-img"
+              style={{ width: gW || '100%', flexShrink: 0 }}
               draggable={false}
             />
-          </AnimatePresence>
+          ))}
         </motion.div>
 
         {/* Точки-индикаторы ПОД фото */}
         {photos.length > 1 && (
           <div className="gallery-dots-below">
             {photos.map((_, i) => (
-              <div
-                key={i}
-                className={`gallery-dot${i === index ? ' active' : ''}`}
-              />
+              <div key={i} className={`gallery-dot${i === index ? ' active' : ''}`} />
             ))}
           </div>
         )}
@@ -198,59 +193,48 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            {/* Счётчик фото */}
+            {/* Счётчик */}
             {photos.length > 1 && (
-              <div className="gallery-fs-counter">
-                {index + 1} / {photos.length}
-              </div>
+              <div className="gallery-fs-counter">{index + 1} / {photos.length}</div>
             )}
 
             {/* Кнопка закрытия */}
-            <button
-              className="gallery-fs-close"
-              onClick={() => setFullscreen(false)}
-            >
-              ✕
-            </button>
+            <button className="gallery-fs-close" onClick={() => setFullscreen(false)}>✕</button>
 
-            {/* Фото: свайп лево/право = листание, вверх/вниз = закрыть */}
+            {/* Лента фото: dragDirectionLock разделяет горизонт/вертикаль */}
             <motion.div
-              className="gallery-fs-photo"
+              className="gallery-fs-strip"
               drag
               dragDirectionLock
-              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-              dragElastic={0.3}
-              onDragEnd={handleFullscreenDragEnd}
-              onClick={() => {
-                if (!didDrag.current) setFullscreen(false)
+              dragMomentum={false}
+              dragElastic={{ left: 0.15, right: 0.15, top: 0.7, bottom: 0.7 }}
+              dragConstraints={{
+                left: -(photos.length - 1) * window.innerWidth,
+                right: 0,
+                top: 0,
+                bottom: 0,
               }}
-              style={{ touchAction: 'none' }}
+              style={{ x: fsX, y: fsY, touchAction: 'none' }}
+              onDragEnd={onFsDragEnd}
+              onClick={() => { if (!didDrag.current) setFullscreen(false) }}
             >
-              <AnimatePresence mode="wait" custom={direction}>
-                <motion.img
-                  key={index}
-                  custom={direction}
-                  variants={slideVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
-                  src={photos[index]}
-                  alt={alt}
+              {photos.map((photo, i) => (
+                <img
+                  key={i}
+                  src={photo}
+                  alt={i === 0 ? alt : ''}
                   className="gallery-fs-img"
+                  style={{ width: window.innerWidth, flexShrink: 0 }}
                   draggable={false}
                 />
-              </AnimatePresence>
+              ))}
             </motion.div>
 
-            {/* Точки внизу */}
+            {/* Точки */}
             {photos.length > 1 && (
               <div className="gallery-fs-dots">
                 {photos.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`gallery-dot${i === index ? ' active' : ''}`}
-                  />
+                  <div key={i} className={`gallery-dot${i === index ? ' active' : ''}`} />
                 ))}
               </div>
             )}
