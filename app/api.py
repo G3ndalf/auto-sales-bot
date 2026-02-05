@@ -2145,12 +2145,19 @@ async def admin_generate_ad(request: web.Request) -> web.Response:
         if not admin_tg_id:
             return web.json_response({"ok": False, "error": "No admin configured"}, status=500)
 
-        user = await get_or_create_user(
-            session,
-            telegram_id=admin_tg_id,
-            username="admin",
-            full_name="Администратор",
-        )
+        # Найти админа БЕЗ перезаписи его данных (get_or_create обновляет username/name)
+        user = (await session.execute(
+            select(User).where(User.telegram_id == admin_tg_id)
+        )).scalar_one_or_none()
+        
+        if not user:
+            # Админ ещё не в базе — создаём
+            user = await get_or_create_user(
+                session,
+                telegram_id=admin_tg_id,
+                username="admin",
+                full_name="Администратор",
+            )
 
         # Создать объявление — engine_volume=0 и fuel_type=PETROL (дефолты,
         # эти поля не в форме и не показываются в карточке)
