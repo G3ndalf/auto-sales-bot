@@ -194,10 +194,7 @@ export default function CarsList({ embedded }: Props) {
   return (
     <div className={embedded ? 'catalog-content' : 'list-page'}>
       {!embedded && (
-        <>
-          <Link to="/catalog" className="back-btn">← Каталог</Link>
-          <h1>🚗 Все авто</h1>
-        </>
+        <h1>🚗 Все авто</h1>
       )}
 
       {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}

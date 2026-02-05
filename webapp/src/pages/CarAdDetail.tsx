@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
@@ -65,9 +65,7 @@ export default function CarAdDetail() {
 
   return (
     <div className="detail-page">
-      <Link to={`/cars?brand=${encodeURIComponent(ad.brand)}`} className="back-btn">
-        ← Назад
-      </Link>
+      {/* Навигация назад — через TG BackButton */}
 
       {/* Photo gallery */}
       {ad.photos.length > 0 ? (

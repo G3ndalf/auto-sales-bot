@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api'
 import type { PlateAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 
 export default function PlateAdDetail() {
-  useBackButton('/plates')
+  useBackButton()
   const { id } = useParams<{ id: string }>()
   const [ad, setAd] = useState<PlateAdFull | null>(null)
   const [photoIndex, setPhotoIndex] = useState(0)
@@ -65,7 +65,7 @@ export default function PlateAdDetail() {
 
   return (
     <div className="detail-page">
-      <Link to="/plates" className="back-btn">← Назад</Link>
+      {/* Навигация назад — через TG BackButton */}
 
       {/* Photo gallery */}
       {ad.photos.length > 0 ? (
