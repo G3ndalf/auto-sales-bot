@@ -6,7 +6,9 @@ import PlatesList from './PlatesList'
 type Tab = 'cars' | 'plates'
 
 export default function Catalog() {
-  useBackButton('/')
+  // Каталог открывается напрямую через кнопку бота →
+  // "назад" должен закрывать Mini App, а не переходить на Profile
+  useBackButton('close')
   const [tab, setTab] = useState<Tab>('cars')
 
   return (

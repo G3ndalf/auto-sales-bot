@@ -8,6 +8,7 @@
  *
  * @param fallbackPath — путь для навигации при нажатии BackButton.
  *   Если не указан, используется navigate(-1) (browser history back).
+ *   Если 'close', закрывает Mini App вместо навигации.
  */
 
 import { useEffect } from 'react'
@@ -63,7 +64,10 @@ export function useBackButton(fallbackPath?: string) {
     try { tg.BackButton.show() } catch { /* ignore */ }
 
     const handler = () => {
-      if (fallbackPath) {
+      if (fallbackPath === 'close') {
+        // Закрыть Mini App (для страниц открытых напрямую через кнопку)
+        try { tg.close() } catch { /* fallback */ navigate('/') }
+      } else if (fallbackPath) {
         navigate(fallbackPath)
       } else {
         navigate(-1)

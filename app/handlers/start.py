@@ -54,8 +54,9 @@ def _webapp_url(path: str = "", admin: bool = False, uid: int = 0) -> str:
         params += f"&uid={uid}"
     if admin and settings.admin_token:
         params += f"&token={settings.admin_token}"
-    # HashRouter: пути через #/, query params ПЕРЕД hash
-    hash_path = f"#/{path.lstrip('/')}" if path else ""
+    # HashRouter: ВСЕ URL должны иметь hash-путь (даже корень #/).
+    # Без hash Telegram может использовать кэшированную версию старого URL.
+    hash_path = f"#/{path.lstrip('/')}" if path else "#/"
     return f"{base}?{params}{hash_path}"
 
 
