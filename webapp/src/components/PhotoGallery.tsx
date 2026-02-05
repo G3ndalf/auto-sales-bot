@@ -1,21 +1,20 @@
 /**
- * PhotoGallery.tsx — Свайп-галерея на CSS transitions + touch events.
+ * PhotoGallery.tsx — Свайп-галерея на native touch events + CSS transitions.
  *
- * Предыдущая версия на framer-motion drag зависала после первого свайпа
- * (конфликт animate() и drag gesture на iOS WebKit). Эта версия использует
- * только CSS transform + transition для анимации, и raw touch events для
- * отслеживания свайпа. Framer-motion остаётся только для AnimatePresence
- * (fade in/out fullscreen overlay).
+ * v3: Используем native addEventListener с { passive: false } вместо
+ * React synthetic events. На iOS Safari/Telegram WebView, React touch events
+ * являются passive — браузер может перехватить жест после первого свайпа.
+ * Native non-passive listeners дают полный контроль через preventDefault().
  *
  * Карточка:
- *   - Горизонтальный свайп → листание (реалтайм, палец двигает ленту)
- *   - Тап (< 10px движения) → полноэкранный просмотр
- *   - touchAction: pan-y — вертикальный скролл страницы не блокируется
+ *   - Горизонтальный свайп → листание (реалтайм)
+ *   - Вертикальный → скролл страницы (не блокируем)
+ *   - Тап → fullscreen
  *
  * Полноэкранный режим:
  *   - Горизонтальный свайп → листание
- *   - Вертикальный свайп (> 80px) → закрытие
- *   - Тап / кнопка ✕ → закрытие
+ *   - Вертикальный свайп → закрытие
+ *   - Тап / ✕ → закрытие
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
@@ -27,296 +26,339 @@ interface Props {
   fallbackIcon: React.ReactNode
 }
 
-/** Порог свайпа: минимум пикселей для переключения фото */
+/** Минимум px для смены фото */
 const SWIPE_PX = 50
-/** Порог тапа: если палец сдвинулся меньше — считаем тапом */
+/** Максимум px движения чтобы считать тапом */
 const TAP_PX = 10
-/** Порог вертикального свайпа для закрытия fullscreen */
+/** Минимум px вертикального свайпа для закрытия fullscreen */
 const DISMISS_PX = 80
+/** Минимум velocity (px/ms) для быстрого свайпа */
+const VELOCITY_THRESHOLD = 0.5
 
-/**
- * Состояние touch-жеста. Хранится в useRef чтобы не вызывать
- * лишние ре-рендеры при каждом touchmove.
- */
+/** Состояние touch жеста (mutable, в useRef) */
 interface TouchState {
-  /** Начальная X-координата касания */
   startX: number
-  /** Начальная Y-координата касания */
   startY: number
-  /** Текущее смещение по X от начала */
   dx: number
-  /** Текущее смещение по Y от начала */
   dy: number
-  /** Флаг: палец сейчас на экране */
   active: boolean
-  /** Определили ли мы направление жеста (H или V) */
-  directionLocked: boolean
-  /** 'h' = горизонтальный, 'v' = вертикальный */
-  direction: 'h' | 'v' | null
-  /** Timestamp начала жеста — для velocity */
-  startTime: number
+  locked: boolean
+  dir: 'h' | 'v' | null
+  t0: number
 }
 
-const INITIAL_TOUCH: TouchState = {
+const freshTouch = (): TouchState => ({
   startX: 0, startY: 0, dx: 0, dy: 0,
-  active: false, directionLocked: false, direction: null, startTime: 0,
-}
+  active: false, locked: false, dir: null, t0: 0,
+})
 
 export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) {
+  /* ─── State ──────────────────────────────────────────── */
   const [index, setIndex] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
 
-  /* ─── Card gallery refs ────────────────────────────────── */
+  /* ─── Refs ───────────────────────────────────────────── */
   const galleryRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
-  const [gW, setGW] = useState(0)
-  const touch = useRef<TouchState>({ ...INITIAL_TOUCH })
-
-  /* ─── Fullscreen refs ──────────────────────────────────── */
+  const fsOverlayRef = useRef<HTMLDivElement>(null)
   const fsStripRef = useRef<HTMLDivElement>(null)
-  const fsTouch = useRef<TouchState>({ ...INITIAL_TOUCH })
+  const gW = useRef(0)
+  const touch = useRef(freshTouch())
+  const fsTouch = useRef(freshTouch())
 
-  /** Замер ширины card-контейнера */
+  /**
+   * indexRef — зеркало React state `index` для native event listeners.
+   * Native listeners привязываются один раз и не видят замыканий React.
+   */
+  const indexRef = useRef(0)
+  useEffect(() => { indexRef.current = index }, [index])
+
+  /** Кол-во фото в ref для native listeners */
+  const countRef = useRef(photos.length)
+  useEffect(() => { countRef.current = photos.length }, [photos.length])
+
+  // ═══════════════════════════════════════════════════════════
+  //  Утилиты
+  // ═══════════════════════════════════════════════════════════
+
+  /** Установить transform на DOM-элемент напрямую */
+  const setTransform = useCallback((
+    el: HTMLElement | null,
+    x: number,
+    y: number = 0,
+    animated: boolean = false,
+  ) => {
+    if (!el) return
+    el.style.transition = animated
+      ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      : 'none'
+    el.style.transform = `translate3d(${x}px, ${y}px, 0)`
+  }, [])
+
+  // ═══════════════════════════════════════════════════════════
+  //  Замер ширины gallery
+  // ═══════════════════════════════════════════════════════════
+
   useEffect(() => {
     const measure = () => {
-      if (galleryRef.current) setGW(galleryRef.current.clientWidth)
+      if (galleryRef.current) {
+        gW.current = galleryRef.current.clientWidth
+        // Мгновенно позиционируем strip
+        setTransform(stripRef.current, -indexRef.current * gW.current)
+      }
     }
     measure()
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
-  }, [])
+  }, [setTransform])
 
-  /** Блокируем скролл body в fullscreen */
+  /** Блокировка body scroll в fullscreen */
   useEffect(() => {
     document.body.style.overflow = fullscreen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [fullscreen])
 
-  /**
-   * Применяет transform к strip-элементу.
-   * @param ref - ref на strip div
-   * @param x - горизонтальное смещение (px)
-   * @param y - вертикальное смещение (px), только для fullscreen
-   * @param animated - использовать CSS transition или нет
-   */
-  const applyTransform = useCallback((
-    ref: React.RefObject<HTMLDivElement | null>,
-    x: number,
-    y: number = 0,
-    animated: boolean = false,
-  ) => {
-    if (!ref.current) return
-    ref.current.style.transition = animated
-      ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-      : 'none'
-    ref.current.style.transform = `translate3d(${x}px, ${y}px, 0)`
-  }, [])
-
-  // ═══════════════════════════════════════════════════════════
-  //  CARD GALLERY — touch handlers
-  // ═══════════════════════════════════════════════════════════
-
-  const onCardTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.touches[0]
-    touch.current = {
-      startX: t.clientX,
-      startY: t.clientY,
-      dx: 0, dy: 0,
-      active: true,
-      directionLocked: false,
-      direction: null,
-      startTime: Date.now(),
-    }
-    // Убираем transition для мгновенного следования за пальцем
-    if (stripRef.current) {
-      stripRef.current.style.transition = 'none'
-    }
-  }, [])
-
-  const onCardTouchMove = useCallback((e: React.TouchEvent) => {
-    const st = touch.current
-    if (!st.active) return
-
-    const t = e.touches[0]
-    st.dx = t.clientX - st.startX
-    st.dy = t.clientY - st.startY
-
-    // Определяем направление жеста при первом значимом движении
-    if (!st.directionLocked) {
-      const ax = Math.abs(st.dx)
-      const ay = Math.abs(st.dy)
-      if (ax > 5 || ay > 5) {
-        st.direction = ax > ay ? 'h' : 'v'
-        st.directionLocked = true
-      }
-    }
-
-    // Если вертикальный — не мешаем скроллу страницы, прекращаем drag
-    if (st.direction === 'v') return
-
-    // Горизонтальный свайп: двигаем ленту за пальцем
-    // Добавляем elasticity на краях (делим смещение на 3)
-    let dx = st.dx
-    if ((index === 0 && dx > 0) || (index === photos.length - 1 && dx < 0)) {
-      dx = dx / 3
-    }
-
-    const baseX = -index * gW
-    applyTransform(stripRef, baseX + dx)
-  }, [index, gW, photos.length, applyTransform])
-
-  const onCardTouchEnd = useCallback(() => {
-    const st = touch.current
-    if (!st.active) return
-    st.active = false
-
-    // Тап (маленькое смещение) → открываем fullscreen
-    if (Math.abs(st.dx) < TAP_PX && Math.abs(st.dy) < TAP_PX) {
-      setFullscreen(true)
-      return
-    }
-
-    // Вертикальный свайп — ничего не делаем (скролл обработан браузером)
-    if (st.direction === 'v') return
-
-    // Velocity: px/ms → определяем быстрый свайп
-    const elapsed = Date.now() - st.startTime
-    const velocity = elapsed > 0 ? Math.abs(st.dx) / elapsed : 0
-
-    // Определяем новый index
-    let newIdx = index
-    if ((st.dx > SWIPE_PX || velocity > 0.5) && st.dx > 0 && index > 0) {
-      newIdx = index - 1
-    } else if ((Math.abs(st.dx) > SWIPE_PX || velocity > 0.5) && st.dx < 0 && index < photos.length - 1) {
-      newIdx = index + 1
-    }
-
-    // Анимируем snap к целевой позиции
-    applyTransform(stripRef, -newIdx * gW, 0, true)
-    setIndex(newIdx)
-  }, [index, gW, photos.length, applyTransform])
-
-  // ═══════════════════════════════════════════════════════════
-  //  FULLSCREEN — touch handlers
-  // ═══════════════════════════════════════════════════════════
-
-  const onFsTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.touches[0]
-    fsTouch.current = {
-      startX: t.clientX,
-      startY: t.clientY,
-      dx: 0, dy: 0,
-      active: true,
-      directionLocked: false,
-      direction: null,
-      startTime: Date.now(),
-    }
-    if (fsStripRef.current) {
-      fsStripRef.current.style.transition = 'none'
-    }
-  }, [])
-
-  const onFsTouchMove = useCallback((e: React.TouchEvent) => {
-    const st = fsTouch.current
-    if (!st.active) return
-
-    const t = e.touches[0]
-    st.dx = t.clientX - st.startX
-    st.dy = t.clientY - st.startY
-
-    // Блокировка направления
-    if (!st.directionLocked) {
-      const ax = Math.abs(st.dx)
-      const ay = Math.abs(st.dy)
-      if (ax > 5 || ay > 5) {
-        st.direction = ax > ay ? 'h' : 'v'
-        st.directionLocked = true
-      }
-    }
-
-    const w = window.innerWidth
-    const baseX = -index * w
-
-    if (st.direction === 'h') {
-      // Горизонтальный свайп: листание фото
-      let dx = st.dx
-      if ((index === 0 && dx > 0) || (index === photos.length - 1 && dx < 0)) {
-        dx = dx / 3
-      }
-      applyTransform(fsStripRef, baseX + dx, 0)
-    } else if (st.direction === 'v') {
-      // Вертикальный свайп: закрытие (двигаем по Y, уменьшаем opacity)
-      applyTransform(fsStripRef, baseX, st.dy)
-      // Плавное затемнение фона
-      const opacity = Math.max(0.3, 1 - Math.abs(st.dy) / 300)
-      const fsEl = fsStripRef.current?.parentElement
-      if (fsEl) fsEl.style.background = `rgba(0, 0, 0, ${opacity})`
-    }
-
-    // Предотвращаем скролл страницы в fullscreen
-    e.preventDefault()
-  }, [index, photos.length, applyTransform])
-
-  const onFsTouchEnd = useCallback(() => {
-    const st = fsTouch.current
-    if (!st.active) return
-    st.active = false
-
-    const w = window.innerWidth
-
-    // Тап → закрытие
-    if (Math.abs(st.dx) < TAP_PX && Math.abs(st.dy) < TAP_PX) {
-      setFullscreen(false)
-      return
-    }
-
-    const elapsed = Date.now() - st.startTime
-    const velocity = elapsed > 0 ? Math.abs(st.dx) / elapsed : 0
-
-    if (st.direction === 'h') {
-      // Горизонтальный свайп: переключение фото
-      let newIdx = index
-      if ((st.dx > SWIPE_PX || velocity > 0.5) && st.dx > 0 && index > 0) {
-        newIdx = index - 1
-      } else if ((Math.abs(st.dx) > SWIPE_PX || velocity > 0.5) && st.dx < 0 && index < photos.length - 1) {
-        newIdx = index + 1
-      }
-      applyTransform(fsStripRef, -newIdx * w, 0, true)
-      setIndex(newIdx)
-    } else if (st.direction === 'v') {
-      // Вертикальный свайп: закрытие или snap back
-      const velocityY = elapsed > 0 ? Math.abs(st.dy) / elapsed : 0
-      if (Math.abs(st.dy) > DISMISS_PX || velocityY > 0.5) {
-        setFullscreen(false)
-      } else {
-        applyTransform(fsStripRef, -index * w, 0, true)
-        // Восстанавливаем opacity фона
-        const fsEl = fsStripRef.current?.parentElement
-        if (fsEl) fsEl.style.background = ''
-      }
-    }
-  }, [index, photos.length, applyTransform])
-
-  // ═══════════════════════════════════════════════════════════
-  //  Синхронизация позиции при изменении index / размеров
-  // ═══════════════════════════════════════════════════════════
-
-  /** При изменении gW или выходе из fullscreen — мгновенный snap */
+  /** Sync card strip position при выходе из fullscreen */
   useEffect(() => {
-    if (gW > 0 && !fullscreen) {
-      applyTransform(stripRef, -index * gW)
+    if (!fullscreen && gW.current > 0) {
+      setTransform(stripRef.current, -indexRef.current * gW.current)
     }
-  }, [gW, fullscreen, index, applyTransform])
+  }, [fullscreen, setTransform])
 
-  /** При открытии fullscreen — мгновенный snap */
+  /** Sync fullscreen strip position при открытии */
   useEffect(() => {
     if (fullscreen) {
-      // Небольшая задержка чтобы DOM успел отрендериться
       requestAnimationFrame(() => {
-        applyTransform(fsStripRef, -index * window.innerWidth)
+        setTransform(fsStripRef.current, -indexRef.current * window.innerWidth)
       })
     }
-  }, [fullscreen, index, applyTransform])
+  }, [fullscreen, setTransform])
+
+  // ═══════════════════════════════════════════════════════════
+  //  CARD GALLERY — native touch listeners
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    const el = stripRef.current
+    if (!el || photos.length <= 1) return
+
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      touch.current = {
+        startX: t.clientX,
+        startY: t.clientY,
+        dx: 0, dy: 0,
+        active: true,
+        locked: false,
+        dir: null,
+        t0: Date.now(),
+      }
+      // Убираем transition для мгновенного следования за пальцем
+      el.style.transition = 'none'
+    }
+
+    const onMove = (e: TouchEvent) => {
+      const st = touch.current
+      if (!st.active) return
+
+      const t = e.touches[0]
+      st.dx = t.clientX - st.startX
+      st.dy = t.clientY - st.startY
+
+      // Определяем направление при первом значимом движении
+      if (!st.locked) {
+        const ax = Math.abs(st.dx)
+        const ay = Math.abs(st.dy)
+        if (ax > 5 || ay > 5) {
+          st.dir = ax >= ay ? 'h' : 'v'
+          st.locked = true
+        }
+      }
+
+      if (st.dir === 'h') {
+        // КЛЮЧЕВОЙ МОМЕНТ: preventDefault блокирует системные жесты
+        // (скролл, Telegram swipe-to-close, etc.)
+        e.preventDefault()
+
+        const idx = indexRef.current
+        const cnt = countRef.current
+        const w = gW.current
+
+        // Elastic resistance на краях
+        let dx = st.dx
+        if ((idx === 0 && dx > 0) || (idx === cnt - 1 && dx < 0)) {
+          dx = dx / 3
+        }
+
+        el.style.transform = `translate3d(${-idx * w + dx}px, 0, 0)`
+      }
+      // Если вертикальный — НЕ делаем preventDefault, браузер скроллит
+    }
+
+    const onEnd = () => {
+      const st = touch.current
+      if (!st.active) return
+      st.active = false
+
+      const idx = indexRef.current
+      const cnt = countRef.current
+      const w = gW.current
+
+      // Тап → fullscreen
+      if (Math.abs(st.dx) < TAP_PX && Math.abs(st.dy) < TAP_PX) {
+        setFullscreen(true)
+        return
+      }
+
+      // Вертикальный свайп → ничего (скролл уже обработан)
+      if (st.dir === 'v') return
+
+      // Velocity
+      const elapsed = Date.now() - st.t0
+      const vel = elapsed > 0 ? Math.abs(st.dx) / elapsed : 0
+
+      // Определяем новый index
+      let newIdx = idx
+      if (st.dx > 0 && (st.dx > SWIPE_PX || vel > VELOCITY_THRESHOLD) && idx > 0) {
+        newIdx = idx - 1
+      } else if (st.dx < 0 && (Math.abs(st.dx) > SWIPE_PX || vel > VELOCITY_THRESHOLD) && idx < cnt - 1) {
+        newIdx = idx + 1
+      }
+
+      // Animated snap
+      setTransform(el, -newIdx * w, 0, true)
+      if (newIdx !== idx) setIndex(newIdx)
+    }
+
+    // passive: false на touchmove — чтобы preventDefault() работал
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd, { passive: true })
+    el.addEventListener('touchcancel', onEnd, { passive: true })
+
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [photos.length, setTransform])
+
+  // ═══════════════════════════════════════════════════════════
+  //  FULLSCREEN — native touch listeners
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    const el = fsStripRef.current
+    if (!el || !fullscreen) return
+
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      fsTouch.current = {
+        startX: t.clientX,
+        startY: t.clientY,
+        dx: 0, dy: 0,
+        active: true,
+        locked: false,
+        dir: null,
+        t0: Date.now(),
+      }
+      el.style.transition = 'none'
+    }
+
+    const onMove = (e: TouchEvent) => {
+      const st = fsTouch.current
+      if (!st.active) return
+
+      const t = e.touches[0]
+      st.dx = t.clientX - st.startX
+      st.dy = t.clientY - st.startY
+
+      if (!st.locked) {
+        const ax = Math.abs(st.dx)
+        const ay = Math.abs(st.dy)
+        if (ax > 5 || ay > 5) {
+          st.dir = ax >= ay ? 'h' : 'v'
+          st.locked = true
+        }
+      }
+
+      // В fullscreen блокируем ВСЕ жесты браузера
+      e.preventDefault()
+
+      const idx = indexRef.current
+      const cnt = countRef.current
+      const w = window.innerWidth
+
+      if (st.dir === 'h') {
+        let dx = st.dx
+        if ((idx === 0 && dx > 0) || (idx === cnt - 1 && dx < 0)) {
+          dx = dx / 3
+        }
+        el.style.transform = `translate3d(${-idx * w + dx}px, 0, 0)`
+      } else if (st.dir === 'v') {
+        // Вертикальный свайп → двигаем по Y + затемнение
+        el.style.transform = `translate3d(${-idx * w}px, ${st.dy}px, 0)`
+        const overlay = fsOverlayRef.current
+        if (overlay) {
+          const opacity = Math.max(0.3, 1 - Math.abs(st.dy) / 300)
+          overlay.style.background = `rgba(0, 0, 0, ${opacity})`
+        }
+      }
+    }
+
+    const onEnd = () => {
+      const st = fsTouch.current
+      if (!st.active) return
+      st.active = false
+
+      const idx = indexRef.current
+      const cnt = countRef.current
+      const w = window.innerWidth
+
+      // Тап → закрыть
+      if (Math.abs(st.dx) < TAP_PX && Math.abs(st.dy) < TAP_PX) {
+        setFullscreen(false)
+        return
+      }
+
+      const elapsed = Date.now() - st.t0
+      const vel = elapsed > 0 ? Math.abs(st.dx) / elapsed : 0
+      const velY = elapsed > 0 ? Math.abs(st.dy) / elapsed : 0
+
+      if (st.dir === 'h') {
+        let newIdx = idx
+        if (st.dx > 0 && (st.dx > SWIPE_PX || vel > VELOCITY_THRESHOLD) && idx > 0) {
+          newIdx = idx - 1
+        } else if (st.dx < 0 && (Math.abs(st.dx) > SWIPE_PX || vel > VELOCITY_THRESHOLD) && idx < cnt - 1) {
+          newIdx = idx + 1
+        }
+        setTransform(el, -newIdx * w, 0, true)
+        if (newIdx !== idx) setIndex(newIdx)
+      } else if (st.dir === 'v') {
+        if (Math.abs(st.dy) > DISMISS_PX || velY > VELOCITY_THRESHOLD) {
+          setFullscreen(false)
+        } else {
+          // Snap back
+          setTransform(el, -idx * w, 0, true)
+          const overlay = fsOverlayRef.current
+          if (overlay) overlay.style.background = ''
+        }
+      }
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd, { passive: true })
+    el.addEventListener('touchcancel', onEnd, { passive: true })
+
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [fullscreen, setTransform])
 
   // ═══════════════════════════════════════════════════════════
   //  Рендер
@@ -328,20 +370,13 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
 
   return (
     <>
-      {/* ─── Карточка ────────────────────────────────────── */}
-      <div
-        className="gallery"
-        ref={galleryRef}
-        style={{ touchAction: photos.length > 1 ? 'pan-y' : 'auto' }}
-      >
+      {/* Card gallery */}
+      <div className="gallery" ref={galleryRef}>
         <div
           ref={stripRef}
           className="gallery-strip"
-          onTouchStart={photos.length > 1 ? onCardTouchStart : undefined}
-          onTouchMove={photos.length > 1 ? onCardTouchMove : undefined}
-          onTouchEnd={photos.length > 1 ? onCardTouchEnd : undefined}
+          /* Если одно фото — тап через onClick (touch listeners не привязаны) */
           onClick={photos.length === 1 ? () => setFullscreen(true) : undefined}
-          style={{ willChange: 'transform' }}
         >
           {photos.map((photo, i) => (
             <img
@@ -349,7 +384,7 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
               src={photo}
               alt={i === 0 ? alt : ''}
               className="gallery-img"
-              style={{ width: gW || '100%', flexShrink: 0 }}
+              style={{ width: gW.current || '100%', flexShrink: 0 }}
               draggable={false}
             />
           ))}
@@ -364,11 +399,12 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
         )}
       </div>
 
-      {/* ─── Полноэкранный просмотр ──────────────────────── */}
+      {/* Fullscreen */}
       <AnimatePresence>
         {fullscreen && (
           <motion.div
             className="gallery-fullscreen"
+            ref={fsOverlayRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -379,14 +415,7 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
             )}
             <button className="gallery-fs-close" onClick={() => setFullscreen(false)}>✕</button>
 
-            <div
-              ref={fsStripRef}
-              className="gallery-fs-strip"
-              onTouchStart={onFsTouchStart}
-              onTouchMove={onFsTouchMove}
-              onTouchEnd={onFsTouchEnd}
-              style={{ willChange: 'transform', touchAction: 'none' }}
-            >
+            <div ref={fsStripRef} className="gallery-fs-strip">
               {photos.map((photo, i) => (
                 <img
                   key={i}
