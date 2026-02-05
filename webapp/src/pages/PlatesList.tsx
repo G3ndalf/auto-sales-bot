@@ -30,6 +30,26 @@ interface Props {
   embedded?: boolean
 }
 
+/* Варианты анимации для stagger-появления карточек */
+const listContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      when: 'beforeChildren' as const,
+      staggerChildren: 0.06, // 60ms между карточками
+    },
+  },
+}
+
+const listCardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: 'easeOut' },
+  },
+}
+
 /**
  * PlatesList — страница каталога номерных знаков.
  *
@@ -360,19 +380,28 @@ export default function PlatesList({ embedded }: Props) {
         </div>
       )}
 
+      {/* Мягкое fade-in для пустого состояния / Stagger-контейнер для карточек */}
       {!loading && !error && ads.length === 0 ? (
-        <div className="empty-state">
+        <motion.div
+          className="empty-state"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+        >
           <div className="empty-icon"><Hashtag size={48} weight="BoldDuotone" /></div>
           <p>Пока нет объявлений</p>
-        </div>
+        </motion.div>
       ) : (
-        <div className="ads-list">
-          {ads.map((ad, i) => (
+        <motion.div
+          className="ads-list"
+          variants={listContainerVariants}
+          initial={restoredCache ? false : 'hidden'}
+          animate="visible"
+        >
+          {ads.map((ad) => (
             <motion.div
               key={ad.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.3 }}
+              variants={listCardVariants}
             >
               <Link to={`/plate/${ad.id}`} className="ad-card plate-card">
                 <div className="plate-number-display">{ad.plate_number}</div>
@@ -383,7 +412,7 @@ export default function PlatesList({ embedded }: Props) {
               </Link>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {ads.length < total && (

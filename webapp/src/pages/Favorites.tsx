@@ -11,13 +11,24 @@ import { useBackButton } from '../hooks/useBackButton'
 import { SkeletonList } from '../components/Skeleton'
 import { Star, HeartBroken, Garage, Hashtag, MapPoint, Eye } from '@solar-icons/react'
 
+/* Варианты анимации для stagger-появления карточек */
+const listContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      when: 'beforeChildren' as const,
+      staggerChildren: 0.07, // 70ms между карточками
+    },
+  },
+}
+
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
+  visible: {
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.07, duration: 0.35, ease: 'easeOut' },
-  }),
+    transition: { duration: 0.35, ease: 'easeOut' },
+  },
 }
 
 const floatAnimation = {
@@ -41,7 +52,13 @@ export default function Favorites() {
   if (loading) return <SkeletonList count={3} />
 
   if (items.length === 0) return (
-    <div style={{ textAlign: 'center', padding: '60px 16px', color: '#9CA3AF' }}>
+    /* Мягкое fade-in для пустого состояния */
+    <motion.div
+      style={{ textAlign: 'center', padding: '60px 16px', color: '#9CA3AF' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <motion.div
         style={{ marginBottom: 12 }}
         animate={floatAnimation}
@@ -50,7 +67,7 @@ export default function Favorites() {
       </motion.div>
       <p style={{ fontSize: 18, fontWeight: 600 }}>Нет избранных</p>
       <p style={{ marginTop: 8 }}>Нажмите ☆ на объявлении чтобы сохранить</p>
-    </div>
+    </motion.div>
   )
 
   return (
@@ -58,17 +75,20 @@ export default function Favorites() {
       <h1 style={{ fontSize: '1.4em', fontWeight: 800, padding: '20px 16px 12px' }}>
         <Star size={20} weight="BoldDuotone" /> Избранное ({items.length})
       </h1>
-      <div className="ads-list">
-        {items.map((item, i) => (
+      {/* Stagger-контейнер: карточки появляются одна за другой */}
+      <motion.div
+        className="ads-list"
+        variants={listContainerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {items.map((item) => (
           <motion.div
             key={`${item.ad_type}-${item.id}`}
             className="ad-card"
             style={{ cursor: 'pointer' }}
             onClick={() => navigate(`/${item.ad_type}/${item.id}`)}
-            custom={i}
             variants={cardVariants}
-            initial="hidden"
-            animate="visible"
           >
             <div className="ad-card-photo">
               {item.photo ? (
@@ -89,7 +109,7 @@ export default function Favorites() {
             </div>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   )
 }
