@@ -1,11 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Garage, Banknote, MapPoint, CheckCircle, DangerTriangle, Refresh, Fuel } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
 import { submitAd, SubmitError } from '../api'
 import PhotoUploader from '../components/PhotoUploader'
+
+/* Анимации формы: stagger-появление полей сверху вниз */
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+}
+const fieldItem = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+}
 
 export default function CreateCarAd() {
   const [brand, setBrand] = useState('')
@@ -127,7 +137,7 @@ export default function CreateCarAd() {
     return `form-field ${s === 'valid' ? 'field-valid' : s === 'invalid' ? 'field-invalid' : ''}`
   }
 
-  // Duplicate warning screen — предупреждение о похожем объявлении
+  // Duplicate warning screen — предупреждение о похожем объявлении (bounce-in + shake)
   if (showDuplicateWarning) {
     return (
       <div className="form-page">
@@ -137,16 +147,29 @@ export default function CreateCarAd() {
           transition={{ type: 'spring', stiffness: 400, damping: 15 }}
           className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
         >
+          {/* Shake-анимация иконки предупреждения */}
           <motion.div
             animate={{ x: [0, -8, 8, -8, 8, 0] }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <DangerTriangle size={48} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
           </motion.div>
-          <h2 className="text-[1.3em] text-[#F59E0B]">Похожее объявление уже существует</h2>
-          <p className="text-[#9CA3AF] max-w-[280px] leading-normal">
+          <motion.h2
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.3 }}
+            className="text-[1.3em] text-[#F59E0B]"
+          >
+            Похожее объявление уже существует
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35, duration: 0.3 }}
+            className="text-[#9CA3AF] max-w-[280px] leading-normal"
+          >
             Вы уже подавали похожее объявление за последние 7 дней. Возможно, стоит отредактировать существующее.
-          </p>
+          </motion.p>
           <div className="flex gap-3 mt-4">
             <button
               className="btn bg-[#1F2937] text-[#F9FAFB]"
@@ -154,20 +177,22 @@ export default function CreateCarAd() {
             >
               ← Назад
             </button>
-            <button
+            {/* Тактильная обратная связь на кнопке */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
               className="btn btn-gradient"
               onClick={handleForceSubmit}
               disabled={submitting}
             >
               {submitting ? 'Отправка...' : 'Всё равно опубликовать'}
-            </button>
+            </motion.button>
           </div>
         </motion.div>
       </div>
     )
   }
 
-  // Success screen — заменяет всю форму
+  // Success screen — scale-up галочка + fade-in текст
   if (sent) {
     return (
       <div className="form-page">
@@ -177,21 +202,43 @@ export default function CreateCarAd() {
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
         >
-          <span style={{ filter: 'drop-shadow(0 4px 16px rgba(245, 158, 11, 0.4))' }}>
+          {/* Scale-up анимация галочки */}
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 12, delay: 0.15 }}
+            style={{ filter: 'drop-shadow(0 4px 16px rgba(245, 158, 11, 0.4))' }}
+          >
             <CheckCircle size={64} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
-          </span>
-          <h2 className="text-[1.4em]">
+          </motion.span>
+          {/* Fade-in для заголовка */}
+          <motion.h2
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.3 }}
+            className="text-[1.4em]"
+          >
             {published ? 'Объявление опубликовано!' : 'Отправлено на модерацию!'}
-          </h2>
-          <p className="text-[#9CA3AF]">
+          </motion.h2>
+          {/* Fade-in для описания */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.45, duration: 0.3 }}
+            className="text-[#9CA3AF]"
+          >
             {published ? 'Ваше объявление уже в каталоге' : 'Мы проверим и опубликуем'}
-          </p>
-          <button
+          </motion.p>
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.55, duration: 0.3 }}
+            whileTap={{ scale: 0.95 }}
             className="btn btn-primary mt-4"
             onClick={() => window.Telegram?.WebApp?.close()}
           >
             Закрыть
-          </button>
+          </motion.button>
         </motion.div>
       </div>
     )
@@ -199,36 +246,53 @@ export default function CreateCarAd() {
 
   return (
     <div className="form-page">
-      <h1>{TEXTS.CAR_FORM_TITLE}</h1>
+      <motion.h1
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        {TEXTS.CAR_FORM_TITLE}
+      </motion.h1>
 
-      {formErrors.length > 0 && (
-        <div
-          ref={errorsRef}
-          className={`form-errors ${errorType === 'rate_limit' ? 'form-errors--rate-limit' : ''}`}
-        >
-          {errorType === 'rate_limit' ? (
-            <div className="form-errors__title"><Refresh size={16} weight="BoldDuotone" className="animate-spin" /> {formErrors[0]}</div>
-          ) : (
-            <>
-              <div className="form-errors__title">Исправьте ошибки:</div>
-              <ul className="form-errors__list">
-                {formErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-      )}
+      {/* Ошибки валидации с анимацией slide-down / fade-in */}
+      <AnimatePresence>
+        {formErrors.length > 0 && (
+          <motion.div
+            key="form-errors"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <div
+              ref={errorsRef}
+              className={`form-errors ${errorType === 'rate_limit' ? 'form-errors--rate-limit' : ''}`}
+            >
+              {errorType === 'rate_limit' ? (
+                <div className="form-errors__title"><Refresh size={16} weight="BoldDuotone" className="animate-spin" /> {formErrors[0]}</div>
+              ) : (
+                <>
+                  <div className="form-errors__title">Исправьте ошибки:</div>
+                  <ul className="form-errors__list">
+                    {formErrors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Section: Основное */}
-      <div className="form-section">
-        <div className="form-section__header">
+      {/* Section: Основное — stagger-появление полей */}
+      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
+        <motion.div variants={fieldItem} className="form-section__header">
           <span className="form-section__icon"><Garage size={16} weight="BoldDuotone" /></span>
           <span>Основное</span>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_BRAND}</label>
             <input
@@ -251,9 +315,9 @@ export default function CreateCarAd() {
               placeholder="Vesta, X5..."
             />
           </div>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_YEAR}</label>
             <input
@@ -277,9 +341,9 @@ export default function CreateCarAd() {
               placeholder="50000"
             />
           </div>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label>{TEXTS.LABEL_ENGINE}</label>
             <input
@@ -301,9 +365,9 @@ export default function CreateCarAd() {
               placeholder="Чёрный"
             />
           </div>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label>{TEXTS.LABEL_FUEL}</label>
             <select className="form-field" value={fuelType} onChange={e => setFuelType(e.target.value)}>
@@ -322,26 +386,26 @@ export default function CreateCarAd() {
               ))}
             </select>
           </div>
-        </div>
+        </motion.div>
 
-        <label className="checkbox-row">
+        <motion.label variants={fieldItem} className="checkbox-row">
           <input
             type="checkbox"
             checked={hasGas}
             onChange={e => setHasGas(e.target.checked)}
           />
           <span className="checkbox-label"><Fuel size={16} weight="BoldDuotone" /> Установлено ГБО (газ)</span>
-        </label>
-      </div>
+        </motion.label>
+      </motion.div>
 
-      {/* Section: Цена и описание */}
-      <div className="form-section">
-        <div className="form-section__header">
+      {/* Section: Цена и описание — stagger-появление полей */}
+      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
+        <motion.div variants={fieldItem} className="form-section__header">
           <span className="form-section__icon"><Banknote size={16} weight="BoldDuotone" /></span>
           <span>Цена и описание</span>
-        </div>
+        </motion.div>
 
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label className="required">{TEXTS.LABEL_PRICE}</label>
           <input
             className={fc('price', price)}
@@ -351,9 +415,9 @@ export default function CreateCarAd() {
             onBlur={() => touch('price')}
             placeholder="500000"
           />
-        </div>
+        </motion.div>
 
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label>{TEXTS.LABEL_DESCRIPTION}</label>
           <textarea
             className="form-field"
@@ -362,30 +426,33 @@ export default function CreateCarAd() {
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
             placeholder="Дополнительная информация..."
           />
-          {/* Счётчик символов */}
+          {/* Счётчик символов — плавная смена цвета через CSS transition */}
           <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
-            description.length > 900 ? 'text-[#EF4444]' : 'text-[#6B7280]'
+            description.length > 900 ? 'text-[#EF4444]' : description.length > 750 ? 'text-[#F59E0B]' : 'text-[#6B7280]'
           }`}>
             {description.length}/1000
           </span>
-        </div>
+        </motion.div>
 
-        <PhotoUploader
-          maxPhotos={CONFIG.MAX_CAR_PHOTOS}
-          photoIds={photoIds}
-          onPhotosChange={setPhotoIds}
-        />
-      </div>
+        {/* PhotoUploader — не трогаем сам компонент, только оборачиваем */}
+        <motion.div variants={fieldItem}>
+          <PhotoUploader
+            maxPhotos={CONFIG.MAX_CAR_PHOTOS}
+            photoIds={photoIds}
+            onPhotosChange={setPhotoIds}
+          />
+        </motion.div>
+      </motion.div>
 
-      {/* Section: Контакты */}
-      <div className="form-section">
-        <div className="form-section__header">
+      {/* Section: Контакты — stagger-появление полей */}
+      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
+        <motion.div variants={fieldItem} className="form-section__header">
           <span className="form-section__icon"><MapPoint size={16} weight="BoldDuotone" /></span>
           <span>Город и контакты</span>
-        </div>
+        </motion.div>
 
         {/* Выбор региона */}
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label className="required">Регион</label>
           <select
             className={fc('region', region)}
@@ -397,10 +464,10 @@ export default function CreateCarAd() {
               <option key={r.name} value={r.name}>{r.name}</option>
             ))}
           </select>
-        </div>
+        </motion.div>
 
         {/* Выбор города (фильтруется по региону) */}
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label className="required">{TEXTS.LABEL_CITY}</label>
           <select
             className={fc('city', city)}
@@ -414,9 +481,9 @@ export default function CreateCarAd() {
             ))}
             {region && <option value="Другой">Другой</option>}
           </select>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_PHONE}</label>
             <input
@@ -438,17 +505,19 @@ export default function CreateCarAd() {
               placeholder="@username"
             />
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <div className="submit-section">
-        <button
+        {/* Тактильная обратная связь на кнопке отправки */}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
           className={`btn btn-gradient ${!allRequired ? 'btn-disabled' : ''}`}
           onClick={handleSubmit}
           disabled={submitting}
         >
           {submitting ? TEXTS.BTN_SUBMITTING : TEXTS.BTN_SUBMIT}
-        </button>
+        </motion.button>
       </div>
     </div>
   )

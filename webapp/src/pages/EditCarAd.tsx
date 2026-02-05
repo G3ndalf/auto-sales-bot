@@ -10,12 +10,23 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Garage, Banknote, MapPoint, CheckCircle, DangerTriangle, Refresh, Fuel, Pen, Diskette } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
 import { api } from '../api'
 import type { CarAdFull } from '../api'
+
+/* Анимации формы: stagger-появление полей сверху вниз */
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+}
+const fieldItem = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+}
 
 export default function EditCarAd() {
   /** Назад ведёт на "Мои объявления" */
@@ -175,42 +186,63 @@ export default function EditCarAd() {
   // ===== Рендер формы =====
   return (
     <div className="form-page">
-      <h1><Pen size={18} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> Редактирование — Авто</h1>
+      <motion.h1
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Pen size={18} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> Редактирование — Авто
+      </motion.h1>
 
       {/* ⚠️ Предупреждение о повторной модерации */}
-      <div style={{
-        padding: '12px 16px',
-        marginBottom: '16px',
-        borderRadius: '10px',
-        backgroundColor: '#FFA50022',
-        border: '1px solid #FFA50044',
-        color: '#FFA500',
-        fontSize: '13px',
-        lineHeight: '1.4',
-      }}>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.06 }}
+        style={{
+          padding: '12px 16px',
+          marginBottom: '16px',
+          borderRadius: '10px',
+          backgroundColor: '#FFA50022',
+          border: '1px solid #FFA50044',
+          color: '#FFA500',
+          fontSize: '13px',
+          lineHeight: '1.4',
+        }}
+      >
         <DangerTriangle size={16} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle' }} /> После редактирования объявление будет отправлено на повторную модерацию
-      </div>
+      </motion.div>
 
-      {/* Ошибки формы */}
-      {formErrors.length > 0 && (
-        <div ref={errorsRef} className="form-errors">
-          <div className="form-errors__title">Исправьте ошибки:</div>
-          <ul className="form-errors__list">
-            {formErrors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Ошибки формы с анимацией slide-down / fade-in */}
+      <AnimatePresence>
+        {formErrors.length > 0 && (
+          <motion.div
+            key="form-errors"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <div ref={errorsRef} className="form-errors">
+              <div className="form-errors__title">Исправьте ошибки:</div>
+              <ul className="form-errors__list">
+                {formErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Section: Основное (аналогично CreateCarAd) */}
-      <div className="form-section">
-        <div className="form-section__header">
+      {/* Section: Основное — stagger-появление полей */}
+      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
+        <motion.div variants={fieldItem} className="form-section__header">
           <span className="form-section__icon"><Garage size={16} weight="BoldDuotone" /></span>
           <span>Основное</span>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_BRAND}</label>
             <input
@@ -233,9 +265,9 @@ export default function EditCarAd() {
               placeholder="Vesta, X5..."
             />
           </div>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_YEAR}</label>
             <input
@@ -259,9 +291,9 @@ export default function EditCarAd() {
               placeholder="50000"
             />
           </div>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label>{TEXTS.LABEL_ENGINE}</label>
             <input
@@ -283,9 +315,9 @@ export default function EditCarAd() {
               placeholder="Чёрный"
             />
           </div>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label>{TEXTS.LABEL_FUEL}</label>
             <select className="form-field" value={fuelType} onChange={e => setFuelType(e.target.value)}>
@@ -304,27 +336,27 @@ export default function EditCarAd() {
               ))}
             </select>
           </div>
-        </div>
+        </motion.div>
 
         {/* Чекбокс ГБО */}
-        <label className="checkbox-row">
+        <motion.label variants={fieldItem} className="checkbox-row">
           <input
             type="checkbox"
             checked={hasGas}
             onChange={e => setHasGas(e.target.checked)}
           />
           <span className="checkbox-label"><Fuel size={16} weight="BoldDuotone" /> Установлено ГБО (газ)</span>
-        </label>
-      </div>
+        </motion.label>
+      </motion.div>
 
-      {/* Section: Цена и описание */}
-      <div className="form-section">
-        <div className="form-section__header">
+      {/* Section: Цена и описание — stagger-появление полей */}
+      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
+        <motion.div variants={fieldItem} className="form-section__header">
           <span className="form-section__icon"><Banknote size={16} weight="BoldDuotone" /></span>
           <span>Цена и описание</span>
-        </div>
+        </motion.div>
 
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label className="required">{TEXTS.LABEL_PRICE}</label>
           <input
             className={fc('price', price)}
@@ -334,9 +366,9 @@ export default function EditCarAd() {
             onBlur={() => touch('price')}
             placeholder="500000"
           />
-        </div>
+        </motion.div>
 
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label>{TEXTS.LABEL_DESCRIPTION}</label>
           <textarea
             className="form-field"
@@ -345,18 +377,24 @@ export default function EditCarAd() {
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
             placeholder="Дополнительная информация..."
           />
-        </div>
-      </div>
+          {/* Счётчик символов — плавная смена цвета через CSS transition */}
+          <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
+            description.length > 900 ? 'text-[#EF4444]' : description.length > 750 ? 'text-[#F59E0B]' : 'text-[#6B7280]'
+          }`}>
+            {description.length}/1000
+          </span>
+        </motion.div>
+      </motion.div>
 
-      {/* Section: Город и контакты */}
-      <div className="form-section">
-        <div className="form-section__header">
+      {/* Section: Город и контакты — stagger-появление полей */}
+      <motion.div className="form-section" variants={staggerContainer} initial="hidden" animate="visible">
+        <motion.div variants={fieldItem} className="form-section__header">
           <span className="form-section__icon"><MapPoint size={16} weight="BoldDuotone" /></span>
           <span>Город и контакты</span>
-        </div>
+        </motion.div>
 
         {/* Выбор региона */}
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label className="required">Регион</label>
           <select
             className={fc('region', region)}
@@ -368,10 +406,10 @@ export default function EditCarAd() {
               <option key={r.name} value={r.name}>{r.name}</option>
             ))}
           </select>
-        </div>
+        </motion.div>
 
         {/* Выбор города (фильтруется по региону) */}
-        <div className="form-group">
+        <motion.div variants={fieldItem} className="form-group">
           <label className="required">{TEXTS.LABEL_CITY}</label>
           <select
             className={fc('city', city)}
@@ -385,9 +423,9 @@ export default function EditCarAd() {
             ))}
             {region && <option value="Другой">Другой</option>}
           </select>
-        </div>
+        </motion.div>
 
-        <div className="form-row">
+        <motion.div variants={fieldItem} className="form-row">
           <div className="form-group">
             <label className="required">{TEXTS.LABEL_PHONE}</label>
             <input
@@ -409,29 +447,41 @@ export default function EditCarAd() {
               placeholder="@username"
             />
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Кнопка сохранения */}
       <div className="submit-section">
-        {saved ? (
-          <p style={{
-            textAlign: 'center',
-            color: '#4CAF50',
-            fontSize: '16px',
-            fontWeight: 600,
-          }}>
-            <CheckCircle size={16} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle', color: '#4CAF50' }} /> Изменения сохранены! Объявление отправлено на модерацию.
-          </p>
-        ) : (
-          <button
-            className={`btn btn-gradient ${!allRequired ? 'btn-disabled' : ''}`}
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? 'Сохранение...' : <><Diskette size={16} weight="BoldDuotone" /> Сохранить изменения</>}
-          </button>
-        )}
+        <AnimatePresence mode="wait">
+          {saved ? (
+            /* Анимация подтверждения сохранения */
+            <motion.p
+              key="saved"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              style={{
+                textAlign: 'center',
+                color: '#4CAF50',
+                fontSize: '16px',
+                fontWeight: 600,
+              }}
+            >
+              <CheckCircle size={16} weight="BoldDuotone" style={{ display: 'inline', verticalAlign: 'middle', color: '#4CAF50' }} /> Изменения сохранены! Объявление отправлено на модерацию.
+            </motion.p>
+          ) : (
+            /* Тактильная обратная связь на кнопке сохранения */
+            <motion.button
+              key="submit"
+              whileTap={{ scale: 0.95 }}
+              className={`btn btn-gradient ${!allRequired ? 'btn-disabled' : ''}`}
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? 'Сохранение...' : <><Diskette size={16} weight="BoldDuotone" /> Сохранить изменения</>}
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
