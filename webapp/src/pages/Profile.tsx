@@ -10,6 +10,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { api, getUserId } from '../api'
 import type { UserProfile } from '../api'
 
@@ -49,6 +50,13 @@ export default function Profile() {
   const displayName = tgUser?.first_name || profile.name
   const avatar = displayName.charAt(0).toUpperCase()
 
+  const stats = [
+    { value: profile.ads.active, label: '🟢 Активных' },
+    { value: profile.ads.pending, label: '🟡 На модерации' },
+    { value: profile.ads.rejected, label: '🔴 Отклонённых' },
+    { value: profile.ads.total, label: '📊 Всего' },
+  ]
+
   return (
     <div className="profile-page">
       {/* Hero — аватар, имя, дата регистрации */}
@@ -65,112 +73,43 @@ export default function Profile() {
 
       {/* Статистика объявлений */}
       <div className="profile-section">
-        <h2 style={{
-          fontSize: '15px',
-          fontWeight: 600,
-          color: 'var(--text-secondary, #8e8e93)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-          margin: '0 0 12px 4px',
-        }}>Мои объявления</h2>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '10px',
-        }}>
-          {/* Активные */}
-          <div style={{
-            background: 'var(--card-bg, #f2f2f7)',
-            borderRadius: '14px',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-          }}>
-            <span style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text, #000)' }}>
-              {profile.ads.active}
-            </span>
-            <span style={{ fontSize: '13px', color: 'var(--text-secondary, #8e8e93)' }}>
-              🟢 Активных
-            </span>
-          </div>
-          {/* На модерации */}
-          <div style={{
-            background: 'var(--card-bg, #f2f2f7)',
-            borderRadius: '14px',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-          }}>
-            <span style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text, #000)' }}>
-              {profile.ads.pending}
-            </span>
-            <span style={{ fontSize: '13px', color: 'var(--text-secondary, #8e8e93)' }}>
-              🟡 На модерации
-            </span>
-          </div>
-          {/* Отклонённые */}
-          <div style={{
-            background: 'var(--card-bg, #f2f2f7)',
-            borderRadius: '14px',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-          }}>
-            <span style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text, #000)' }}>
-              {profile.ads.rejected}
-            </span>
-            <span style={{ fontSize: '13px', color: 'var(--text-secondary, #8e8e93)' }}>
-              🔴 Отклонённых
-            </span>
-          </div>
-          {/* Всего */}
-          <div style={{
-            background: 'var(--card-bg, #f2f2f7)',
-            borderRadius: '14px',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-          }}>
-            <span style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text, #000)' }}>
-              {profile.ads.total}
-            </span>
-            <span style={{ fontSize: '13px', color: 'var(--text-secondary, #8e8e93)' }}>
-              📊 Всего
-            </span>
-          </div>
+        <h2 className="text-[15px] font-semibold text-[var(--text-secondary,#8e8e93)] uppercase tracking-wide m-0 mb-3 ml-1">
+          Мои объявления
+        </h2>
+        <div className="grid grid-cols-2 gap-2.5">
+          {stats.map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1, duration: 0.3 }}
+              className="bg-[var(--card-bg,#f2f2f7)] rounded-[14px] px-4 py-3.5 flex flex-col gap-1"
+            >
+              <span className="text-2xl font-bold text-[var(--text,#000)]">
+                {stat.value}
+              </span>
+              <span className="text-[13px] text-[var(--text-secondary,#8e8e93)]">
+                {stat.label}
+              </span>
+            </motion.div>
+          ))}
         </div>
 
         {/* Разбивка по типу: авто / номера */}
         {profile.ads.total > 0 && (
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            marginTop: '10px',
-            justifyContent: 'center',
-          }}>
-            <span style={{
-              fontSize: '13px',
-              color: 'var(--text-secondary, #8e8e93)',
-              background: 'var(--card-bg, #f2f2f7)',
-              borderRadius: '10px',
-              padding: '6px 14px',
-            }}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.3 }}
+            className="flex gap-2 mt-2.5 justify-center"
+          >
+            <span className="text-[13px] text-[var(--text-secondary,#8e8e93)] bg-[var(--card-bg,#f2f2f7)] rounded-[10px] px-3.5 py-1.5">
               🚗 Авто: {profile.ads.cars}
             </span>
-            <span style={{
-              fontSize: '13px',
-              color: 'var(--text-secondary, #8e8e93)',
-              background: 'var(--card-bg, #f2f2f7)',
-              borderRadius: '10px',
-              padding: '6px 14px',
-            }}>
+            <span className="text-[13px] text-[var(--text-secondary,#8e8e93)] bg-[var(--card-bg,#f2f2f7)] rounded-[10px] px-3.5 py-1.5">
               🔢 Номера: {profile.ads.plates}
             </span>
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -181,15 +120,7 @@ export default function Profile() {
             <span className="profile-action__icon">📋</span>
             <span>Мои объявления</span>
             {profile.ads.total > 0 && (
-              <span style={{
-                marginLeft: 'auto',
-                backgroundColor: 'var(--accent, #6366f1)',
-                color: '#fff',
-                borderRadius: '12px',
-                padding: '2px 10px',
-                fontSize: '13px',
-                fontWeight: 600,
-              }}>
+              <span className="ml-auto bg-[var(--accent,#6366f1)] text-white rounded-xl px-2.5 py-0.5 text-[13px] font-semibold">
                 {profile.ads.total}
               </span>
             )}

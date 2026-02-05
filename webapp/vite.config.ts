@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 /**
  * cacheBustPlugin — вставляет timestamp билда в HTML.
@@ -22,7 +23,7 @@ function cacheBustPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), cacheBustPlugin()],
+  plugins: [tailwindcss(), react(), cacheBustPlugin()],
   build: {
     /**
      * НЕ удалять старые файлы при сборке!

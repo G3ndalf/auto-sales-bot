@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api'
 import type { PlateAdFull } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
@@ -69,11 +70,18 @@ export default function PlateAdDetail() {
       {/* Photo gallery */}
       {ad.photos.length > 0 ? (
         <div className="gallery">
-          <img
-            src={api.photoUrl(ad.photos[photoIndex])}
-            alt={ad.plate_number}
-            className="gallery-img"
-          />
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={photoIndex}
+              src={api.photoUrl(ad.photos[photoIndex])}
+              alt={ad.plate_number}
+              className="gallery-img"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            />
+          </AnimatePresence>
           {ad.photos.length > 1 && (
             <>
               <div className="gallery-nav">
@@ -100,41 +108,50 @@ export default function PlateAdDetail() {
       {/* Title & price & favorite */}
       <div className="detail-header">
         <h1 className="plate-title">{ad.plate_number}</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <div className="detail-price">{formatPrice(ad.price)}</div>
-          <button
+          <motion.button
+            whileTap={{ scale: 0.85 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             onClick={toggleFavorite}
             disabled={favoriteLoading}
-            style={{
-              background: 'none', border: 'none', fontSize: '1.5em', cursor: 'pointer',
-              color: isFavorite ? '#f59e0b' : 'var(--hint)',
-              opacity: favoriteLoading ? 0.5 : 1,
-            }}
+            className="bg-transparent border-none text-2xl cursor-pointer"
+            style={{ color: isFavorite ? '#f59e0b' : 'var(--hint)', opacity: favoriteLoading ? 0.5 : 1 }}
           >
             {isFavorite ? '⭐' : '☆'}
-          </button>
+          </motion.button>
         </div>
       </div>
 
       {/* Просмотры */}
-      <p style={{ color: 'var(--hint, #999)', fontSize: '0.85em', padding: '0 16px 8px', margin: 0 }}>
+      <p className="text-[var(--hint,#999)] text-sm px-4 pb-2 m-0">
         👁 {ad.view_count} просмотров
       </p>
 
       {/* Info */}
-      <div className="detail-specs">
+      <motion.div
+        className="detail-specs"
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.1 }}
+      >
         <div className="spec-row">
           <span className="spec-label">Город</span>
           <span className="spec-value">{ad.city}</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Description */}
       {ad.description && (
-        <div className="detail-section">
+        <motion.div
+          className="detail-section"
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.2 }}
+        >
           <h3>Описание</h3>
           <p className="detail-description">{ad.description}</p>
-        </div>
+        </motion.div>
       )}
 
       {ad.created_at && (

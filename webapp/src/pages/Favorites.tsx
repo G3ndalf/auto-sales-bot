@@ -4,9 +4,24 @@
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { api } from '../api'
 import type { FavoriteItem } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.07, duration: 0.35, ease: 'easeOut' },
+  }),
+}
+
+const floatAnimation = {
+  y: [0, -10, 0],
+  transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
+}
 
 export default function Favorites() {
   const [items, setItems] = useState<FavoriteItem[]>([])
@@ -24,25 +39,33 @@ export default function Favorites() {
   if (loading) return <div className="loading">Загрузка...</div>
 
   if (items.length === 0) return (
-    <div style={{ textAlign: 'center', padding: '60px 16px', color: 'var(--hint)' }}>
-      <p style={{ fontSize: '3em', marginBottom: '12px' }}>💔</p>
-      <p style={{ fontSize: '1.1em', fontWeight: 600 }}>Нет избранных</p>
-      <p style={{ marginTop: '8px' }}>Нажмите ☆ на объявлении чтобы сохранить</p>
+    <div className="text-center px-4 py-15 text-[var(--hint)]">
+      <motion.p
+        className="text-5xl mb-3"
+        animate={floatAnimation}
+      >
+        💔
+      </motion.p>
+      <p className="text-lg font-semibold">Нет избранных</p>
+      <p className="mt-2">Нажмите ☆ на объявлении чтобы сохранить</p>
     </div>
   )
 
   return (
-    <div style={{ minHeight: '100vh', paddingBottom: '100px' }}>
-      <h1 style={{ fontSize: '1.4em', fontWeight: 800, padding: '20px 16px 12px' }}>
+    <div className="min-h-screen pb-[100px]">
+      <h1 className="text-[1.4em] font-extrabold px-4 pt-5 pb-3">
         ⭐ Избранное ({items.length})
       </h1>
       <div className="ads-list">
-        {items.map(item => (
-          <div
+        {items.map((item, i) => (
+          <motion.div
             key={`${item.ad_type}-${item.id}`}
-            className="ad-card"
+            className="ad-card cursor-pointer"
             onClick={() => navigate(`/${item.ad_type}/${item.id}`)}
-            style={{ cursor: 'pointer' }}
+            custom={i}
+            variants={cardVariants}
+            initial="hidden"
+            animate="visible"
           >
             <div className="ad-card-photo">
               {item.photo ? (
@@ -56,7 +79,7 @@ export default function Favorites() {
               <div className="ad-card-details">{item.city} · 👁 {item.view_count}</div>
               <div className="ad-card-price">{item.price.toLocaleString('ru-RU')} ₽</div>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

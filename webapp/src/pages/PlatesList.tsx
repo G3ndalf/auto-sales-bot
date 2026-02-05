@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api'
 import type { PlateAdPreview } from '../api'
 import { TEXTS } from '../constants/texts'
@@ -180,24 +181,9 @@ export default function PlatesList({ embedded }: Props) {
       )}
 
       {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}
-      <div
-        style={{
-          position: 'relative',     // для абсолютного позиционирования иконки 🔍
-          marginBottom: '10px',
-        }}
-      >
+      <div className="relative mb-2.5">
         {/* Иконка поиска слева */}
-        <span
-          style={{
-            position: 'absolute',
-            left: '10px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            fontSize: '16px',
-            pointerEvents: 'none',    // клик проходит сквозь иконку к полю
-            color: 'var(--tg-theme-hint-color, #999)',
-          }}
-        >
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-base pointer-events-none [color:var(--tg-theme-hint-color,#999)]">
           🔍
         </span>
         <input
@@ -205,35 +191,13 @@ export default function PlatesList({ embedded }: Props) {
           value={searchQuery}
           onChange={e => handleSearchChange(e.target.value)}
           placeholder="Поиск по номеру..."
-          style={{
-            width: '100%',
-            padding: '10px 36px',         // 36px слева для иконки, 36px справа для кнопки ✕
-            borderRadius: '10px',
-            fontSize: '15px',
-            border: '1px solid var(--tg-theme-hint-color, #ccc)',
-            backgroundColor: 'var(--tg-theme-secondary-bg-color, #f0f0f0)',
-            color: 'var(--tg-theme-text-color, #000)',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
+          className="w-full py-2.5 px-9 rounded-[10px] text-[15px] border border-solid [border-color:var(--tg-theme-hint-color,#ccc)] [background-color:var(--tg-theme-secondary-bg-color,#f0f0f0)] [color:var(--tg-theme-text-color,#000)] outline-none box-border"
         />
         {/* Кнопка очистки ✕ — показываем только при непустом поле */}
         {searchQuery && (
           <button
             onClick={clearSearch}
-            style={{
-              position: 'absolute',
-              right: '8px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'none',
-              border: 'none',
-              fontSize: '18px',
-              cursor: 'pointer',
-              color: 'var(--tg-theme-hint-color, #999)',
-              padding: '4px',
-              lineHeight: 1,
-            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-lg cursor-pointer [color:var(--tg-theme-hint-color,#999)] p-1 leading-none"
             aria-label="Очистить поиск"
           >
             ✕
@@ -246,109 +210,94 @@ export default function PlatesList({ embedded }: Props) {
         const activeCount = [selectedCity, priceMin, priceMax]
           .filter(Boolean).length + (sortOrder !== 'date_new' ? 1 : 0)
         return (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             onClick={() => setFiltersOpen(prev => !prev)}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              width: '100%', padding: '10px', marginBottom: '8px',
-              border: '1.5px solid var(--border-input, #ddd)', borderRadius: '12px',
-              background: filtersOpen ? 'var(--accent-light, #e0e7ff)' : 'var(--section-bg, #f9fafb)',
-              color: 'var(--text)', fontSize: '0.95em', fontWeight: 600, cursor: 'pointer',
-              transition: 'background 0.2s',
-            }}
+            className={`flex items-center justify-center gap-1.5 w-full p-2.5 mb-2 border-[1.5px] border-solid [border-color:var(--border-input,#ddd)] rounded-xl [color:var(--text)] text-[0.95em] font-semibold cursor-pointer transition-[background] duration-200 ${filtersOpen ? '[background:var(--accent-light,#e0e7ff)]' : '[background:var(--section-bg,#f9fafb)]'}`}
           >
             <span>🔍 Фильтры</span>
             {activeCount > 0 && (
-              <span style={{
-                background: 'var(--accent, #3b82f6)', color: '#fff', borderRadius: '10px',
-                padding: '1px 7px', fontSize: '0.8em', fontWeight: 700, minWidth: '18px',
-                textAlign: 'center',
-              }}>
+              <span className="[background:var(--accent,#3b82f6)] text-white rounded-[10px] px-[7px] py-px text-[0.8em] font-bold min-w-[18px] text-center">
                 {activeCount}
               </span>
             )}
-            <span style={{ marginLeft: 'auto', fontSize: '0.85em', opacity: 0.6 }}>
+            <span className="ml-auto text-[0.85em] opacity-60">
               {filtersOpen ? '▲' : '▼'}
             </span>
-          </button>
+          </motion.button>
         )
       })()}
 
-      {filtersOpen && (
-        <div style={{
-          padding: '12px', marginBottom: '8px',
-          border: '1.5px solid var(--border-input, #ddd)', borderRadius: '12px',
-          background: 'var(--section-bg, #f9fafb)',
-          animation: 'scaleIn 0.2s ease-out',
-        }}>
-          {/* Город */}
-          <select className="filter-select" value={selectedCity}
-            onChange={e => setSelectedCity(e.target.value)}
-            style={{ width: '100%', marginBottom: '8px' }}>
-            <option value="">Все города</option>
-            {TEXTS.REGIONS.map(r => (
-              <optgroup key={r.name} label={r.name}>
-                {r.cities.map(c => <option key={c} value={c}>{c}</option>)}
-              </optgroup>
-            ))}
-          </select>
+      <AnimatePresence>
+        {filtersOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="p-3 mb-2 border-[1.5px] border-solid [border-color:var(--border-input,#ddd)] rounded-xl [background:var(--section-bg,#f9fafb)]">
+              {/* Город */}
+              <select className="filter-select w-full mb-2" value={selectedCity}
+                onChange={e => setSelectedCity(e.target.value)}>
+                <option value="">Все города</option>
+                {TEXTS.REGIONS.map(r => (
+                  <optgroup key={r.name} label={r.name}>
+                    {r.cities.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                ))}
+              </select>
 
-          {/* Сортировка */}
-          <select className="filter-select" value={sortOrder}
-            onChange={e => setSortOrder(e.target.value)}
-            style={{ width: '100%', marginBottom: '8px' }}>
-            <option value="date_new">Сначала новые</option>
-            <option value="date_old">Сначала старые</option>
-            <option value="price_asc">Цена ↑</option>
-            <option value="price_desc">Цена ↓</option>
-          </select>
+              {/* Сортировка */}
+              <select className="filter-select w-full mb-2" value={sortOrder}
+                onChange={e => setSortOrder(e.target.value)}>
+                <option value="date_new">Сначала новые</option>
+                <option value="date_old">Сначала старые</option>
+                <option value="price_asc">Цена ↑</option>
+                <option value="price_desc">Цена ↓</option>
+              </select>
 
-          {/* Цена от-до */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <input type="number" placeholder="Цена от" value={priceMin}
-              onChange={e => setPriceMin(e.target.value)}
-              style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--bg, #fff)', color: 'var(--text)' }} />
-            <input type="number" placeholder="Цена до" value={priceMax}
-              onChange={e => setPriceMax(e.target.value)}
-              style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-input)', borderRadius: '12px', fontSize: '0.9em', background: 'var(--bg, #fff)', color: 'var(--text)' }} />
-          </div>
+              {/* Цена от-до */}
+              <div className="flex gap-2 mb-3">
+                <input type="number" placeholder="Цена от" value={priceMin}
+                  onChange={e => setPriceMin(e.target.value)}
+                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:var(--border-input)] rounded-xl text-[0.9em] [background:var(--bg,#fff)] [color:var(--text)]" />
+                <input type="number" placeholder="Цена до" value={priceMax}
+                  onChange={e => setPriceMax(e.target.value)}
+                  className="flex-1 py-2.5 px-3 border-[1.5px] border-solid [border-color:var(--border-input)] rounded-xl text-[0.9em] [background:var(--bg,#fff)] [color:var(--text)]" />
+              </div>
 
-          {/* Кнопки: Применить + Сбросить */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn btn-gradient"
-              onClick={() => { setOffset(0); setAds([]); loadAds(0); setFiltersOpen(false) }}
-              style={{ flex: 1, padding: '10px', borderRadius: '12px', fontSize: '0.9em' }}>
-              Применить
-            </button>
-            <button className="btn"
-              onClick={() => {
-                setSelectedCity(''); setSortOrder('date_new')
-                setPriceMin(''); setPriceMax('')
-                setOffset(0); setAds([]); loadAds(0, '', searchQuery, 'date_new')
-                setFiltersOpen(false)
-              }}
-              style={{ padding: '10px 16px', borderRadius: '12px', fontSize: '0.9em',
-                background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text)' }}>
-              Сбросить
-            </button>
-          </div>
-        </div>
-      )}
+              {/* Кнопки: Применить + Сбросить */}
+              <div className="flex gap-2">
+                <button className="btn btn-gradient flex-1 p-2.5 rounded-xl text-[0.9em]"
+                  onClick={() => { setOffset(0); setAds([]); loadAds(0); setFiltersOpen(false) }}>
+                  Применить
+                </button>
+                <button className="btn px-4 py-2.5 rounded-xl text-[0.9em] [background:var(--bg-secondary,#f3f4f6)] [color:var(--text)]"
+                  onClick={() => {
+                    setSelectedCity(''); setSortOrder('date_new')
+                    setPriceMin(''); setPriceMax('')
+                    setOffset(0); setAds([]); loadAds(0, '', searchQuery, 'date_new')
+                    setFiltersOpen(false)
+                  }}>
+                  Сбросить
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
       {error && (
-        <div style={{
-          textAlign: 'center',
-          padding: '40px 16px',
-          color: 'var(--hint, #6b7280)',
-        }}>
-          <p style={{ fontSize: '2em', marginBottom: '12px' }}>😕</p>
-          <p style={{ marginBottom: '16px' }}>Не удалось загрузить объявления</p>
+        <div className="text-center py-10 px-4 [color:var(--hint,#6b7280)]">
+          <p className="text-[2em] mb-3">😕</p>
+          <p className="mb-4">Не удалось загрузить объявления</p>
           <button
-            className="btn btn-secondary"
+            className="btn btn-secondary block mx-auto"
             onClick={() => loadAds()}
-            style={{ margin: '0 auto' }}
           >
             🔄 Повторить
           </button>
@@ -362,14 +311,21 @@ export default function PlatesList({ embedded }: Props) {
         </div>
       ) : (
         <div className="ads-list">
-          {ads.map(ad => (
-            <Link to={`/plate/${ad.id}`} key={ad.id} className="ad-card plate-card">
-              <div className="plate-number-display">{ad.plate_number}</div>
-              <div className="ad-card-info">
-                <div className="ad-card-price">{formatPrice(ad.price)}</div>
-                <div className="ad-card-location">📍 {ad.city} <span style={{ color: 'var(--hint, #999)', fontSize: '0.85em', marginLeft: '6px' }}>👁 {ad.view_count}</span></div>
-              </div>
-            </Link>
+          {ads.map((ad, i) => (
+            <motion.div
+              key={ad.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05, duration: 0.3 }}
+            >
+              <Link to={`/plate/${ad.id}`} className="ad-card plate-card">
+                <div className="plate-number-display">{ad.plate_number}</div>
+                <div className="ad-card-info">
+                  <div className="ad-card-price">{formatPrice(ad.price)}</div>
+                  <div className="ad-card-location">📍 {ad.city} <span className="[color:var(--hint,#999)] text-[0.85em] ml-1.5">👁 {ad.view_count}</span></div>
+                </div>
+              </Link>
+            </motion.div>
           ))}
         </div>
       )}

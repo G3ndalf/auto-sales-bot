@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { useBackButton } from '../hooks/useBackButton'
@@ -99,21 +100,25 @@ export default function CreatePlateAd() {
   if (showDuplicateWarning) {
     return (
       <div className="form-page">
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', minHeight: '60vh', textAlign: 'center',
-          gap: '12px', padding: '16px', animation: 'scaleIn 0.4s ease-out',
-        }}>
-          <span style={{ fontSize: '64px' }}>⚠️</span>
-          <h2 style={{ fontSize: '1.3em' }}>Похожее объявление уже существует</h2>
-          <p style={{ color: 'var(--hint)', maxWidth: '280px', lineHeight: 1.5 }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+          className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
+        >
+          <motion.span
+            animate={{ x: [0, -8, 8, -8, 8, 0] }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-[64px]"
+          >⚠️</motion.span>
+          <h2 className="text-[1.3em]">Похожее объявление уже существует</h2>
+          <p className="text-[var(--hint)] max-w-[280px] leading-normal">
             Вы уже подавали похожее объявление за последние 7 дней. Возможно, стоит отредактировать существующее.
           </p>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+          <div className="flex gap-3 mt-4">
             <button
-              className="btn"
+              className="btn bg-[var(--bg-secondary,#f3f4f6)] text-[var(--text)]"
               onClick={() => setShowDuplicateWarning(false)}
-              style={{ background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text)' }}
             >
               ← Назад
             </button>
@@ -125,7 +130,7 @@ export default function CreatePlateAd() {
               {submitting ? 'Отправка...' : 'Всё равно опубликовать'}
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
     )
   }
@@ -134,26 +139,26 @@ export default function CreatePlateAd() {
   if (sent) {
     return (
       <div className="form-page">
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', minHeight: '60vh', textAlign: 'center',
-          gap: '12px', padding: '16px', animation: 'scaleIn 0.4s ease-out',
-        }}>
-          <span style={{ fontSize: '64px' }}>✅</span>
-          <h2 style={{ fontSize: '1.4em' }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-3 p-4"
+        >
+          <span className="text-[64px]">✅</span>
+          <h2 className="text-[1.4em]">
             {published ? 'Объявление опубликовано!' : 'Отправлено на модерацию!'}
           </h2>
-          <p style={{ color: 'var(--hint)' }}>
+          <p className="text-[var(--hint)]">
             {published ? 'Ваше объявление уже в каталоге' : 'Мы проверим и опубликуем'}
           </p>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary mt-4"
             onClick={() => window.Telegram?.WebApp?.close()}
-            style={{ marginTop: '16px' }}
           >
             Закрыть
           </button>
-        </div>
+        </motion.div>
       </div>
     )
   }
@@ -219,11 +224,9 @@ export default function CreatePlateAd() {
             placeholder="Дополнительная информация о номере..."
           />
           {/* Счётчик символов */}
-          <span style={{
-            display: 'block', textAlign: 'right', fontSize: '0.8em',
-            color: description.length > 900 ? 'var(--red, #ef4444)' : 'var(--hint, #6b7280)',
-            marginTop: '4px',
-          }}>
+          <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
+            description.length > 900 ? 'text-[var(--red,#ef4444)]' : 'text-[var(--hint,#6b7280)]'
+          }`}>
             {description.length}/1000
           </span>
         </div>
