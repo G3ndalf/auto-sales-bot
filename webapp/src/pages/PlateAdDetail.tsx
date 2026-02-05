@@ -129,13 +129,28 @@ export default function PlateAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Заголовок, цена и кнопка избранного */}
-        <motion.div variants={fadeUpItem} className="detail-header">
-          <h1 className="plate-title">{ad.plate_number}</h1>
-          <div className="flex items-center gap-2">
-            <div className="detail-price">{formatPrice(ad.price)}</div>
+        {/* Заголовок + цена + звезда + просмотры — компактный блок */}
+        <motion.div variants={fadeUpItem} style={{
+          padding: '12px 16px',
+          background: 'var(--section-bg)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: '12px',
+        }}>
+          {/* Левая часть: номер + цена */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: '1.25em', fontWeight: 800, margin: 0, lineHeight: 1.2, letterSpacing: '0.05em' }}>
+              {ad.plate_number}
+            </h1>
+            <div style={{ fontSize: '1.2em', fontWeight: 800, color: '#F59E0B', marginTop: '4px' }}>
+              {formatPrice(ad.price)}
+            </div>
+          </div>
 
-            {/* Звёздочка избранного: bounce при нажатии */}
+          {/* Правая часть: звезда + просмотры */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
             <motion.button
               whileTap={{ scale: 0.75 }}
               onClick={toggleFavorite}
@@ -147,22 +162,26 @@ export default function PlateAdDetail() {
               }}
             >
               {isFavorite
-                ? <Star size={22} weight="Bold" color="#F59E0B" />
-                : <Star size={22} weight="Linear" color="#9CA3AF" />}
+                ? <Star size={24} weight="Bold" color="#F59E0B" />
+                : <Star size={24} weight="Linear" color="#9CA3AF" />}
             </motion.button>
+            <span style={{ fontSize: '11px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <Eye size={12} weight="BoldDuotone" /> {ad.view_count}
+            </span>
           </div>
         </motion.div>
 
-        {/* Просмотры */}
-        <motion.p variants={fadeUpItem} className="text-[#9CA3AF] text-sm px-4 pb-2 m-0">
-          <Eye size={14} weight="BoldDuotone" /> {ad.view_count} просмотров
-        </motion.p>
-
-        {/* Информация о номере */}
-        <motion.div variants={fadeUpItem} className="detail-specs">
-          <div className="spec-row">
-            <span className="spec-label">Город</span>
-            <span className="spec-value">{ad.city}</span>
+        {/* Город — один блок */}
+        <motion.div variants={fadeUpItem} style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '1px',
+          background: 'var(--border)',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Город</div>
+            <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.city}</div>
           </div>
         </motion.div>
 

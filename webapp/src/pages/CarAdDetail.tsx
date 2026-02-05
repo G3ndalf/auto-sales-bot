@@ -129,13 +129,28 @@ export default function CarAdDetail() {
         initial="hidden"
         animate="visible"
       >
-        {/* Заголовок, цена и кнопка избранного */}
-        <motion.div variants={fadeUpItem} className="detail-header">
-          <h1>{ad.brand} {ad.model}</h1>
-          <div className="flex items-center gap-2">
-            <div className="detail-price">{formatPrice(ad.price)}</div>
+        {/* Заголовок + цена + звезда + просмотры — компактный блок */}
+        <motion.div variants={fadeUpItem} style={{
+          padding: '12px 16px',
+          background: 'var(--section-bg)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: '12px',
+        }}>
+          {/* Левая часть: название + цена */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: '1.25em', fontWeight: 800, margin: 0, lineHeight: 1.2 }}>
+              {ad.brand} {ad.model}
+            </h1>
+            <div style={{ fontSize: '1.2em', fontWeight: 800, color: '#F59E0B', marginTop: '4px' }}>
+              {formatPrice(ad.price)}
+            </div>
+          </div>
 
-            {/* Звёздочка избранного: bounce при нажатии */}
+          {/* Правая часть: звезда + просмотры */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
             <motion.button
               whileTap={{ scale: 0.75 }}
               onClick={toggleFavorite}
@@ -147,46 +162,50 @@ export default function CarAdDetail() {
               }}
             >
               {isFavorite
-                ? <Star size={22} weight="Bold" color="#F59E0B" />
-                : <Star size={22} weight="Linear" color="#9CA3AF" />}
+                ? <Star size={24} weight="Bold" color="#F59E0B" />
+                : <Star size={24} weight="Linear" color="#9CA3AF" />}
             </motion.button>
+            <span style={{ fontSize: '11px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <Eye size={12} weight="BoldDuotone" /> {ad.view_count}
+            </span>
           </div>
         </motion.div>
 
-        {/* Просмотры */}
-        <motion.p variants={fadeUpItem} className="text-[#9CA3AF] text-sm px-4 pb-2 m-0">
-          <Eye size={14} weight="BoldDuotone" /> {ad.view_count} просмотров
-        </motion.p>
-
-        {/* Характеристики — только заполненные поля */}
-        <motion.div variants={fadeUpItem} className="detail-specs">
+        {/* Характеристики — сетка 3 в ряд */}
+        <motion.div variants={fadeUpItem} style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '1px',
+          background: 'var(--border)',
+          borderBottom: '1px solid var(--border)',
+        }}>
           {ad.year > 0 && (
-            <div className="spec-row">
-              <span className="spec-label">Год</span>
-              <span className="spec-value">{ad.year}</span>
+            <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Год</div>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.year}</div>
             </div>
           )}
           {ad.mileage > 0 && (
-            <div className="spec-row">
-              <span className="spec-label">Пробег</span>
-              <span className="spec-value">{ad.mileage.toLocaleString('ru-RU')} км</span>
+            <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Пробег</div>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>{(ad.mileage / 1000).toFixed(0)}т км</div>
             </div>
           )}
           {ad.transmission && (
-            <div className="spec-row">
-              <span className="spec-label">КПП</span>
-              <span className="spec-value">{ad.transmission}</span>
+            <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>КПП</div>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.transmission}</div>
             </div>
           )}
           {ad.color && (
-            <div className="spec-row">
-              <span className="spec-label">Цвет</span>
-              <span className="spec-value">{ad.color}</span>
+            <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Цвет</div>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.color}</div>
             </div>
           )}
-          <div className="spec-row">
-            <span className="spec-label">Город</span>
-            <span className="spec-value">{ad.city}</span>
+          <div style={{ background: 'var(--section-bg)', padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', color: 'var(--hint)', marginBottom: '2px' }}>Город</div>
+            <div style={{ fontSize: '14px', fontWeight: 700 }}>{ad.city}</div>
           </div>
         </motion.div>
 
