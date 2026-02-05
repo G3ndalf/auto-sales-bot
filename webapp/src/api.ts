@@ -270,6 +270,19 @@ export function getUsername(): string | null {
   } catch { return null; }
 }
 
+/**
+ * Получить полное имя пользователя из Telegram WebApp.
+ * Возвращает first_name + last_name (если есть).
+ */
+export function getFullName(): string | null {
+  try {
+    const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (!user) return null;
+    const parts = [user.first_name, user.last_name].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : null;
+  } catch { return null; }
+}
+
 // Custom error class for submit errors
 export class SubmitError extends Error {
   type: 'validation' | 'rate_limit' | 'duplicate' | 'generic';

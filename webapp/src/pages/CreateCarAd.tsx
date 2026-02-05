@@ -5,7 +5,7 @@ import { TEXTS } from '../constants/texts'
 import { CONFIG } from '../constants/config'
 import { selectStyle } from '../constants/theme'
 import { useBackButton } from '../hooks/useBackButton'
-import { submitAd, SubmitError, getUsername } from '../api'
+import { submitAd, SubmitError, getUsername, getFullName } from '../api'
 import PhotoUploader from '../components/PhotoUploader'
 import FormErrors from '../components/FormErrors'
 import SuccessScreen from '../components/SuccessScreen'
@@ -77,6 +77,7 @@ export default function CreateCarAd() {
       city,
       contact_phone: phone.trim(),
       username: getUsername(),
+      full_name: getFullName(),
       photo_ids: photoIds.length > 0 ? photoIds : undefined,
       ...(force ? { force: true } : {}),
     }
