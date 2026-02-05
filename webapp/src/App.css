@@ -699,10 +699,8 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   inset: 0;
   z-index: 9999;
   background: rgba(0, 0, 0, 0.96);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
+  /* НЕ используем flex centering — лента позиционируется через transform x */
 }
 .gallery-fs-counter {
   position: absolute;
@@ -743,6 +741,9 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   align-items: center;
   height: 100%;
   cursor: grab;
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 .gallery-fs-strip:active {
   cursor: grabbing;
