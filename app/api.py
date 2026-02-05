@@ -47,6 +47,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.config import settings
 from app.handlers.photos import PhotoCollectStates
 from app.models.car_ad import AdStatus, CarAd, FuelType, Transmission
+from app.models.ad_view import AdView
 from app.models.favorite import Favorite
 from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
@@ -423,15 +424,32 @@ async def get_car_ad(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest(text="Invalid ad_id")
     pool = request.app["session_pool"]
 
+    # user_id для уникальных просмотров (из query или header)
+    viewer_id = _safe_int(
+        request.query.get("user_id")
+        or request.headers.get("X-Telegram-User-Id"),
+        0,
+    )
+
     async with pool() as session:
         stmt = select(CarAd).where(CarAd.id == ad_id, CarAd.status == AdStatus.APPROVED)
         ad = (await session.execute(stmt)).scalar_one_or_none()
         if not ad:
             raise web.HTTPNotFound()
 
-        # Инкремент счётчика просмотров
-        ad.view_count = (ad.view_count or 0) + 1
-        await session.commit()
+        # Уникальный просмотр: +1 только если этот user ещё не смотрел
+        if viewer_id:
+            existing = await session.execute(
+                select(AdView).where(
+                    AdView.user_id == viewer_id,
+                    AdView.ad_type == AdType.CAR,
+                    AdView.ad_id == ad_id,
+                )
+            )
+            if not existing.scalar_one_or_none():
+                session.add(AdView(user_id=viewer_id, ad_type=AdType.CAR, ad_id=ad_id))
+                ad.view_count = (ad.view_count or 0) + 1
+                await session.commit()
 
         photo_stmt = (
             select(AdPhoto)
@@ -562,15 +580,32 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest(text="Invalid ad_id")
     pool = request.app["session_pool"]
 
+    # user_id для уникальных просмотров
+    viewer_id = _safe_int(
+        request.query.get("user_id")
+        or request.headers.get("X-Telegram-User-Id"),
+        0,
+    )
+
     async with pool() as session:
         stmt = select(PlateAd).where(PlateAd.id == ad_id, PlateAd.status == AdStatus.APPROVED)
         ad = (await session.execute(stmt)).scalar_one_or_none()
         if not ad:
             raise web.HTTPNotFound()
 
-        # Инкремент счётчика просмотров
-        ad.view_count = (ad.view_count or 0) + 1
-        await session.commit()
+        # Уникальный просмотр: +1 только если этот user ещё не смотрел
+        if viewer_id:
+            existing = await session.execute(
+                select(AdView).where(
+                    AdView.user_id == viewer_id,
+                    AdView.ad_type == AdType.PLATE,
+                    AdView.ad_id == ad_id,
+                )
+            )
+            if not existing.scalar_one_or_none():
+                session.add(AdView(user_id=viewer_id, ad_type=AdType.PLATE, ad_id=ad_id))
+                ad.view_count = (ad.view_count or 0) + 1
+                await session.commit()
 
         photo_stmt = (
             select(AdPhoto)

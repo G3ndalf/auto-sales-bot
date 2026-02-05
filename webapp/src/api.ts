@@ -332,12 +332,20 @@ export const api = {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return fetchJSON<PaginatedResponse<CarAdPreview>>(`/api/cars${qs}`);
   },
-  getCarAd: (id: number) => fetchJSON<CarAdFull>(`/api/cars/${id}`),
+  getCarAd: (id: number) => {
+    const uid = getUserId();
+    const qs = uid ? `?user_id=${uid}` : '';
+    return fetchJSON<CarAdFull>(`/api/cars/${id}${qs}`);
+  },
   getPlateAds: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return fetchJSON<PaginatedResponse<PlateAdPreview>>(`/api/plates${qs}`);
   },
-  getPlateAd: (id: number) => fetchJSON<PlateAdFull>(`/api/plates/${id}`),
+  getPlateAd: (id: number) => {
+    const uid = getUserId();
+    const qs = uid ? `?user_id=${uid}` : '';
+    return fetchJSON<PlateAdFull>(`/api/plates/${id}${qs}`);
+  },
   getCities: () => fetchJSON<City[]>('/api/cities'),
   photoUrl: (fileId: string) => `${API_BASE}/api/photos/${fileId}`,
   getProfile: (telegramId: number) => fetchJSON<UserProfile>(`/api/profile/${telegramId}`),
