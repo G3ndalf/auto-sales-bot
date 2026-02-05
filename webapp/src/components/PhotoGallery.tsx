@@ -1,23 +1,25 @@
 /**
- * PhotoGallery.tsx — Карусельная галерея с плавным свайпом.
+ * PhotoGallery.tsx — Свайп-галерея на CSS transitions + touch events.
  *
- * Все фото рендерятся в горизонтальной ленте (strip). Свайп двигает
- * ленту в реальном времени через useMotionValue. Анимация snap-to-photo
- * вызывается ТОЛЬКО в onDragEnd (не в useEffect — избегаем конфликтов).
+ * Предыдущая версия на framer-motion drag зависала после первого свайпа
+ * (конфликт animate() и drag gesture на iOS WebKit). Эта версия использует
+ * только CSS transform + transition для анимации, и raw touch events для
+ * отслеживания свайпа. Framer-motion остаётся только для AnimatePresence
+ * (fade in/out fullscreen overlay).
  *
  * Карточка:
- * - Горизонтальный свайп → листание (реал-тайм)
- * - Тап → полноэкранный просмотр
- * - touchAction: pan-y — вертикальный скролл не блокируется
+ *   - Горизонтальный свайп → листание (реалтайм, палец двигает ленту)
+ *   - Тап (< 10px движения) → полноэкранный просмотр
+ *   - touchAction: pan-y — вертикальный скролл страницы не блокируется
  *
  * Полноэкранный режим:
- * - Горизонтальный свайп → листание (dragDirectionLock)
- * - Вертикальный свайп → закрытие
- * - Тап / кнопка ✕ → закрытие
+ *   - Горизонтальный свайп → листание
+ *   - Вертикальный свайп (> 80px) → закрытие
+ *   - Тап / кнопка ✕ → закрытие
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 
 interface Props {
   photos: string[]
@@ -25,29 +27,56 @@ interface Props {
   fallbackIcon: React.ReactNode
 }
 
-const SWIPE_RATIO = 0.2
-const SWIPE_VEL = 300
-const DISMISS_PX = 80
+/** Порог свайпа: минимум пикселей для переключения фото */
+const SWIPE_PX = 50
+/** Порог тапа: если палец сдвинулся меньше — считаем тапом */
 const TAP_PX = 10
+/** Порог вертикального свайпа для закрытия fullscreen */
+const DISMISS_PX = 80
 
-/** Spring-конфиг для snap-анимации */
-const SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 }
+/**
+ * Состояние touch-жеста. Хранится в useRef чтобы не вызывать
+ * лишние ре-рендеры при каждом touchmove.
+ */
+interface TouchState {
+  /** Начальная X-координата касания */
+  startX: number
+  /** Начальная Y-координата касания */
+  startY: number
+  /** Текущее смещение по X от начала */
+  dx: number
+  /** Текущее смещение по Y от начала */
+  dy: number
+  /** Флаг: палец сейчас на экране */
+  active: boolean
+  /** Определили ли мы направление жеста (H или V) */
+  directionLocked: boolean
+  /** 'h' = горизонтальный, 'v' = вертикальный */
+  direction: 'h' | 'v' | null
+  /** Timestamp начала жеста — для velocity */
+  startTime: number
+}
+
+const INITIAL_TOUCH: TouchState = {
+  startX: 0, startY: 0, dx: 0, dy: 0,
+  active: false, directionLocked: false, direction: null, startTime: 0,
+}
 
 export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) {
   const [index, setIndex] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
-  const didDrag = useRef(false)
 
-  // ─── Card gallery ─────────────────────────────────────────
+  /* ─── Card gallery refs ────────────────────────────────── */
   const galleryRef = useRef<HTMLDivElement>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
   const [gW, setGW] = useState(0)
-  const gX = useMotionValue(0)
+  const touch = useRef<TouchState>({ ...INITIAL_TOUCH })
 
-  // ─── Fullscreen ───────────────────────────────────────────
-  const fsX = useMotionValue(0)
-  const fsY = useMotionValue(0)
+  /* ─── Fullscreen refs ──────────────────────────────────── */
+  const fsStripRef = useRef<HTMLDivElement>(null)
+  const fsTouch = useRef<TouchState>({ ...INITIAL_TOUCH })
 
-  /** Замер ширины контейнера */
+  /** Замер ширины card-контейнера */
   useEffect(() => {
     const measure = () => {
       if (galleryRef.current) setGW(galleryRef.current.clientWidth)
@@ -57,88 +86,241 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
     return () => window.removeEventListener('resize', measure)
   }, [])
 
-  /**
-   * Позиция карточной ленты — устанавливается instant (без анимации):
-   * - При первом замере gW
-   * - При ресайзе окна
-   * - При закрытии фуллскрина (синхронизация с index)
-   * Анимация свайпа — ТОЛЬКО в onDragEnd, не здесь.
-   */
-  useEffect(() => {
-    if (gW > 0) {
-      gX.set(-index * gW)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gW, fullscreen])
-
-  /** При открытии фуллскрина — позиция instant */
-  useEffect(() => {
-    if (fullscreen) {
-      fsX.set(-index * window.innerWidth)
-      fsY.set(0)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullscreen])
-
-  /** Блокировка скролла body в фуллскрине */
+  /** Блокируем скролл body в fullscreen */
   useEffect(() => {
     document.body.style.overflow = fullscreen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [fullscreen])
 
-  // ─── Card drag end ────────────────────────────────────────
-  const onCardDragEnd = useCallback((_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
-    if (!gW) return
-    const t = gW * SWIPE_RATIO
-    let newIdx = index
+  /**
+   * Применяет transform к strip-элементу.
+   * @param ref - ref на strip div
+   * @param x - горизонтальное смещение (px)
+   * @param y - вертикальное смещение (px), только для fullscreen
+   * @param animated - использовать CSS transition или нет
+   */
+  const applyTransform = useCallback((
+    ref: React.RefObject<HTMLDivElement | null>,
+    x: number,
+    y: number = 0,
+    animated: boolean = false,
+  ) => {
+    if (!ref.current) return
+    ref.current.style.transition = animated
+      ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      : 'none'
+    ref.current.style.transform = `translate3d(${x}px, ${y}px, 0)`
+  }, [])
 
-    if ((info.offset.x > t || info.velocity.x > SWIPE_VEL) && index > 0) {
-      newIdx = index - 1
-      didDrag.current = true
-    } else if ((info.offset.x < -t || info.velocity.x < -SWIPE_VEL) && index < photos.length - 1) {
-      newIdx = index + 1
-      didDrag.current = true
+  // ═══════════════════════════════════════════════════════════
+  //  CARD GALLERY — touch handlers
+  // ═══════════════════════════════════════════════════════════
+
+  const onCardTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0]
+    touch.current = {
+      startX: t.clientX,
+      startY: t.clientY,
+      dx: 0, dy: 0,
+      active: true,
+      directionLocked: false,
+      direction: null,
+      startTime: Date.now(),
+    }
+    // Убираем transition для мгновенного следования за пальцем
+    if (stripRef.current) {
+      stripRef.current.style.transition = 'none'
+    }
+  }, [])
+
+  const onCardTouchMove = useCallback((e: React.TouchEvent) => {
+    const st = touch.current
+    if (!st.active) return
+
+    const t = e.touches[0]
+    st.dx = t.clientX - st.startX
+    st.dy = t.clientY - st.startY
+
+    // Определяем направление жеста при первом значимом движении
+    if (!st.directionLocked) {
+      const ax = Math.abs(st.dx)
+      const ay = Math.abs(st.dy)
+      if (ax > 5 || ay > 5) {
+        st.direction = ax > ay ? 'h' : 'v'
+        st.directionLocked = true
+      }
     }
 
-    // Всегда анимируем к целевой позиции (snap back или к новому фото)
-    animate(gX, -newIdx * gW, SPRING)
-    if (newIdx !== index) setIndex(newIdx)
+    // Если вертикальный — не мешаем скроллу страницы, прекращаем drag
+    if (st.direction === 'v') return
 
-    if (Math.abs(info.offset.x) > TAP_PX) didDrag.current = true
-    requestAnimationFrame(() => { didDrag.current = false })
-  }, [gW, index, photos.length])
+    // Горизонтальный свайп: двигаем ленту за пальцем
+    // Добавляем elasticity на краях (делим смещение на 3)
+    let dx = st.dx
+    if ((index === 0 && dx > 0) || (index === photos.length - 1 && dx < 0)) {
+      dx = dx / 3
+    }
 
-  // ─── Fullscreen drag end ──────────────────────────────────
-  const onFsDragEnd = useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
+    const baseX = -index * gW
+    applyTransform(stripRef, baseX + dx)
+  }, [index, gW, photos.length, applyTransform])
+
+  const onCardTouchEnd = useCallback(() => {
+    const st = touch.current
+    if (!st.active) return
+    st.active = false
+
+    // Тап (маленькое смещение) → открываем fullscreen
+    if (Math.abs(st.dx) < TAP_PX && Math.abs(st.dy) < TAP_PX) {
+      setFullscreen(true)
+      return
+    }
+
+    // Вертикальный свайп — ничего не делаем (скролл обработан браузером)
+    if (st.direction === 'v') return
+
+    // Velocity: px/ms → определяем быстрый свайп
+    const elapsed = Date.now() - st.startTime
+    const velocity = elapsed > 0 ? Math.abs(st.dx) / elapsed : 0
+
+    // Определяем новый index
+    let newIdx = index
+    if ((st.dx > SWIPE_PX || velocity > 0.5) && st.dx > 0 && index > 0) {
+      newIdx = index - 1
+    } else if ((Math.abs(st.dx) > SWIPE_PX || velocity > 0.5) && st.dx < 0 && index < photos.length - 1) {
+      newIdx = index + 1
+    }
+
+    // Анимируем snap к целевой позиции
+    applyTransform(stripRef, -newIdx * gW, 0, true)
+    setIndex(newIdx)
+  }, [index, gW, photos.length, applyTransform])
+
+  // ═══════════════════════════════════════════════════════════
+  //  FULLSCREEN — touch handlers
+  // ═══════════════════════════════════════════════════════════
+
+  const onFsTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0]
+    fsTouch.current = {
+      startX: t.clientX,
+      startY: t.clientY,
+      dx: 0, dy: 0,
+      active: true,
+      directionLocked: false,
+      direction: null,
+      startTime: Date.now(),
+    }
+    if (fsStripRef.current) {
+      fsStripRef.current.style.transition = 'none'
+    }
+  }, [])
+
+  const onFsTouchMove = useCallback((e: React.TouchEvent) => {
+    const st = fsTouch.current
+    if (!st.active) return
+
+    const t = e.touches[0]
+    st.dx = t.clientX - st.startX
+    st.dy = t.clientY - st.startY
+
+    // Блокировка направления
+    if (!st.directionLocked) {
+      const ax = Math.abs(st.dx)
+      const ay = Math.abs(st.dy)
+      if (ax > 5 || ay > 5) {
+        st.direction = ax > ay ? 'h' : 'v'
+        st.directionLocked = true
+      }
+    }
+
     const w = window.innerWidth
-    const isH = Math.abs(info.offset.x) > Math.abs(info.offset.y)
+    const baseX = -index * w
 
-    if (isH) {
-      const t = w * SWIPE_RATIO
+    if (st.direction === 'h') {
+      // Горизонтальный свайп: листание фото
+      let dx = st.dx
+      if ((index === 0 && dx > 0) || (index === photos.length - 1 && dx < 0)) {
+        dx = dx / 3
+      }
+      applyTransform(fsStripRef, baseX + dx, 0)
+    } else if (st.direction === 'v') {
+      // Вертикальный свайп: закрытие (двигаем по Y, уменьшаем opacity)
+      applyTransform(fsStripRef, baseX, st.dy)
+      // Плавное затемнение фона
+      const opacity = Math.max(0.3, 1 - Math.abs(st.dy) / 300)
+      const fsEl = fsStripRef.current?.parentElement
+      if (fsEl) fsEl.style.background = `rgba(0, 0, 0, ${opacity})`
+    }
+
+    // Предотвращаем скролл страницы в fullscreen
+    e.preventDefault()
+  }, [index, photos.length, applyTransform])
+
+  const onFsTouchEnd = useCallback(() => {
+    const st = fsTouch.current
+    if (!st.active) return
+    st.active = false
+
+    const w = window.innerWidth
+
+    // Тап → закрытие
+    if (Math.abs(st.dx) < TAP_PX && Math.abs(st.dy) < TAP_PX) {
+      setFullscreen(false)
+      return
+    }
+
+    const elapsed = Date.now() - st.startTime
+    const velocity = elapsed > 0 ? Math.abs(st.dx) / elapsed : 0
+
+    if (st.direction === 'h') {
+      // Горизонтальный свайп: переключение фото
       let newIdx = index
-
-      if ((info.offset.x > t || info.velocity.x > SWIPE_VEL) && index > 0) {
+      if ((st.dx > SWIPE_PX || velocity > 0.5) && st.dx > 0 && index > 0) {
         newIdx = index - 1
-      } else if ((info.offset.x < -t || info.velocity.x < -SWIPE_VEL) && index < photos.length - 1) {
+      } else if ((Math.abs(st.dx) > SWIPE_PX || velocity > 0.5) && st.dx < 0 && index < photos.length - 1) {
         newIdx = index + 1
       }
-
-      animate(fsX, -newIdx * w, SPRING)
-      if (newIdx !== index) setIndex(newIdx)
-    } else {
-      // Вертикальный свайп → закрытие или snap back
-      if (Math.abs(info.offset.y) > DISMISS_PX || Math.abs(info.velocity.y) > SWIPE_VEL) {
+      applyTransform(fsStripRef, -newIdx * w, 0, true)
+      setIndex(newIdx)
+    } else if (st.direction === 'v') {
+      // Вертикальный свайп: закрытие или snap back
+      const velocityY = elapsed > 0 ? Math.abs(st.dy) / elapsed : 0
+      if (Math.abs(st.dy) > DISMISS_PX || velocityY > 0.5) {
         setFullscreen(false)
       } else {
-        animate(fsY, 0, SPRING)
+        applyTransform(fsStripRef, -index * w, 0, true)
+        // Восстанавливаем opacity фона
+        const fsEl = fsStripRef.current?.parentElement
+        if (fsEl) fsEl.style.background = ''
       }
     }
+  }, [index, photos.length, applyTransform])
 
-    if (Math.abs(info.offset.x) > TAP_PX || Math.abs(info.offset.y) > TAP_PX) {
-      didDrag.current = true
+  // ═══════════════════════════════════════════════════════════
+  //  Синхронизация позиции при изменении index / размеров
+  // ═══════════════════════════════════════════════════════════
+
+  /** При изменении gW или выходе из fullscreen — мгновенный snap */
+  useEffect(() => {
+    if (gW > 0 && !fullscreen) {
+      applyTransform(stripRef, -index * gW)
     }
-    requestAnimationFrame(() => { didDrag.current = false })
-  }, [index, photos.length])
+  }, [gW, fullscreen, index, applyTransform])
+
+  /** При открытии fullscreen — мгновенный snap */
+  useEffect(() => {
+    if (fullscreen) {
+      // Небольшая задержка чтобы DOM успел отрендериться
+      requestAnimationFrame(() => {
+        applyTransform(fsStripRef, -index * window.innerWidth)
+      })
+    }
+  }, [fullscreen, index, applyTransform])
+
+  // ═══════════════════════════════════════════════════════════
+  //  Рендер
+  // ═══════════════════════════════════════════════════════════
 
   if (photos.length === 0) {
     return <div className="gallery-placeholder">{fallbackIcon}</div>
@@ -147,16 +329,19 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
   return (
     <>
       {/* ─── Карточка ────────────────────────────────────── */}
-      <div className="gallery" ref={galleryRef}>
-        <motion.div
+      <div
+        className="gallery"
+        ref={galleryRef}
+        style={{ touchAction: photos.length > 1 ? 'pan-y' : 'auto' }}
+      >
+        <div
+          ref={stripRef}
           className="gallery-strip"
-          drag={photos.length > 1 ? 'x' : false}
-          dragMomentum={false}
-          dragElastic={0.15}
-          dragConstraints={{ left: -(photos.length - 1) * gW, right: 0 }}
-          style={{ x: gX, touchAction: photos.length > 1 ? 'pan-y' : 'auto' }}
-          onDragEnd={onCardDragEnd}
-          onClick={() => { if (!didDrag.current) setFullscreen(true) }}
+          onTouchStart={photos.length > 1 ? onCardTouchStart : undefined}
+          onTouchMove={photos.length > 1 ? onCardTouchMove : undefined}
+          onTouchEnd={photos.length > 1 ? onCardTouchEnd : undefined}
+          onClick={photos.length === 1 ? () => setFullscreen(true) : undefined}
+          style={{ willChange: 'transform' }}
         >
           {photos.map((photo, i) => (
             <img
@@ -168,7 +353,7 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
               draggable={false}
             />
           ))}
-        </motion.div>
+        </div>
 
         {photos.length > 1 && (
           <div className="gallery-dots-below">
@@ -194,21 +379,13 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
             )}
             <button className="gallery-fs-close" onClick={() => setFullscreen(false)}>✕</button>
 
-            <motion.div
+            <div
+              ref={fsStripRef}
               className="gallery-fs-strip"
-              drag
-              dragDirectionLock
-              dragMomentum={false}
-              dragElastic={{ left: 0.15, right: 0.15, top: 0.7, bottom: 0.7 }}
-              dragConstraints={{
-                left: -(photos.length - 1) * window.innerWidth,
-                right: 0,
-                top: 0,
-                bottom: 0,
-              }}
-              style={{ x: fsX, y: fsY, touchAction: 'none' }}
-              onDragEnd={onFsDragEnd}
-              onClick={() => { if (!didDrag.current) setFullscreen(false) }}
+              onTouchStart={onFsTouchStart}
+              onTouchMove={onFsTouchMove}
+              onTouchEnd={onFsTouchEnd}
+              style={{ willChange: 'transform', touchAction: 'none' }}
             >
               {photos.map((photo, i) => (
                 <img
@@ -220,7 +397,7 @@ export default function PhotoGallery({ photos, alt = '', fallbackIcon }: Props) 
                   draggable={false}
                 />
               ))}
-            </motion.div>
+            </div>
 
             {photos.length > 1 && (
               <div className="gallery-fs-dots">
