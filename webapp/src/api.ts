@@ -523,4 +523,13 @@ export const api = {
       method: 'POST',
     });
   },
+
+  /** Редактировать объявление (админ) */
+  adminEditAd: (adType: 'car' | 'plate', adId: number, data: Record<string, unknown>) => {
+    return fetchJSON<{ ok: boolean }>(`/api/admin/ads/${adType}/${adId}${adminQueryParams()}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
 };

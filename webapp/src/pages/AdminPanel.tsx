@@ -25,6 +25,8 @@ import {
   UserBlock,
   UserCheck,
   Magnifer,
+  Pen,
+  Diskette,
 } from '@solar-icons/react'
 import { api } from '../api'
 import type { AdminPendingAd, AdminStats, AdminUser, AdminUserDetail } from '../api'
@@ -73,6 +75,14 @@ export default function AdminPanel() {
   const [userBanLoading, setUserBanLoading] = useState<number | null>(null)
   const [selectedUser, setSelectedUser] = useState<AdminUserDetail | null>(null)
   const [userDetailLoading, setUserDetailLoading] = useState(false)
+
+  // === Edit ad state ===
+  const [editingAd, setEditingAd] = useState<{
+    type: 'car' | 'plate'
+    id: number
+    data: Record<string, unknown>
+  } | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
 
   // Debounce ref
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -232,6 +242,100 @@ export default function AdminPanel() {
 
   const closeModal = () => {
     setSelectedUser(null)
+  }
+
+  const handleEditClick = (type: 'car' | 'plate', ad: { id: number; title: string; status: string; price: number }) => {
+    // Initialize edit form with current data
+    // For cars: title is "Brand Model Year", for plates: title is plate_number
+    if (type === 'car') {
+      // Parse brand, model, year from title (e.g., "Toyota Camry 2020")
+      const parts = ad.title.split(' ')
+      const year = parseInt(parts[parts.length - 1], 10) || 2020
+      const brand = parts[0] || ''
+      const model = parts.slice(1, -1).join(' ') || ''
+      
+      setEditingAd({
+        type: 'car',
+        id: ad.id,
+        data: {
+          brand,
+          model,
+          year,
+          mileage: 0,
+          price: ad.price,
+          color: '',
+          description: '',
+          city: '',
+          contact_phone: '',
+        },
+      })
+    } else {
+      setEditingAd({
+        type: 'plate',
+        id: ad.id,
+        data: {
+          plate_number: ad.title,
+          price: ad.price,
+          description: '',
+          city: '',
+          contact_phone: '',
+        },
+      })
+    }
+  }
+
+  const handleEditChange = (field: string, value: string | number) => {
+    if (!editingAd) return
+    setEditingAd({
+      ...editingAd,
+      data: { ...editingAd.data, [field]: value },
+    })
+  }
+
+  const handleEditSave = async () => {
+    if (!editingAd) return
+    setEditSaving(true)
+    try {
+      await api.adminEditAd(editingAd.type, editingAd.id, editingAd.data)
+      // Update local data
+      if (selectedUser) {
+        if (editingAd.type === 'car') {
+          setSelectedUser({
+            ...selectedUser,
+            cars: selectedUser.cars.map(c =>
+              c.id === editingAd.id
+                ? {
+                    ...c,
+                    title: `${editingAd.data.brand} ${editingAd.data.model} ${editingAd.data.year}`,
+                    price: editingAd.data.price as number,
+                  }
+                : c
+            ),
+          })
+        } else {
+          setSelectedUser({
+            ...selectedUser,
+            plates: selectedUser.plates.map(p =>
+              p.id === editingAd.id
+                ? {
+                    ...p,
+                    title: editingAd.data.plate_number as string,
+                    price: editingAd.data.price as number,
+                  }
+                : p
+            ),
+          })
+        }
+      }
+      setEditingAd(null)
+    } catch {
+      setError(TEXTS.ADMIN_ERROR)
+    }
+    setEditSaving(false)
+  }
+
+  const closeEditModal = () => {
+    setEditingAd(null)
   }
 
   const formatPrice = (n: number) => n.toLocaleString('ru-RU') + ' ₽'
@@ -898,7 +1002,7 @@ export default function AdminPanel() {
                               alignItems: 'center',
                             }}
                           >
-                            <span style={{ fontSize: '13px', color: '#fff' }}>{car.title}</span>
+                            <span style={{ fontSize: '13px', color: '#fff', flex: 1, marginRight: '8px' }}>{car.title}</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span style={{ fontSize: '13px', color: '#F59E0B', fontWeight: 600 }}>
                                 {formatPrice(car.price)}
@@ -924,6 +1028,26 @@ export default function AdminPanel() {
                               >
                                 {car.status}
                               </span>
+                              <motion.button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditClick('car', car)
+                                }}
+                                whileTap={{ scale: 0.9 }}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '8px',
+                                  border: 'none',
+                                  background: 'rgba(245, 158, 11, 0.15)',
+                                  color: '#F59E0B',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <Pen size={14} weight="BoldDuotone" />
+                              </motion.button>
                             </div>
                           </div>
                         ))}
@@ -961,7 +1085,7 @@ export default function AdminPanel() {
                               alignItems: 'center',
                             }}
                           >
-                            <span style={{ fontSize: '13px', color: '#fff' }}>{plate.title}</span>
+                            <span style={{ fontSize: '13px', color: '#fff', flex: 1, marginRight: '8px' }}>{plate.title}</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span style={{ fontSize: '13px', color: '#F59E0B', fontWeight: 600 }}>
                                 {formatPrice(plate.price)}
@@ -987,6 +1111,26 @@ export default function AdminPanel() {
                               >
                                 {plate.status}
                               </span>
+                              <motion.button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditClick('plate', plate)
+                                }}
+                                whileTap={{ scale: 0.9 }}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '8px',
+                                  border: 'none',
+                                  background: 'rgba(245, 158, 11, 0.15)',
+                                  color: '#F59E0B',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <Pen size={14} weight="BoldDuotone" />
+                              </motion.button>
                             </div>
                           </div>
                         ))}
@@ -1026,7 +1170,424 @@ export default function AdminPanel() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ===== Edit Ad Modal ===== */}
+      <AnimatePresence>
+        {editingAd && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeEditModal}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.8)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1100,
+              padding: '20px',
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: '#0B0F19',
+                borderRadius: '20px',
+                padding: '24px',
+                maxWidth: '400px',
+                width: '100%',
+                maxHeight: '85vh',
+                overflowY: 'auto',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginBottom: '20px',
+                }}
+              >
+                <Pen size={22} weight="BoldDuotone" style={{ color: '#F59E0B' }} />
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#fff' }}>
+                  Редактировать {editingAd.type === 'car' ? 'авто' : 'номер'}
+                </h3>
+              </div>
+
+              {/* Form fields */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {editingAd.type === 'car' ? (
+                  <>
+                    {/* Car fields */}
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Марка
+                      </label>
+                      <input
+                        type="text"
+                        value={editingAd.data.brand as string}
+                        onChange={e => handleEditChange('brand', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Модель
+                      </label>
+                      <input
+                        type="text"
+                        value={editingAd.data.model as string}
+                        onChange={e => handleEditChange('model', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                          Год
+                        </label>
+                        <input
+                          type="number"
+                          value={editingAd.data.year as number}
+                          onChange={e => handleEditChange('year', parseInt(e.target.value, 10) || 0)}
+                          style={{
+                            width: '100%',
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'rgba(255,255,255,0.05)',
+                            color: '#fff',
+                            fontSize: '14px',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                          Пробег (км)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingAd.data.mileage as number}
+                          onChange={e => handleEditChange('mileage', parseInt(e.target.value, 10) || 0)}
+                          style={{
+                            width: '100%',
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'rgba(255,255,255,0.05)',
+                            color: '#fff',
+                            fontSize: '14px',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Цена (₽)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingAd.data.price as number}
+                        onChange={e => handleEditChange('price', parseInt(e.target.value, 10) || 0)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Цвет
+                      </label>
+                      <input
+                        type="text"
+                        value={editingAd.data.color as string}
+                        onChange={e => handleEditChange('color', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Город
+                      </label>
+                      <input
+                        type="text"
+                        value={editingAd.data.city as string}
+                        onChange={e => handleEditChange('city', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Телефон
+                      </label>
+                      <input
+                        type="tel"
+                        value={editingAd.data.contact_phone as string}
+                        onChange={e => handleEditChange('contact_phone', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Описание
+                      </label>
+                      <textarea
+                        value={editingAd.data.description as string}
+                        onChange={e => handleEditChange('description', e.target.value)}
+                        rows={3}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          resize: 'vertical',
+                          fontFamily: 'inherit',
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Plate fields */}
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Номер
+                      </label>
+                      <input
+                        type="text"
+                        value={editingAd.data.plate_number as string}
+                        onChange={e => handleEditChange('plate_number', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Цена (₽)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingAd.data.price as number}
+                        onChange={e => handleEditChange('price', parseInt(e.target.value, 10) || 0)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Город
+                      </label>
+                      <input
+                        type="text"
+                        value={editingAd.data.city as string}
+                        onChange={e => handleEditChange('city', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Телефон
+                      </label>
+                      <input
+                        type="tel"
+                        value={editingAd.data.contact_phone as string}
+                        onChange={e => handleEditChange('contact_phone', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', display: 'block' }}>
+                        Описание
+                      </label>
+                      <textarea
+                        value={editingAd.data.description as string}
+                        onChange={e => handleEditChange('description', e.target.value)}
+                        rows={3}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.05)',
+                          color: '#fff',
+                          fontSize: '14px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          resize: 'vertical',
+                          fontFamily: 'inherit',
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <motion.button
+                  onClick={closeEditModal}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'transparent',
+                    color: 'rgba(255,255,255,0.6)',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Отмена
+                </motion.button>
+                <motion.button
+                  onClick={handleEditSave}
+                  disabled={editSaving}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+                    color: '#0B0F19',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    cursor: editSaving ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    opacity: editSaving ? 0.7 : 1,
+                  }}
+                >
+                  <Diskette size={18} weight="BoldDuotone" />
+                  {editSaving ? 'Сохранение...' : 'Сохранить'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
-// v2
+// v3-edit

@@ -28,6 +28,8 @@ Endpoints:
     GET  /api/admin/stats                     — ad statistics
     POST /api/admin/approve/{ad_type}/{ad_id} — approve ad
     POST /api/admin/reject/{ad_type}/{ad_id}  — reject ad
+    PUT  /api/admin/ads/car/{ad_id}           — edit any car ad (admin)
+    PUT  /api/admin/ads/plate/{ad_id}         — edit any plate ad (admin)
 """
 
 import hmac
@@ -214,6 +216,10 @@ def create_api_app(
     app.router.add_get("/api/admin/users/{telegram_id}", admin_get_user_detail)
     app.router.add_post("/api/admin/users/{telegram_id}/ban", admin_ban_user)
     app.router.add_post("/api/admin/users/{telegram_id}/unban", admin_unban_user)
+
+    # Admin ad editing (any ad, any status, any owner)
+    app.router.add_put("/api/admin/ads/car/{ad_id}", admin_edit_car_ad)
+    app.router.add_put("/api/admin/ads/plate/{ad_id}", admin_edit_plate_ad)
 
     return app
 
@@ -2065,6 +2071,115 @@ async def admin_unban_user(request: web.Request) -> web.Response:
         await session.commit()
 
     return web.json_response({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Редактирование объявлений админом (любой статус, любой владелец)
+# ---------------------------------------------------------------------------
+
+
+async def _admin_edit_ad(
+    request: web.Request,
+    model_class,
+    validator_fn,
+    allowed_fields: set[str],
+    field_converters: dict,
+    ad_type_label: str,
+) -> web.Response:
+    """Общая логика редактирования объявления админом.
+
+    Отличия от пользовательского редактирования:
+    - Проверка _check_admin_access (не владельца)
+    - Можно редактировать объявления любого пользователя
+    - Можно редактировать объявления любого статуса
+    - НЕ меняем статус после редактирования
+
+    HTTP-ошибки: 400 (валидация), 403 (не админ), 404 (не найдено)
+    """
+    if not _check_admin_access(request):
+        raise web.HTTPForbidden(text="Access denied")
+
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    if not ad_id:
+        return web.json_response({"error": "Invalid ad_id"}, status=400)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    # Определяем admin user_id для логирования
+    admin_user_id = (
+        request.query.get("user_id")
+        or request.headers.get("X-Telegram-User-Id")
+        or "unknown"
+    )
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        # ── Загрузить объявление (любой статус) ────────────────────
+        ad = (await session.execute(
+            select(model_class).where(model_class.id == ad_id)
+        )).scalar_one_or_none()
+
+        if not ad:
+            return web.json_response({"error": "Ad not found"}, status=404)
+
+        # ── Подготовить merged dict для валидации ──────────────────
+        current_data = {}
+        for field in allowed_fields:
+            val = getattr(ad, field, None)
+            # Enum → строковое значение для валидатора
+            if hasattr(val, "value"):
+                val = val.value
+            current_data[field] = val
+        merged = {**current_data, **body}
+
+        # ── Валидация ──────────────────────────────────────────────
+        errors = validator_fn(merged)
+        if errors:
+            return web.json_response({"errors": errors}, status=400)
+
+        # ── Применить обновления ───────────────────────────────────
+        updated_fields = []
+        for field, value in body.items():
+            if field not in allowed_fields:
+                continue
+
+            converter = field_converters.get(field)
+            if converter:
+                value = converter(value, ad)
+            else:
+                value = str(value).strip() if value is not None else None
+
+            setattr(ad, field, value)
+            updated_fields.append(field)
+
+        # НЕ меняем статус — админ редактирует уже одобренное (или любое)
+
+        await session.commit()
+
+        # Логируем редактирование
+        logger.info(
+            "[admin_edit_%s] Admin %s edited ad #%d, fields: %s",
+            ad_type_label, admin_user_id, ad_id, updated_fields,
+        )
+
+    return web.json_response({"ok": True})
+
+
+async def admin_edit_car_ad(request: web.Request) -> web.Response:
+    """PUT /api/admin/ads/car/{ad_id} — редактирование авто-объявления админом."""
+    return await _admin_edit_ad(
+        request, CarAd, validate_car_ad, _CAR_ALLOWED_FIELDS, _CAR_FIELD_CONVERTERS, "car",
+    )
+
+
+async def admin_edit_plate_ad(request: web.Request) -> web.Response:
+    """PUT /api/admin/ads/plate/{ad_id} — редактирование номер-объявления админом."""
+    return await _admin_edit_ad(
+        request, PlateAd, validate_plate_ad, _PLATE_ALLOWED_FIELDS, _PLATE_FIELD_CONVERTERS, "plate",
+    )
 
 
 # ---------------------------------------------------------------------------
