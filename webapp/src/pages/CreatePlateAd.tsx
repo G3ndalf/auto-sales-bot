@@ -10,6 +10,7 @@ import FormErrors from '../components/FormErrors'
 import SuccessScreen from '../components/SuccessScreen'
 import DuplicateWarning from '../components/DuplicateWarning'
 import RegionCitySelector from '../components/RegionCitySelector'
+import CharCounter from '../components/CharCounter'
 
 export default function CreatePlateAd() {
   const [plateNumber, setPlateNumber] = useState('')
@@ -161,11 +162,9 @@ export default function CreatePlateAd() {
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
             placeholder="Дополнительная информация о номере..."
           />
-          <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
-            description.length > 900 ? 'text-[#EF4444]' : description.length > 750 ? 'text-[#F59E0B]' : 'text-[#6B7280]'
-          }`}>
-            {description.length}/1000
-          </span>
+          <div style={{ textAlign: 'right', marginTop: 4 }}>
+            <CharCounter value={description} max={1000} />
+          </div>
         </div>
 
         <div>

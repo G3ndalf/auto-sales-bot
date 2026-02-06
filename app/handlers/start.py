@@ -37,6 +37,7 @@ from app.models.car_ad import AdStatus, CarAd
 from app.models.plate_ad import PlateAd
 from app.models.photo import AdPhoto, AdType
 from app.texts import START_WELCOME
+from app.utils.formatting import format_price
 
 logger = logging.getLogger(__name__)
 
@@ -77,14 +78,6 @@ def _webapp_url(path: str = "", admin: bool = False, uid: int = 0) -> str:
     # Без hash Telegram может использовать кэшированную версию старого URL.
     hash_path = f"#/{path.lstrip('/')}" if path else "#/"
     return f"{base}?{params}{hash_path}"
-
-
-def _format_price(price: int) -> str:
-    """Format price with thousands separator for display.
-
-    Example: 1500000 → '1 500 000 ₽'
-    """
-    return f"{price:,}".replace(",", " ") + " ₽"
 
 
 async def _send_start_menu(message: Message, user_id: int | None = None) -> None:
@@ -236,7 +229,7 @@ async def _show_car_contact_card(
     card_text = (
         f"🚗 <b>{ad.brand} {ad.model}</b> ({ad.year})\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"💰 {_format_price(ad.price)}\n"
+        f"💰 {format_price(ad.price)}\n"
         f"📍 {ad.city}\n"
         f"🛣 {ad.mileage:,} км\n".replace(",", " ") +
         f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
@@ -274,7 +267,7 @@ async def _show_plate_contact_card(
     card_text = (
         f"🔢 <b>Номер: {ad.plate_number}</b>\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"💰 {_format_price(ad.price)}\n"
+        f"💰 {format_price(ad.price)}\n"
         f"📍 {ad.city}\n"
         f"━━━━━━━━━━━━━━━\n"
         f"📞 <b>Телефон:</b> {ad.contact_phone}\n"

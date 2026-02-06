@@ -1,7 +1,9 @@
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.car_ad import AdStatus, CarAd
+from app.models.plate_ad import PlateAd
 from app.models.user import User
 
 
@@ -66,3 +68,16 @@ async def set_admin(session: AsyncSession, telegram_id: int, is_admin: bool = Tr
     if user:
         user.is_admin = is_admin
     return user
+
+
+async def get_user_active_ads_count(session: AsyncSession, user_id: int) -> int:
+    """Подсчитать активные объявления пользователя."""
+    car_count = (await session.execute(
+        select(func.count()).select_from(CarAd)
+        .where(CarAd.user_id == user_id, CarAd.status == AdStatus.APPROVED)
+    )).scalar_one()
+    plate_count = (await session.execute(
+        select(func.count()).select_from(PlateAd)
+        .where(PlateAd.user_id == user_id, PlateAd.status == AdStatus.APPROVED)
+    )).scalar_one()
+    return car_count + plate_count

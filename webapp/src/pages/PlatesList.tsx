@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Magnifer, Hashtag, DangerCircle, CloseCircle, Tuning2, AltArrowUp, AltArrowDown } from '@solar-icons/react'
+import { Hashtag } from '@solar-icons/react'
 import { api } from '../api'
 import type { PlateAdPreview } from '../api'
 import { TEXTS } from '../constants/texts'
 import { useBackButton } from '../hooks/useBackButton'
 import { listStagger } from '../constants/animations'
 import AdCard from '../components/AdCard'
+import SearchInput from '../components/SearchInput'
+import FilterToggleButton from '../components/FilterToggleButton'
+import ErrorState from '../components/ErrorState'
+import EmptyState from '../components/EmptyState'
 
 /**
  * Кэш данных списка номеров — сохраняется в памяти модуля
@@ -235,52 +239,23 @@ export default function PlatesList({ embedded }: Props) {
       )}
 
       {/* ─── Поле поиска (выше фильтров) ─────────────────────── */}
-      <div style={{ position: 'relative', marginBottom: 10 }}>
-        {/* Иконка поиска слева */}
-        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9CA3AF', display: 'flex', alignItems: 'center' }}>
-          <Magnifer size={16} weight="BoldDuotone" />
-        </span>
-        <input
-          type="text"
+      <div style={{ marginBottom: 10 }}>
+        <SearchInput
           value={searchQuery}
-          onChange={e => handleSearchChange(e.target.value)}
+          onChange={handleSearchChange}
+          onClear={clearSearch}
           placeholder="Поиск по номеру..."
-          style={{ width: '100%', padding: '10px 36px', borderRadius: 10, fontSize: 15, border: '1px solid rgba(255,255,255,0.08)', background: '#1F2937', color: '#F9FAFB', outline: 'none', boxSizing: 'border-box' }}
         />
-        {/* Кнопка очистки ✕ — показываем только при непустом поле */}
-        {searchQuery && (
-          <button
-            onClick={clearSearch}
-            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9CA3AF', padding: 4, lineHeight: 1 }}
-            aria-label="Очистить поиск"
-          >
-            <CloseCircle size={18} weight="BoldDuotone" />
-          </button>
-        )}
       </div>
 
       {/* ─── Кнопка фильтров + раскрывающаяся панель ─────────── */}
-      {(() => {
-        const activeCount = [selectedCity, priceMin, priceMax]
-          .filter(Boolean).length + (sortOrder !== 'date_new' ? 1 : 0)
-        return (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setFiltersOpen(prev => !prev)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: 10, marginBottom: 8, border: '1.5px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#F9FAFB', fontSize: '0.95em', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', background: filtersOpen ? 'rgba(245,158,11,0.15)' : '#1A2332' }}
-          >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Tuning2 size={16} weight="BoldDuotone" /> Фильтры</span>
-            {activeCount > 0 && (
-              <span style={{ background: '#F59E0B', color: '#0B0F19', borderRadius: 10, padding: '1px 7px', fontSize: '0.8em', fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
-                {activeCount}
-              </span>
-            )}
-            <span style={{ marginLeft: 'auto', opacity: 0.6, display: 'inline-flex', alignItems: 'center' }}>
-              {filtersOpen ? <AltArrowUp size={14} weight="BoldDuotone" /> : <AltArrowDown size={14} weight="BoldDuotone" />}
-            </span>
-          </motion.button>
-        )
-      })()}
+      <div style={{ marginBottom: 8 }}>
+        <FilterToggleButton
+          isOpen={filtersOpen}
+          activeCount={[selectedCity, priceMin, priceMax].filter(Boolean).length + (sortOrder !== 'date_new' ? 1 : 0)}
+          onClick={() => setFiltersOpen(prev => !prev)}
+        />
+      </div>
 
       <AnimatePresence>
         {filtersOpen && (
@@ -346,29 +321,18 @@ export default function PlatesList({ embedded }: Props) {
       {total > 0 && <p className="list-count">Найдено: {total}</p>}
 
       {error && (
-        <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF' }}>
-          <p style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><DangerCircle size={48} weight="BoldDuotone" /></p>
-          <p style={{ marginBottom: 16 }}>Не удалось загрузить объявления</p>
-          <button
-            className="btn btn-secondary block mx-auto"
-            onClick={() => loadAds()}
-          >
-            🔄 Повторить
-          </button>
-        </div>
+        <ErrorState
+          message="Не удалось загрузить объявления"
+          onRetry={() => loadAds()}
+        />
       )}
 
       {/* Мягкое fade-in для пустого состояния / Stagger-контейнер для карточек */}
       {!loading && !error && ads.length === 0 ? (
-        <motion.div
-          className="empty-state"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="empty-icon"><Hashtag size={48} weight="BoldDuotone" /></div>
-          <p>Пока нет объявлений</p>
-        </motion.div>
+        <EmptyState
+          icon={<Hashtag size={48} weight="BoldDuotone" />}
+          message="Пока нет объявлений"
+        />
       ) : (
         /* Stagger-контейнер: карточки появляются одна за другой через AdCard */
         <motion.div

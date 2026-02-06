@@ -56,8 +56,10 @@ from app.models.photo import AdPhoto, AdType
 from app.models.plate_ad import PlateAd
 from app.models.user import User
 from app.services.car_ad_service import create_car_ad
+from app.services.photo_service import load_first_photos_map
 from app.services.plate_ad_service import create_plate_ad
-from app.services.user_service import get_or_create_user
+from app.services.user_service import get_or_create_user, get_user_active_ads_count
+from app.services.view_service import record_unique_view
 from app.texts import (
     WEB_APP_CAR_CREATED,
     WEB_APP_PLATE_CREATED,
@@ -123,19 +125,6 @@ def _safe_float(val, default: float = 0.0) -> float:
         return float(val) if val not in (None, "", " ") else default
     except (ValueError, TypeError):
         return default
-
-
-def _get_first_photos(photos_list: list[AdPhoto]) -> dict[int, str]:
-    """Build {ad_id: file_id} map keeping only the first photo per ad.
-
-    Assumes *photos_list* is already ordered by position so the first
-    occurrence for each ad_id is the cover photo.
-    """
-    result: dict[int, str] = {}
-    for p in photos_list:
-        if p.ad_id not in result:
-            result[p.ad_id] = p.file_id
-    return result
 
 
 async def _on_startup(app: web.Application):
@@ -388,15 +377,7 @@ async def get_car_ads(request: web.Request) -> web.Response:
 
         # Get first photo for each ad
         ad_ids = [ad.id for ad in ads]
-        photos_map: dict[int, str] = {}
-        if ad_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(ad_ids))
-                .order_by(AdPhoto.position)
-            )
-            all_photos = (await session.execute(photo_stmt)).scalars().all()
-            photos_map = _get_first_photos(all_photos)
+        photos_map = await load_first_photos_map(session, AdType.CAR, ad_ids)
 
         items = [
             {
@@ -438,19 +419,9 @@ async def get_car_ad(request: web.Request) -> web.Response:
         if not ad:
             raise web.HTTPNotFound()
 
-        # Уникальный просмотр: +1 только если этот user ещё не смотрел
-        if viewer_id:
-            existing = await session.execute(
-                select(AdView).where(
-                    AdView.user_id == viewer_id,
-                    AdView.ad_type == AdType.CAR,
-                    AdView.ad_id == ad_id,
-                )
-            )
-            if not existing.scalar_one_or_none():
-                session.add(AdView(user_id=viewer_id, ad_type=AdType.CAR, ad_id=ad_id))
-                ad.view_count = (ad.view_count or 0) + 1
-                await session.commit()
+        # Уникальный просмотр
+        if await record_unique_view(session, viewer_id, AdType.CAR, ad_id, ad):
+            await session.commit()
 
         photo_stmt = (
             select(AdPhoto)
@@ -464,17 +435,7 @@ async def get_car_ad(request: web.Request) -> web.Response:
             select(User).where(User.id == ad.user_id)
         )).scalar_one_or_none()
 
-        author_ads_count = 0
-        if author:
-            car_count = (await session.execute(
-                select(func.count()).select_from(CarAd)
-                .where(CarAd.user_id == author.id, CarAd.status == AdStatus.APPROVED)
-            )).scalar_one()
-            plate_count = (await session.execute(
-                select(func.count()).select_from(PlateAd)
-                .where(PlateAd.user_id == author.id, PlateAd.status == AdStatus.APPROVED)
-            )).scalar_one()
-            author_ads_count = car_count + plate_count
+        author_ads_count = await get_user_active_ads_count(session, author.id) if author else 0
 
         data = {
             "id": ad.id,
@@ -572,15 +533,7 @@ async def get_plate_ads(request: web.Request) -> web.Response:
 
         # Photos
         ad_ids = [ad.id for ad in ads]
-        photos_map: dict[int, str] = {}
-        if ad_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(ad_ids))
-                .order_by(AdPhoto.position)
-            )
-            all_photos = (await session.execute(photo_stmt)).scalars().all()
-            photos_map = _get_first_photos(all_photos)
+        photos_map = await load_first_photos_map(session, AdType.PLATE, ad_ids)
 
         items = [
             {
@@ -617,19 +570,9 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
         if not ad:
             raise web.HTTPNotFound()
 
-        # Уникальный просмотр: +1 только если этот user ещё не смотрел
-        if viewer_id:
-            existing = await session.execute(
-                select(AdView).where(
-                    AdView.user_id == viewer_id,
-                    AdView.ad_type == AdType.PLATE,
-                    AdView.ad_id == ad_id,
-                )
-            )
-            if not existing.scalar_one_or_none():
-                session.add(AdView(user_id=viewer_id, ad_type=AdType.PLATE, ad_id=ad_id))
-                ad.view_count = (ad.view_count or 0) + 1
-                await session.commit()
+        # Уникальный просмотр
+        if await record_unique_view(session, viewer_id, AdType.PLATE, ad_id, ad):
+            await session.commit()
 
         photo_stmt = (
             select(AdPhoto)
@@ -643,17 +586,7 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
             select(User).where(User.id == ad.user_id)
         )).scalar_one_or_none()
 
-        author_ads_count = 0
-        if author:
-            car_count = (await session.execute(
-                select(func.count()).select_from(CarAd)
-                .where(CarAd.user_id == author.id, CarAd.status == AdStatus.APPROVED)
-            )).scalar_one()
-            plate_count = (await session.execute(
-                select(func.count()).select_from(PlateAd)
-                .where(PlateAd.user_id == author.id, PlateAd.status == AdStatus.APPROVED)
-            )).scalar_one()
-            author_ads_count = car_count + plate_count
+        author_ads_count = await get_user_active_ads_count(session, author.id) if author else 0
 
         data = {
             "id": ad.id,
@@ -906,28 +839,8 @@ async def get_user_ads(request: web.Request) -> web.Response:
         # ── Собрать первые фото для всех объявлений ────────────────
         car_ids = [ad.id for ad in car_ads]
         plate_ids = [ad.id for ad in plate_ads]
-        car_photos: dict[int, str] = {}
-        plate_photos: dict[int, str] = {}
-
-        if car_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(car_ids))
-                .order_by(AdPhoto.position)
-            )
-            car_photos = _get_first_photos(
-                (await session.execute(photo_stmt)).scalars().all()
-            )
-
-        if plate_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(plate_ids))
-                .order_by(AdPhoto.position)
-            )
-            plate_photos = _get_first_photos(
-                (await session.execute(photo_stmt)).scalars().all()
-            )
+        car_photos = await load_first_photos_map(session, AdType.CAR, car_ids)
+        plate_photos = await load_first_photos_map(session, AdType.PLATE, plate_ids)
 
         # ── Формировать ответ ──────────────────────────────────────
         cars_list = [
@@ -1554,45 +1467,55 @@ async def get_favorites(request: web.Request) -> web.Response:
             select(Favorite).where(Favorite.user_id == user.id).order_by(Favorite.created_at.desc())
         )).scalars().all()
 
+        # Собрать id по типам для batch-загрузки
+        car_fav_ids = [f.ad_id for f in favs if f.ad_type == AdType.CAR]
+        plate_fav_ids = [f.ad_id for f in favs if f.ad_type == AdType.PLATE]
+
+        # Загрузить все объявления
+        car_ads_map: dict[int, CarAd] = {}
+        plate_ads_map: dict[int, PlateAd] = {}
+
+        if car_fav_ids:
+            car_ads = (await session.execute(
+                select(CarAd).where(CarAd.id.in_(car_fav_ids), CarAd.status == AdStatus.APPROVED)
+            )).scalars().all()
+            car_ads_map = {ad.id: ad for ad in car_ads}
+
+        if plate_fav_ids:
+            plate_ads = (await session.execute(
+                select(PlateAd).where(PlateAd.id.in_(plate_fav_ids), PlateAd.status == AdStatus.APPROVED)
+            )).scalars().all()
+            plate_ads_map = {ad.id: ad for ad in plate_ads}
+
+        # Загрузить первые фото
+        car_photos = await load_first_photos_map(session, AdType.CAR, list(car_ads_map.keys()))
+        plate_photos = await load_first_photos_map(session, AdType.PLATE, list(plate_ads_map.keys()))
+
+        # Формируем ответ в порядке favorites
         items = []
         for fav in favs:
             if fav.ad_type == AdType.CAR:
-                ad = (await session.execute(
-                    select(CarAd).where(CarAd.id == fav.ad_id, CarAd.status == AdStatus.APPROVED)
-                )).scalar_one_or_none()
+                ad = car_ads_map.get(fav.ad_id)
                 if ad:
-                    # Получить первое фото
-                    photo = (await session.execute(
-                        select(AdPhoto).where(
-                            AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id == ad.id
-                        ).order_by(AdPhoto.position).limit(1)
-                    )).scalar_one_or_none()
                     items.append({
                         "ad_type": "car",
                         "id": ad.id,
                         "title": f"{ad.brand} {ad.model} ({ad.year})",
                         "price": ad.price,
                         "city": ad.city,
-                        "photo": photo.file_id if photo else None,
+                        "photo": car_photos.get(ad.id),
                         "view_count": ad.view_count or 0,
                     })
             else:
-                ad = (await session.execute(
-                    select(PlateAd).where(PlateAd.id == fav.ad_id, PlateAd.status == AdStatus.APPROVED)
-                )).scalar_one_or_none()
+                ad = plate_ads_map.get(fav.ad_id)
                 if ad:
-                    photo = (await session.execute(
-                        select(AdPhoto).where(
-                            AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id == ad.id
-                        ).order_by(AdPhoto.position).limit(1)
-                    )).scalar_one_or_none()
                     items.append({
                         "ad_type": "plate",
                         "id": ad.id,
                         "title": ad.plate_number,
                         "price": ad.price,
                         "city": ad.city,
-                        "photo": photo.file_id if photo else None,
+                        "photo": plate_photos.get(ad.id),
                         "view_count": ad.view_count or 0,
                     })
 
@@ -1660,27 +1583,10 @@ async def admin_get_pending(request: web.Request) -> web.Response:
         # Get first photos for all ads
         car_ids = [ad.id for ad in car_ads]
         plate_ids = [ad.id for ad in plate_ads]
-        photos_map: dict[str, dict[int, str]] = {"car": {}, "plate": {}}
-
-        if car_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(car_ids))
-                .order_by(AdPhoto.position)
-            )
-            photos_map["car"] = _get_first_photos(
-                (await session.execute(photo_stmt)).scalars().all()
-            )
-
-        if plate_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(plate_ids))
-                .order_by(AdPhoto.position)
-            )
-            photos_map["plate"] = _get_first_photos(
-                (await session.execute(photo_stmt)).scalars().all()
-            )
+        photos_map: dict[str, dict[int, str]] = {
+            "car": await load_first_photos_map(session, AdType.CAR, car_ids),
+            "plate": await load_first_photos_map(session, AdType.PLATE, plate_ids),
+        }
 
         items = []
         for ad in car_ads:
@@ -1957,28 +1863,8 @@ async def admin_get_user_detail(request: web.Request) -> web.Response:
         # Собрать первые фото
         car_ids = [ad.id for ad in car_ads]
         plate_ids = [ad.id for ad in plate_ads]
-        car_photos: dict[int, str] = {}
-        plate_photos: dict[int, str] = {}
-
-        if car_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.CAR, AdPhoto.ad_id.in_(car_ids))
-                .order_by(AdPhoto.position)
-            )
-            car_photos = _get_first_photos(
-                (await session.execute(photo_stmt)).scalars().all()
-            )
-
-        if plate_ids:
-            photo_stmt = (
-                select(AdPhoto)
-                .where(AdPhoto.ad_type == AdType.PLATE, AdPhoto.ad_id.in_(plate_ids))
-                .order_by(AdPhoto.position)
-            )
-            plate_photos = _get_first_photos(
-                (await session.execute(photo_stmt)).scalars().all()
-            )
+        car_photos = await load_first_photos_map(session, AdType.CAR, car_ids)
+        plate_photos = await load_first_photos_map(session, AdType.PLATE, plate_ids)
 
         # Формируем ответ
         user_data = {

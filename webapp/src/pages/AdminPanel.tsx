@@ -25,9 +25,10 @@ import {
   UsersGroupRounded,
   UserBlock,
   UserCheck,
-  Magnifer,
   Pen,
 } from '@solar-icons/react'
+import SearchInput from '../components/SearchInput'
+import StatusBadge from '../components/StatusBadge'
 import { api } from '../api'
 import type { AdminPendingAd, AdminStats, AdminUser, AdminUserDetail } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
@@ -544,39 +545,12 @@ export default function AdminPanel() {
       {activeTab === 'users' && (
         <>
           {/* Search */}
-          <div
-            style={{
-              position: 'relative',
-              marginBottom: '16px',
-            }}
-          >
-            <Magnifer
-              size={20}
-              weight="BoldDuotone"
-              style={{
-                position: 'absolute',
-                left: '14px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'rgba(255,255,255,0.4)',
-              }}
-            />
-            <input
-              type="text"
+          <div style={{ marginBottom: '16px' }}>
+            <SearchInput
               value={usersSearch}
-              onChange={e => setUsersSearch(e.target.value)}
+              onChange={setUsersSearch}
+              onClear={() => setUsersSearch('')}
               placeholder={TEXTS.ADMIN_USERS_SEARCH}
-              style={{
-                width: '100%',
-                padding: '12px 14px 12px 44px',
-                borderRadius: '12px',
-                border: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255,255,255,0.05)',
-                color: '#fff',
-                fontSize: '15px',
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
             />
           </div>
 
@@ -910,27 +884,7 @@ export default function AdminPanel() {
                               <span style={{ fontSize: '13px', color: '#F59E0B', fontWeight: 600 }}>
                                 {formatPrice(car.price)}
                               </span>
-                              <span
-                                style={{
-                                  fontSize: '10px',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  background:
-                                    car.status === 'approved'
-                                      ? 'rgba(34, 197, 94, 0.2)'
-                                      : car.status === 'pending'
-                                      ? 'rgba(245, 158, 11, 0.2)'
-                                      : 'rgba(239, 68, 68, 0.2)',
-                                  color:
-                                    car.status === 'approved'
-                                      ? '#22C55E'
-                                      : car.status === 'pending'
-                                      ? '#F59E0B'
-                                      : '#EF4444',
-                                }}
-                              >
-                                {car.status}
-                              </span>
+                              <StatusBadge status={car.status as 'approved' | 'pending' | 'rejected' | 'sold'} />
                               <motion.button
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -993,27 +947,7 @@ export default function AdminPanel() {
                               <span style={{ fontSize: '13px', color: '#F59E0B', fontWeight: 600 }}>
                                 {formatPrice(plate.price)}
                               </span>
-                              <span
-                                style={{
-                                  fontSize: '10px',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  background:
-                                    plate.status === 'approved'
-                                      ? 'rgba(34, 197, 94, 0.2)'
-                                      : plate.status === 'pending'
-                                      ? 'rgba(245, 158, 11, 0.2)'
-                                      : 'rgba(239, 68, 68, 0.2)',
-                                  color:
-                                    plate.status === 'approved'
-                                      ? '#22C55E'
-                                      : plate.status === 'pending'
-                                      ? '#F59E0B'
-                                      : '#EF4444',
-                                }}
-                              >
-                                {plate.status}
-                              </span>
+                              <StatusBadge status={plate.status as 'approved' | 'pending' | 'rejected' | 'sold'} />
                               <motion.button
                                 onClick={(e) => {
                                   e.stopPropagation()

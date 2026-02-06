@@ -10,12 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.photo import AdPhoto, AdType
+from app.utils.formatting import format_number
 
 logger = logging.getLogger(__name__)
-
-
-def _fmt_number(n: int) -> str:
-    return f"{n:,}".replace(",", " ")
 
 
 async def publish_to_channel(
@@ -50,8 +47,8 @@ async def publish_to_channel(
     if ad_type == "car":
         text = (
             f"🚗 <b>{html.escape(ad.brand)} {html.escape(ad.model)}</b> ({ad.year})\n\n"
-            f"💰 {_fmt_number(ad.price)} ₽\n"
-            f"🛣 {_fmt_number(ad.mileage)} км\n"
+            f"💰 {format_number(ad.price)} ₽\n"
+            f"🛣 {format_number(ad.mileage)} км\n"
             f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
             f"🎨 {html.escape(ad.color)} | 🏎 {ad.engine_volume}л\n"
             f"📍 {html.escape(ad.city)}\n"
@@ -64,7 +61,7 @@ async def publish_to_channel(
     else:
         text = (
             f"🔢 <b>{html.escape(ad.plate_number)}</b>\n\n"
-            f"💰 {_fmt_number(ad.price)} ₽\n"
+            f"💰 {format_number(ad.price)} ₽\n"
             f"📍 {html.escape(ad.city)}\n"
         )
         if ad.description:

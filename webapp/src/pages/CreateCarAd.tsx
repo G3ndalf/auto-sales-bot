@@ -11,10 +11,10 @@ import FormErrors from '../components/FormErrors'
 import SuccessScreen from '../components/SuccessScreen'
 import DuplicateWarning from '../components/DuplicateWarning'
 import RegionCitySelector from '../components/RegionCitySelector'
+import CharCounter from '../components/CharCounter'
 import { normalizePhone } from '../utils/format'
 import { BRANDS } from '../data/brands'
-
-const COLORS = ['Белый', 'Чёрный', 'Серый', 'Серебристый', 'Красный', 'Синий', 'Голубой', 'Зелёный', 'Жёлтый', 'Оранжевый', 'Коричневый', 'Бежевый', 'Фиолетовый', 'Бордовый', 'Золотой']
+import { COLORS } from '../constants/colors'
 
 export default function CreateCarAd() {
   const [brand, setBrand] = useState('')
@@ -388,11 +388,9 @@ export default function CreateCarAd() {
             maxLength={CONFIG.MAX_DESCRIPTION_LENGTH}
             placeholder="Дополнительная информация..."
           />
-          <span className={`block text-right text-[0.8em] mt-1 transition-colors duration-200 ${
-            description.length > 900 ? 'text-[#EF4444]' : description.length > 750 ? 'text-[#F59E0B]' : 'text-[#6B7280]'
-          }`}>
-            {description.length}/1000
-          </span>
+          <div style={{ textAlign: 'right', marginTop: 4 }}>
+            <CharCounter value={description} max={1000} />
+          </div>
         </div>
 
         <div>

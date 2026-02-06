@@ -20,6 +20,7 @@ import { useBackButton } from '../hooks/useBackButton'
 import { ClipboardList, Garage, Hashtag } from '@solar-icons/react'
 import { listStagger } from '../constants/animations'
 import AdCard from '../components/AdCard'
+import EmptyState from '../components/EmptyState'
 
 /** Тип текущего таба */
 type Tab = 'cars' | 'plates'
@@ -163,23 +164,22 @@ export default function MyAds() {
 
       {/* Пустой список */}
       {!loading && !error && currentAds.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF' }}>
-          <div style={{ marginBottom: 12 }}>
-            {tab === 'cars' ? <Garage size={48} weight="BoldDuotone" /> : <Hashtag size={48} weight="BoldDuotone" />}
+        <div>
+          <EmptyState
+            icon={tab === 'cars' ? <Garage size={48} weight="BoldDuotone" /> : <Hashtag size={48} weight="BoldDuotone" />}
+            message={tab === 'cars'
+              ? 'Нет объявлений\nПодайте объявление о продаже авто'
+              : 'Нет объявлений\nПодайте объявление о продаже номера'}
+          />
+          <div style={{ textAlign: 'center' }}>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => navigate(tab === 'cars' ? '/car/new' : '/plate/new')}
+              style={{ marginTop: 0, padding: '10px 24px', border: 'none', borderRadius: 10, background: '#F59E0B', color: '#0B0F19', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+            >
+              + Подать объявление
+            </motion.button>
           </div>
-          <div style={{ fontSize: 16, marginBottom: 8 }}>Нет объявлений</div>
-          <div style={{ fontSize: 14 }}>
-            {tab === 'cars'
-              ? 'Подайте объявление о продаже авто'
-              : 'Подайте объявление о продаже номера'}
-          </div>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => navigate(tab === 'cars' ? '/car/new' : '/plate/new')}
-            style={{ marginTop: 16, padding: '10px 24px', border: 'none', borderRadius: 10, background: '#F59E0B', color: '#0B0F19', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
-            + Подать объявление
-          </motion.button>
         </div>
       )}
 
