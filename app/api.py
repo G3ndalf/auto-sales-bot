@@ -1491,7 +1491,7 @@ async def get_favorites(request: web.Request) -> web.Response:
         car_photos = await load_first_photos_map(session, AdType.CAR, list(car_ads_map.keys()))
         plate_photos = await load_first_photos_map(session, AdType.PLATE, list(plate_ads_map.keys()))
 
-        # Формируем ответ в порядке favorites
+        # Формируем ответ в порядке favorites (полные данные как в каталоге)
         items = []
         for fav in favs:
             if fav.ad_type == AdType.CAR:
@@ -1500,9 +1500,14 @@ async def get_favorites(request: web.Request) -> web.Response:
                     items.append({
                         "ad_type": "car",
                         "id": ad.id,
-                        "title": f"{ad.brand} {ad.model} ({ad.year})",
+                        "brand": ad.brand,
+                        "model": ad.model,
+                        "year": ad.year,
                         "price": ad.price,
                         "city": ad.city,
+                        "mileage": ad.mileage,
+                        "fuel_type": ad.fuel_type,
+                        "transmission": ad.transmission,
                         "photo": car_photos.get(ad.id),
                         "view_count": ad.view_count or 0,
                     })
@@ -1512,7 +1517,7 @@ async def get_favorites(request: web.Request) -> web.Response:
                     items.append({
                         "ad_type": "plate",
                         "id": ad.id,
-                        "title": ad.plate_number,
+                        "plate_number": ad.plate_number,
                         "price": ad.price,
                         "city": ad.city,
                         "photo": plate_photos.get(ad.id),

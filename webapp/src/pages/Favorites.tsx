@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { api } from '../api'
-import type { FavoriteItem } from '../api'
+import type { FavoriteItem, FavoriteCarItem, FavoritePlateItem } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 import { Star, HeartBroken } from '@solar-icons/react'
 import { listStagger, floatLoop } from '../constants/animations'
@@ -58,16 +58,34 @@ export default function Favorites() {
         animate="visible"
       >
         {items.map((item) => (
-          <AdCard
-            key={`${item.ad_type}-${item.id}`}
-            id={item.id}
-            adType={item.ad_type}
-            price={item.price}
-            city={item.city}
-            photo={item.photo}
-            viewCount={item.view_count}
-            title={item.title}
-          />
+          item.ad_type === 'car' ? (
+            <AdCard
+              key={`car-${item.id}`}
+              id={item.id}
+              adType="car"
+              price={item.price}
+              city={item.city}
+              photo={item.photo}
+              viewCount={item.view_count}
+              brand={(item as FavoriteCarItem).brand}
+              model={(item as FavoriteCarItem).model}
+              year={(item as FavoriteCarItem).year}
+              mileage={(item as FavoriteCarItem).mileage}
+              fuelType={(item as FavoriteCarItem).fuel_type}
+              transmission={(item as FavoriteCarItem).transmission}
+            />
+          ) : (
+            <AdCard
+              key={`plate-${item.id}`}
+              id={item.id}
+              adType="plate"
+              price={item.price}
+              city={item.city}
+              photo={item.photo}
+              viewCount={item.view_count}
+              plateNumber={(item as FavoritePlateItem).plate_number}
+            />
+          )
         ))}
       </motion.div>
     </div>

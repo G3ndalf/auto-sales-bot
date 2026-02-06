@@ -119,15 +119,32 @@ export interface PlateAdFull {
 }
 
 /** Элемент списка избранных объявлений */
-export interface FavoriteItem {
-  ad_type: 'car' | 'plate';
+export interface FavoriteCarItem {
+  ad_type: 'car';
   id: number;
-  title: string;
+  brand: string;
+  model: string;
+  year: number;
+  price: number;
+  city: string;
+  mileage: number;
+  fuel_type: string;
+  transmission: string;
+  photo: string | null;
+  view_count: number;
+}
+
+export interface FavoritePlateItem {
+  ad_type: 'plate';
+  id: number;
+  plate_number: string;
   price: number;
   city: string;
   photo: string | null;
   view_count: number;
 }
+
+export type FavoriteItem = FavoriteCarItem | FavoritePlateItem;
 
 export interface PaginatedResponse<T> {
   items: T[];
