@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useBackButton } from '../hooks/useBackButton'
-import CarsList from './CarsList'
-import PlatesList from './PlatesList'
+import AdsList from './AdsList'
 
 type Tab = 'cars' | 'plates'
 
@@ -126,8 +125,8 @@ export default function Catalog() {
       </div>
 
       {tab === 'cars'
-        ? <CarsList key={`cars-${refreshKey}`} embedded />
-        : <PlatesList key={`plates-${refreshKey}`} embedded />
+        ? <AdsList key={`cars-${refreshKey}`} adType="car" embedded />
+        : <AdsList key={`plates-${refreshKey}`} adType="plate" embedded />
       }
 
       {/* CSS анимация спиннера */}
