@@ -15,8 +15,7 @@ import './App.css'
 /* ─── Eager: основные страницы (посещаются всегда) ─── */
 import Profile from './pages/Profile'
 import Catalog from './pages/Catalog'
-import CarsList from './pages/CarsList'
-import PlatesList from './pages/PlatesList'
+import AdsList from './pages/AdsList'
 import CarAdDetail from './pages/CarAdDetail'
 import PlateAdDetail from './pages/PlateAdDetail'
 import Favorites from './pages/Favorites'
@@ -55,9 +54,9 @@ function AnimatedRoutes() {
         <Route path="/plate/new" element={<AnimatedPage><CreatePlateAd /></AnimatedPage>} />
         <Route path="/profile" element={<AnimatedPage><Profile /></AnimatedPage>} />
         <Route path="/catalog" element={<AnimatedPage><Catalog /></AnimatedPage>} />
-        <Route path="/cars" element={<AnimatedPage><CarsList /></AnimatedPage>} />
+        <Route path="/cars" element={<AnimatedPage><AdsList adType="car" /></AnimatedPage>} />
         <Route path="/car/:id" element={<AnimatedPage><CarAdDetail /></AnimatedPage>} />
-        <Route path="/plates" element={<AnimatedPage><PlatesList /></AnimatedPage>} />
+        <Route path="/plates" element={<AnimatedPage><AdsList adType="plate" /></AnimatedPage>} />
         <Route path="/plate/:id" element={<AnimatedPage><PlateAdDetail /></AnimatedPage>} />
         <Route path="/my-ads" element={<AnimatedPage><MyAds /></AnimatedPage>} />
         <Route path="/car/:id/edit" element={<AnimatedPage><EditCarAd /></AnimatedPage>} />
