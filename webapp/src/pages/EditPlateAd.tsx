@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Hashtag, MapPoint, CheckCircle, DangerTriangle, Refresh, Pen, Diskette } from '@solar-icons/react'
 import { TEXTS } from '../constants/texts'
@@ -21,10 +21,15 @@ import FormErrors from '../components/FormErrors'
 import RegionCitySelector from '../components/RegionCitySelector'
 
 export default function EditPlateAd() {
-  /** Назад ведёт на "Мои объявления" */
-  useBackButton('/my-ads')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  
+  /** Режим админа — если ?admin=true, используем admin endpoint без повторной модерации */
+  const isAdmin = searchParams.get('admin') === 'true'
+  
+  /** Назад ведёт на "Мои объявления" или админку */
+  useBackButton(isAdmin ? '/admin-panel' : '/my-ads')
 
   // ===== Состояние формы (аналогично CreatePlateAd) =====
   const [plateNumber, setPlateNumber] = useState('')
@@ -101,10 +106,10 @@ export default function EditPlateAd() {
     setFormErrors([])
 
     try {
-      await api.updatePlateAd(parseInt(id, 10), adData)
+      await api.updatePlateAd(parseInt(id, 10), adData, isAdmin)
       setSaved(true)
-      // После сохранения — возвращаемся к списку
-      setTimeout(() => navigate('/my-ads'), 1200)
+      // После сохранения — возвращаемся к списку (админка или мои объявления)
+      setTimeout(() => navigate(isAdmin ? '/admin-panel' : '/my-ads'), 1200)
     } catch (e: unknown) {
       setSubmitting(false)
       setFormErrors([e instanceof Error ? e.message : 'Ошибка сохранения'])

@@ -415,8 +415,18 @@ export const api = {
   getUserAds: (telegramId: number) =>
     fetchJSON<{ cars: UserAd[]; plates: UserAd[] }>(`/api/user/${telegramId}/ads`),
 
-  /** Обновить объявление авто (PUT). После редактирования — повторная модерация */
-  updateCarAd: (adId: number, data: Record<string, unknown>) => {
+  /** Обновить объявление авто (PUT). 
+   * isAdmin=true — использует admin endpoint (без повторной модерации)
+   * isAdmin=false — обычный endpoint (повторная модерация)
+   */
+  updateCarAd: (adId: number, data: Record<string, unknown>, isAdmin = false) => {
+    if (isAdmin) {
+      return fetchJSON<{ ok: boolean }>(`/api/admin/ads/car/${adId}${adminQueryParams()}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    }
     const uid = getUserId();
     return fetchJSON<{ ok: boolean }>(`/api/ads/car/${adId}?user_id=${uid}`, {
       method: 'PUT',
@@ -425,8 +435,18 @@ export const api = {
     });
   },
 
-  /** Обновить объявление номера (PUT). После редактирования — повторная модерация */
-  updatePlateAd: (adId: number, data: Record<string, unknown>) => {
+  /** Обновить объявление номера (PUT).
+   * isAdmin=true — использует admin endpoint (без повторной модерации)
+   * isAdmin=false — обычный endpoint (повторная модерация)
+   */
+  updatePlateAd: (adId: number, data: Record<string, unknown>, isAdmin = false) => {
+    if (isAdmin) {
+      return fetchJSON<{ ok: boolean }>(`/api/admin/ads/plate/${adId}${adminQueryParams()}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    }
     const uid = getUserId();
     return fetchJSON<{ ok: boolean }>(`/api/ads/plate/${adId}?user_id=${uid}`, {
       method: 'PUT',
@@ -521,15 +541,6 @@ export const api = {
   adminUnbanUser: (telegramId: number) => {
     return fetchJSON<{ ok: boolean }>(`/api/admin/users/${telegramId}/unban${adminQueryParams()}`, {
       method: 'POST',
-    });
-  },
-
-  /** Редактировать объявление (админ) */
-  adminEditAd: (adType: 'car' | 'plate', adId: number, data: Record<string, unknown>) => {
-    return fetchJSON<{ ok: boolean }>(`/api/admin/ads/${adType}/${adId}${adminQueryParams()}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
     });
   },
 };
