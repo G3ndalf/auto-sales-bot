@@ -70,6 +70,7 @@ from app.services.plate_ad_service import create_plate_ad
 from app.services.user_service import get_or_create_user, get_user_active_ads_count
 from app.services.view_service import record_unique_view
 from app.texts import (
+    PHOTOS_SENT_TO_MODERATION,
     WEB_APP_CAR_CREATED,
     WEB_APP_PLATE_CREATED,
     WEB_APP_SEND_PHOTOS,
@@ -1365,7 +1366,7 @@ async def handle_submit(request: web.Request) -> web.Response:
             if bot:
                 await bot.send_message(
                     user_id_tg,
-                    "✅ Объявление отправлено на модерацию! Мы уведомим вас после проверки.",
+                    PHOTOS_SENT_TO_MODERATION,
                 )
 
             return web.json_response({"ok": True, "ad_id": ad.id, "published": False})

@@ -30,7 +30,7 @@ export default function EmptyState({ icon, message }: EmptyStateProps) {
           {icon}
         </div>
       )}
-      <p style={{ margin: 0, fontSize: '1em' }}>{message}</p>
+      <p style={{ margin: 0, fontSize: '1em', whiteSpace: 'pre-line' }}>{message}</p>
     </motion.div>
   )
 }

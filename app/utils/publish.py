@@ -49,8 +49,8 @@ async def publish_to_channel(
             f"🚗 <b>{html.escape(ad.brand)} {html.escape(ad.model)}</b> ({ad.year})\n\n"
             f"💰 {format_number(ad.price)} ₽\n"
             f"🛣 {format_number(ad.mileage)} км\n"
-            f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
-            f"🎨 {html.escape(ad.color)} | 🏎 {ad.engine_volume}л\n"
+            f"🔧 {ad.transmission.value}\n"
+            f"🎨 {html.escape(ad.color)}\n"
             f"📍 {html.escape(ad.city)}\n"
         )
         if ad.description:

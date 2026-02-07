@@ -142,7 +142,7 @@ export default function AdCard(props: AdCardProps) {
       {/* Детали — только для авто в каталоге */}
       {adType === 'car' && !isMyAds && mileage !== undefined && (
         <div className="ad-card-details">
-          {mileage.toLocaleString('ru-RU')} км • {fuelType} • {transmission}
+          {mileage.toLocaleString('ru-RU')} км • {transmission}
         </div>
       )}
 

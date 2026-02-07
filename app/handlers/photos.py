@@ -17,6 +17,8 @@ from app.texts import (
     PHOTOS_SKIPPED,
     PHOTOS_COUNT,
     PHOTOS_UNEXPECTED,
+    PHOTOS_SENT_TO_MODERATION,
+    PHOTOS_FSM_TIMEOUT,
     WEB_APP_SKIP_PHOTOS,
 )
 
@@ -72,9 +74,7 @@ async def _finish_and_publish(
 
     # F13: НЕ авто-одобряем — объявление остаётся PENDING для модерации
     try:
-        await message.answer(
-            "✅ Объявление отправлено на модерацию! Мы уведомим вас после проверки."
-        )
+        await message.answer(PHOTOS_SENT_TO_MODERATION)
         logger.info("[photos] %s #%d submitted for moderation with %d photos", ad_type, ad_id, photo_count)
     except Exception:
         logger.exception("[photos] Failed to notify user for %s #%d", ad_type, ad_id)
@@ -90,7 +90,7 @@ async def _check_fsm_timeout(state: FSMContext, message: Message) -> bool:
     if started_at and (time.time() - started_at) > FSM_TIMEOUT_SECONDS:
         await state.clear()
         await message.answer(
-            "⏰ Время на отправку фото истекло (1 час). Пожалуйста, подайте объявление заново.",
+            PHOTOS_FSM_TIMEOUT,
             reply_markup=ReplyKeyboardRemove(),
         )
         return True

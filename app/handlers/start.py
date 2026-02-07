@@ -20,11 +20,10 @@ import re
 import time
 from datetime import datetime, timezone
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart
 from aiogram.types import (
-    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -116,13 +115,7 @@ async def _send_start_menu(message: Message, user_id: int | None = None) -> None
             ),
         ])
 
-    # Кнопка перезагрузки — удобно при разработке
-    inline_buttons.append([
-        InlineKeyboardButton(
-            text="🔄 Перезагрузить",
-            callback_data="restart",
-        ),
-    ])
+    # Кнопка перезагрузки убрана — это была dev-кнопка
 
     inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_buttons) if inline_buttons else None
     await message.answer(START_WELCOME, reply_markup=inline_kb)
@@ -148,21 +141,6 @@ async def cmd_start(message: Message, session: AsyncSession):
 
     # ── Стандартное меню /start ─────────────────────────────────────
     await _send_start_menu(message)
-
-
-@router.callback_query(F.data == "restart")
-async def handle_restart_callback(callback: CallbackQuery, session: AsyncSession):
-    """Обработчик inline-кнопки "🔄 Перезагрузить".
-
-    Отвечает на callback (убирает часики), затем отправляет
-    новое меню /start с обновлёнными cache-busting URL.
-    Удобно при разработке — перезагружает кнопки без набора /start.
-    """
-    await callback.answer()
-    if callback.message and callback.from_user:
-        # callback.message.from_user — это бот, НЕ пользователь!
-        # Передаём callback.from_user.id явно для правильного uid в URL
-        await _send_start_menu(callback.message, user_id=callback.from_user.id)
 
 
 def _extract_deep_link_arg(text: str) -> re.Match | None:
@@ -241,7 +219,7 @@ async def _show_car_contact_card(
         f"💰 {format_price(ad.price)}\n"
         f"📍 {ad.city}\n"
         f"🛣 {ad.mileage:,} км\n".replace(",", " ") +
-        f"⛽ {ad.fuel_type.value} | 🔧 {ad.transmission.value}\n"
+        f"🔧 {ad.transmission.value}\n"
         f"━━━━━━━━━━━━━━━\n"
         f"📞 <b>Телефон:</b> {ad.contact_phone}\n"
         f"📱 <b>Telegram:</b> {tg_contact}\n"

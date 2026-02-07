@@ -37,7 +37,7 @@ export default function PlateAdDetail() {
   }, [id])
 
   if (loading) return null
-  if (!ad) return <div className="loading">Объявление не найдено</div>
+  if (!ad) return <div className="not-found">Объявление не найдено</div>
 
   return (
     <div className="detail-page">

@@ -89,8 +89,8 @@ def validate_car_ad(data: dict) -> list[str]:
     else:
         try:
             year_int = int(year)
-            if year_int < 1960 or year_int > max_year:
-                errors.append(f"Год выпуска — от 1960 до {max_year}")
+            if year_int < 1980 or year_int > max_year:
+                errors.append(f"Год выпуска — от 1980 до {max_year}")
         except (ValueError, TypeError):
             errors.append("Год выпуска — должно быть числом")
 
@@ -133,8 +133,8 @@ def validate_car_ad(data: dict) -> list[str]:
     # contact_phone
     errors.extend(_check_phone(data))
 
-    # description (optional, max 2000)
-    errors.extend(_check_optional_string(data, "description", "Описание", 2000))
+    # description (optional, max 1000)
+    errors.extend(_check_optional_string(data, "description", "Описание", 1000))
 
     return errors
 
@@ -171,7 +171,7 @@ def validate_plate_ad(data: dict) -> list[str]:
     # contact_phone
     errors.extend(_check_phone(data))
 
-    # description (optional, max 2000)
-    errors.extend(_check_optional_string(data, "description", "Описание", 2000))
+    # description (optional, max 1000)
+    errors.extend(_check_optional_string(data, "description", "Описание", 1000))
 
     return errors

@@ -289,7 +289,7 @@ export default function EditCarAd() {
               onChange={e => { setYear(e.target.value); touch('year') }}
             >
               <option value="">Год выпуска</option>
-              {Array.from({ length: 2026 - 1980 + 1 }, (_, i) => 2026 - i).map(y => (
+              {Array.from({ length: CONFIG.MAX_YEAR - CONFIG.MIN_YEAR + 1 }, (_, i) => CONFIG.MAX_YEAR - i).map(y => (
                 <option key={y} value={String(y)}>{y}</option>
               ))}
             </select>

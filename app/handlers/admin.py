@@ -5,6 +5,8 @@ import logging
 
 from aiogram import Bot, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -39,6 +41,10 @@ from app.utils.publish import publish_to_channel
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+
+class RejectReasonStates(StatesGroup):
+    waiting_reason = State()
 
 
 def _is_admin(user_id: int) -> bool:
@@ -78,8 +84,6 @@ def _format_car_ad(ad) -> str:
         model=html.escape(ad.model),
         year=ad.year,
         mileage=f"{ad.mileage:,}".replace(",", " "),
-        engine=ad.engine_volume,
-        fuel=ad.fuel_type.value,
         transmission=ad.transmission.value,
         color=html.escape(ad.color),
         price=f"{ad.price:,}".replace(",", " "),
@@ -137,6 +141,7 @@ async def handle_moderation(
     callback: CallbackQuery,
     session: AsyncSession,
     bot: Bot,
+    state: FSMContext,
 ):
     """Handle moderation approve/reject/skip callbacks."""
     if not _is_admin(callback.from_user.id):
@@ -175,34 +180,105 @@ async def handle_moderation(
             return
 
     elif action == "reject":
-        if ad_type == "car":
-            ad = await reject_car_ad(session, ad_id, reason="Не прошло модерацию")
-        else:
-            ad = await reject_plate_ad(session, ad_id, reason="Не прошло модерацию")
-
-        if ad:
-            await callback.answer(ADMIN_REJECTED, show_alert=False)
-            # Notify user
-            try:
-                from app.models.user import User
-                from sqlalchemy import select
-
-                stmt = select(User).where(User.id == ad.user_id)
-                result = await session.execute(stmt)
-                user = result.scalar_one_or_none()
-                if user:
-                    await bot.send_message(user.telegram_id, USER_AD_REJECTED)
-            except Exception:
-                logger.exception("Failed to notify user about rejection")
-        else:
-            await callback.answer(ADMIN_AD_NOT_FOUND, show_alert=True)
-            return
+        # Ask admin for rejection reason via FSM
+        await state.set_state(RejectReasonStates.waiting_reason)
+        await state.update_data(reject_ad_type=ad_type, reject_ad_id=ad_id)
+        reason_kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Без причины", callback_data="mod_reject_no_reason")],
+            ]
+        )
+        await callback.answer()
+        await callback.message.answer(
+            "✏️ Введите причину отклонения или нажмите «Без причины»:",
+            reply_markup=reason_kb,
+        )
+        return
 
     elif action == "skip":
         await callback.answer()
 
     # Show next pending ad
     await _show_next_pending(callback, session)
+
+
+@router.callback_query(lambda c: c.data == "mod_reject_no_reason")
+async def handle_reject_no_reason(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    bot: Bot,
+    state: FSMContext,
+):
+    """Handle rejection without reason."""
+    data = await state.get_data()
+    ad_type = data.get("reject_ad_type")
+    ad_id = data.get("reject_ad_id")
+    await state.clear()
+
+    if not ad_type or not ad_id:
+        await callback.answer("Нет данных для отклонения", show_alert=True)
+        return
+
+    await _do_reject(callback.message, session, bot, ad_type, ad_id, reason="Не прошло модерацию")
+    await callback.answer(ADMIN_REJECTED)
+    await _show_next_pending_msg(callback.message, session)
+
+
+@router.message(RejectReasonStates.waiting_reason)
+async def handle_reject_reason_text(
+    message: Message,
+    session: AsyncSession,
+    bot: Bot,
+    state: FSMContext,
+):
+    """Handle rejection reason text from admin."""
+    data = await state.get_data()
+    ad_type = data.get("reject_ad_type")
+    ad_id = data.get("reject_ad_id")
+    await state.clear()
+
+    if not ad_type or not ad_id:
+        await message.answer("Нет данных для отклонения.")
+        return
+
+    reason = (message.text or "").strip() or "Не прошло модерацию"
+    await _do_reject(message, session, bot, ad_type, ad_id, reason=reason)
+    await _show_next_pending_msg(message, session)
+
+
+async def _do_reject(
+    message: Message,
+    session: AsyncSession,
+    bot: Bot,
+    ad_type: str,
+    ad_id: int,
+    reason: str,
+) -> None:
+    """Perform the rejection and notify user."""
+    if ad_type == "car":
+        ad = await reject_car_ad(session, ad_id, reason=reason)
+    else:
+        ad = await reject_plate_ad(session, ad_id, reason=reason)
+
+    if not ad:
+        await message.answer(ADMIN_AD_NOT_FOUND)
+        return
+
+    # Notify user with reason
+    try:
+        from app.models.user import User
+        from sqlalchemy import select
+
+        stmt = select(User).where(User.id == ad.user_id)
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        if user:
+            reject_text = f"😔 Ваше объявление не прошло модерацию.\nПричина: {reason}"
+            await bot.send_message(user.telegram_id, reject_text)
+    except Exception:
+        logger.exception("Failed to notify user about rejection")
+
+    await message.answer(ADMIN_REJECTED)
 
 
 async def _show_next_pending(callback: CallbackQuery, session: AsyncSession):
@@ -230,3 +306,26 @@ async def _show_next_pending(callback: CallbackQuery, session: AsyncSession):
         await callback.message.edit_text(text, reply_markup=kb)
     except Exception:
         await callback.message.answer(text, reply_markup=kb)
+
+
+async def _show_next_pending_msg(message: Message, session: AsyncSession):
+    """Show next pending ad or 'all done' message (for Message context)."""
+    car_ads = await get_pending_car_ads(session)
+    plate_ads = await get_pending_plate_ads(session)
+
+    if not car_ads and not plate_ads:
+        await message.answer(ADMIN_NO_PENDING)
+        return
+
+    if car_ads:
+        ad = car_ads[0]
+        text = _format_car_ad(ad)
+        kb = _moderation_keyboard("car", ad.id)
+    else:
+        ad = plate_ads[0]
+        text = _format_plate_ad(ad)
+        kb = _moderation_keyboard("plate", ad.id)
+
+    total = len(car_ads) + len(plate_ads)
+    text = f"📋 На модерации: {total}\n\n{text}"
+    await message.answer(text, reply_markup=kb)

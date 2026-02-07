@@ -50,7 +50,7 @@ export default function CarAdDetail() {
   }, [id])
 
   if (loading) return null
-  if (!ad) return <div className="loading">Объявление не найдено</div>
+  if (!ad) return <div className="not-found">Объявление не найдено</div>
 
   // ─── Характеристики (только поля из формы) ─────────────────
   type SpecItem = {

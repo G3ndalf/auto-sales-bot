@@ -11,6 +11,7 @@ import SearchInput from '../components/SearchInput'
 import FilterToggleButton from '../components/FilterToggleButton'
 import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
+import { SkeletonList } from '../components/Skeleton'
 
 // ─── Типы ─────────────────────────────────────────────────────
 
@@ -305,7 +306,12 @@ export default function AdsList({ adType, embedded }: AdsListProps) {
 
   // ─── Рендер ────────────────────────────────────────────────
 
-  if (loading && ads.length === 0) return null
+  if (loading && ads.length === 0) return (
+    <div className={embedded ? 'catalog-content' : 'list-page'}>
+      {!embedded && <h1>{config.icon} {config.title}</h1>}
+      <SkeletonList count={5} />
+    </div>
+  )
 
   const EmptyIcon = adType === 'car'
     ? <Garage size={48} weight="BoldDuotone" />
