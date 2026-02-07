@@ -160,7 +160,7 @@ const EditFormWrapper = forwardRef<HTMLDivElement, EditFormWrapperProps>(
                     color: '#4CAF50',
                   }}
                 />{' '}
-                Изменения сохранены! Объявление отправлено на модерацию.
+                ⚠️ Объявление отправлено на повторную модерацию и временно снято с публикации
               </motion.p>
             ) : (
               <motion.button

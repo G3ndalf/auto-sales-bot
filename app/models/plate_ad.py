@@ -42,3 +42,5 @@ class PlateAd(Base, TimestampMixin):
     view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     # Автоистечение (30 дней по умолчанию)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # F23: ID сообщения в канале (для удаления дублей при повторной публикации)
+    channel_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -61,6 +61,7 @@ export default function EditCarAd() {
   const [region, setRegion] = useState('')
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
+  const [hasGbo, setHasGbo] = useState(false) // F2: has_gbo state
   const [telegram, setTelegram] = useState('')
   const [touched, setTouched] = useState<Record<string, boolean>>({})
 
@@ -99,15 +100,20 @@ export default function EditCarAd() {
       setIsOtherColor(true)
     }
 
+    setHasGbo(data.has_gbo || false) // F2: загрузка has_gbo
     setPrice(data.price ? String(data.price) : '')
     setDescription(data.description || '')
     const loadedCity = data.city || ''
     setCity(loadedCity)
-    // Автоопределение региона по загруженному городу
-    const foundRegion = TEXTS.REGIONS.find(r =>
-      (r.cities as readonly string[]).includes(loadedCity)
-    )
-    if (foundRegion) setRegion(foundRegion.name)
+    // F1: Загрузка region из данных объявления, fallback на автоопределение по городу
+    if (data.region) {
+      setRegion(data.region)
+    } else {
+      const foundRegion = TEXTS.REGIONS.find(r =>
+        (r.cities as readonly string[]).includes(loadedCity)
+      )
+      if (foundRegion) setRegion(foundRegion.name)
+    }
     setPhone(data.contact_phone || '')
     setTelegram(data.contact_telegram || '')
   }, [originalData])
@@ -143,8 +149,10 @@ export default function EditCarAd() {
       mileage: parseInt(mileage) || 0,
       transmission,
       color: color.trim(),
+      has_gbo: hasGbo, // F2: отправка has_gbo
       price: parseInt(price),
       description: description.trim(),
+      region, // F1: отправка region
       city,
       contact_phone: phone.trim(),
       contact_telegram: telegram.trim() || null,
@@ -348,6 +356,45 @@ export default function EditCarAd() {
             </select>
           </div>
         </div>
+
+        {/* F2: Toggle ГБО */}
+        <div
+          className="form-group"
+          onClick={() => setHasGbo(!hasGbo)}
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '4px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <div style={{
+            width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0,
+            background: hasGbo ? '#F59E0B' : 'var(--bg-tertiary)',
+            transition: 'background 0.2s',
+            position: 'relative',
+          }}>
+            <div style={{
+              width: '20px', height: '20px', borderRadius: '10px',
+              background: '#fff', position: 'absolute', top: '2px',
+              left: hasGbo ? '22px' : '2px',
+              transition: 'left 0.2s',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            }} />
+          </div>
+          <span style={{ fontSize: '15px' }}>Установлено ГБО</span>
+        </div>
+      </div>
+
+      {/* F18: Предупреждение о невозможности изменить фото */}
+      <div
+        style={{
+          padding: '10px 16px',
+          marginBottom: '12px',
+          borderRadius: '8px',
+          backgroundColor: '#3B82F622',
+          border: '1px solid #3B82F644',
+          color: '#60A5FA',
+          fontSize: '12px',
+          lineHeight: '1.4',
+        }}
+      >
+        📷 Фото нельзя изменить. Для смены фото создайте новое объявление.
       </div>
 
       {/* Section: Цена и описание */}

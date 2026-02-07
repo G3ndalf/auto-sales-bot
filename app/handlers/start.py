@@ -18,6 +18,7 @@ Keyboard layout:
 import logging
 import re
 import time
+from datetime import datetime, timezone
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -215,11 +216,18 @@ async def _show_car_contact_card(
     отправляет пользователю форматированную карточку.
     Если есть фото — отправляет первое фото + подпись.
     """
+    now = datetime.now(timezone.utc)
     stmt = select(CarAd).where(CarAd.id == ad_id, CarAd.status == AdStatus.APPROVED)
     ad = (await session.execute(stmt)).scalar_one_or_none()
 
+    # F21: Проверяем expires_at
+    if ad and ad.expires_at and ad.expires_at < now:
+        ad = None
+
     if not ad:
         await message.answer("❌ Объявление не найдено или снято.")
+        # F20: Показать главное меню чтобы юзер не застрял
+        await _send_start_menu(message)
         return
 
     tg_contact = "—"
@@ -253,11 +261,18 @@ async def _show_plate_contact_card(
     ad_id: int,
 ) -> None:
     """Показать карточку номер-объявления с контактами продавца."""
+    now = datetime.now(timezone.utc)
     stmt = select(PlateAd).where(PlateAd.id == ad_id, PlateAd.status == AdStatus.APPROVED)
     ad = (await session.execute(stmt)).scalar_one_or_none()
 
+    # F21: Проверяем expires_at
+    if ad and ad.expires_at and ad.expires_at < now:
+        ad = None
+
     if not ad:
         await message.answer("❌ Объявление не найдено или снято.")
+        # F20: Показать главное меню чтобы юзер не застрял
+        await _send_start_menu(message)
         return
 
     tg_contact = "—"

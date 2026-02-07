@@ -70,9 +70,10 @@ function adminQueryParams(): string {
 }
 
 // Types
+// F4: Синхронизировано с реальным ответом /api/brands
 export interface Brand {
   brand: string;
-  count: number;
+  models: string[];
 }
 
 export interface Model {
@@ -175,7 +176,15 @@ export interface FavoritePlateItem {
   view_count: number;
 }
 
-export type FavoriteItem = FavoriteCarItem | FavoritePlateItem;
+/** F17: Unavailable favorite (deleted/rejected) */
+export interface FavoriteUnavailableItem {
+  ad_type: 'car' | 'plate';
+  id: number;
+  unavailable: true;
+  unavailable_reason: string;
+}
+
+export type FavoriteItem = FavoriteCarItem | FavoritePlateItem | FavoriteUnavailableItem;
 
 export interface PaginatedResponse<T> {
   items: T[];

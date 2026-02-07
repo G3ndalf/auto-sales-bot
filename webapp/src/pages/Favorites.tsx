@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { api } from '../api'
-import type { FavoriteItem, FavoriteCarItem, FavoritePlateItem } from '../api'
+import type { FavoriteItem, FavoriteCarItem, FavoritePlateItem, FavoriteUnavailableItem } from '../api'
 import { useBackButton } from '../hooks/useBackButton'
 import { Star, HeartBroken } from '@solar-icons/react'
 import { listStagger, floatLoop } from '../constants/animations'
@@ -24,7 +24,12 @@ export default function Favorites() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return null
+  // F8: Показать загрузку вместо пустого экрана
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF', fontSize: 14 }}>
+      Загрузка...
+    </div>
+  )
 
   if (items.length === 0) return (
     /* Мягкое fade-in для пустого состояния с плавающей иконкой */
@@ -57,8 +62,48 @@ export default function Favorites() {
         initial="hidden"
         animate="visible"
       >
-        {items.map((item) => (
-          item.ad_type === 'car' ? (
+        {items.map((item) => {
+          // F17: Unavailable item — показать заглушку
+          if ('unavailable' in item && item.unavailable) {
+            const unavail = item as FavoriteUnavailableItem
+            return (
+              <motion.div
+                key={`unavail-${unavail.ad_type}-${unavail.id}`}
+                variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+                style={{
+                  margin: '0 12px 12px',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  background: '#1F2937',
+                  border: '1px solid #374151',
+                  opacity: 0.6,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ color: '#9CA3AF', fontSize: 14 }}>
+                  {unavail.unavailable_reason || 'Объявление снято с публикации'}
+                </span>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.removeFavorite(unavail.ad_type, unavail.id)
+                      setItems(prev => prev.filter(i => !(i.ad_type === unavail.ad_type && i.id === unavail.id)))
+                    } catch {}
+                  }}
+                  style={{
+                    background: 'none', border: '1px solid #EF4444', borderRadius: 8,
+                    color: '#EF4444', padding: '4px 12px', fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  Убрать
+                </button>
+              </motion.div>
+            )
+          }
+
+          return item.ad_type === 'car' ? (
             <AdCard
               key={`car-${item.id}`}
               id={item.id}
@@ -86,7 +131,7 @@ export default function Favorites() {
               plateNumber={(item as FavoritePlateItem).plate_number}
             />
           )
-        ))}
+        })}
       </motion.div>
     </div>
   )

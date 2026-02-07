@@ -434,6 +434,7 @@ async def get_car_ads(request: web.Request) -> web.Response:
             for ad in ads
         ]
 
+    # TODO F15: Добавить has_more в пагинацию (total > offset + limit)
     return web.json_response({"items": items, "total": total})
 
 
@@ -448,7 +449,13 @@ async def get_car_ad(request: web.Request) -> web.Response:
     viewer_id = get_authenticated_user_or_fallback(request) or 0
 
     async with pool() as session:
-        stmt = select(CarAd).where(CarAd.id == ad_id, CarAd.status == AdStatus.APPROVED)
+        # F16: Исключить просроченные объявления
+        now = datetime.now(timezone.utc)
+        stmt = select(CarAd).where(
+            CarAd.id == ad_id,
+            CarAd.status == AdStatus.APPROVED,
+            or_(CarAd.expires_at.is_(None), CarAd.expires_at > now),
+        )
         ad = (await session.execute(stmt)).scalar_one_or_none()
         if not ad:
             raise web.HTTPNotFound()
@@ -595,7 +602,13 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
     viewer_id = get_authenticated_user_or_fallback(request) or 0
 
     async with pool() as session:
-        stmt = select(PlateAd).where(PlateAd.id == ad_id, PlateAd.status == AdStatus.APPROVED)
+        # F16: Исключить просроченные объявления
+        now = datetime.now(timezone.utc)
+        stmt = select(PlateAd).where(
+            PlateAd.id == ad_id,
+            PlateAd.status == AdStatus.APPROVED,
+            or_(PlateAd.expires_at.is_(None), PlateAd.expires_at > now),
+        )
         ad = (await session.execute(stmt)).scalar_one_or_none()
         if not ad:
             raise web.HTTPNotFound()
@@ -1071,6 +1084,7 @@ async def _delete_ad(request: web.Request, model_class) -> web.Response:
             return web.json_response({"error": "Forbidden"}, status=403)
 
         # ── Мягкое удаление ────────────────────────────────────────
+        # TODO F19: Добавить возможность восстановления удалённых объявлений
         ad.status = AdStatus.REJECTED
         ad.rejection_reason = "Удалено владельцем"
         await session.commit()
@@ -1339,23 +1353,22 @@ async def handle_submit(request: web.Request) -> web.Response:
                         )
                         session.add(photo)
 
-                    # Авто-одобрение: фото есть → публикуем сразу
-                    ad.status = AdStatus.APPROVED
+                    # F13: НЕ авто-одобряем — объявление остаётся PENDING
+                    # Админ должен одобрить вручную через модерацию
                     has_photos = True
 
             await session.commit()
 
         # ── Пост-коммит логика: зависит от наличия фото ──────────────
         if has_photos:
-            # Фото есть → уведомляем и публикуем в канал
+            # F13: Фото есть, но НЕ публикуем — отправляем на модерацию
             if bot:
-                await bot.send_message(user_id_tg, "🎉 Объявление опубликовано!")
-                cb_type = "car" if ad_type == "car_ad" else "plate"
-                # Для публикации нужна новая сессия (старая закрыта)
-                async with pool() as pub_session:
-                    await publish_to_channel(bot, ad, cb_type, pub_session)
+                await bot.send_message(
+                    user_id_tg,
+                    "✅ Объявление отправлено на модерацию! Мы уведомим вас после проверки.",
+                )
 
-            return web.json_response({"ok": True, "ad_id": ad.id, "published": True})
+            return web.json_response({"ok": True, "ad_id": ad.id, "published": False})
 
         # ── Фото нет — старый flow: просим прислать фото через Telegram ──
         if bot:
@@ -1384,6 +1397,7 @@ async def handle_submit(request: web.Request) -> web.Response:
                 "ad_id": ad.id,
                 "ad_type": ad_type,
                 "photo_count": 0,
+                "started_at": datetime.now(timezone.utc).timestamp(),
             })
 
         return web.json_response({"ok": True, "ad_id": ad.id})
@@ -1528,10 +1542,18 @@ async def get_favorites(request: web.Request) -> web.Response:
                         "price": ad.price,
                         "city": ad.city,
                         "mileage": ad.mileage,
-                        "fuel_type": ad.fuel_type,
-                        "transmission": ad.transmission,
+                        "fuel_type": ad.fuel_type.value,
+                        "transmission": ad.transmission.value,
                         "photo": car_photos.get(ad.id),
                         "view_count": ad.view_count or 0,
+                    })
+                else:
+                    # F17: Объявление удалено/отклонено — показать заглушку
+                    items.append({
+                        "ad_type": "car",
+                        "id": fav.ad_id,
+                        "unavailable": True,
+                        "unavailable_reason": "Объявление снято с публикации",
                     })
             else:
                 ad = plate_ads_map.get(fav.ad_id)
@@ -1544,6 +1566,14 @@ async def get_favorites(request: web.Request) -> web.Response:
                         "city": ad.city,
                         "photo": plate_photos.get(ad.id),
                         "view_count": ad.view_count or 0,
+                    })
+                else:
+                    # F17: Объявление удалено/отклонено — показать заглушку
+                    items.append({
+                        "ad_type": "plate",
+                        "id": fav.ad_id,
+                        "unavailable": True,
+                        "unavailable_reason": "Объявление снято с публикации",
                     })
 
     return web.json_response({"items": items})

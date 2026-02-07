@@ -3,6 +3,8 @@
 Фото из Mini App сохраняются в UPLOAD_DIR/{uuid}.{ext}
 Идентификатор: "loc_{uuid}" — отличается от Telegram file_id форматом.
 
+# TODO F7: Добавить периодический cleanup для orphaned фото — файлы на диске без записи в AdPhoto
+
 Формат loc_ + hex UUID проходит валидацию _FILE_ID_RE = [A-Za-z0-9_-]+
 """
 import os

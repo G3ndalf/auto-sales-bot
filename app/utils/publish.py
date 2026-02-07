@@ -71,6 +71,15 @@ async def publish_to_channel(
             text += f"\n📱 {html.escape(ad.contact_telegram)}"
 
     try:
+        # F23: Удалить старый пост из канала (если есть) перед публикацией нового
+        old_msg_id = getattr(ad, "channel_message_id", None)
+        if old_msg_id:
+            try:
+                await bot.delete_message(chat_id=channel_id, message_id=old_msg_id)
+                logger.info("Deleted old channel message %d for %s/%s", old_msg_id, ad_type, ad.id)
+            except Exception:
+                logger.warning("Failed to delete old channel message %d for %s/%s", old_msg_id, ad_type, ad.id)
+
         if photos:
             media = []
             for i, photo in enumerate(photos[:10]):
@@ -81,9 +90,16 @@ async def publish_to_channel(
                         parse_mode="HTML" if i == 0 else None,
                     )
                 )
-            await bot.send_media_group(chat_id=channel_id, media=media)
+            sent_messages = await bot.send_media_group(chat_id=channel_id, media=media)
+            # F23: Сохранить message_id первого сообщения в группе
+            if sent_messages:
+                ad.channel_message_id = sent_messages[0].message_id
+                await session.commit()
         else:
-            await bot.send_message(chat_id=channel_id, text=text)
+            sent_msg = await bot.send_message(chat_id=channel_id, text=text)
+            # F23: Сохранить message_id
+            ad.channel_message_id = sent_msg.message_id
+            await session.commit()
         logger.info("Published ad %s/%s to channel %s", ad_type, ad.id, channel_id)
     except Exception:
         logger.exception("Failed to publish ad %s/%s to channel", ad_type, ad.id)

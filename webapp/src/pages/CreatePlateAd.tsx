@@ -30,10 +30,15 @@ export default function CreatePlateAd() {
 
   useBackButton('/')
 
-  // Disable close confirmation so sendData() closes cleanly
+  // F9: Включаем подтверждение закрытия когда форма заполнена
   useEffect(() => {
-    window.Telegram?.WebApp?.disableClosingConfirmation?.()
-  }, [])
+    const hasData = !!(plateNumber || price || description || phone || photoIds.length)
+    if (hasData) {
+      window.Telegram?.WebApp?.enableClosingConfirmation?.()
+    } else {
+      window.Telegram?.WebApp?.disableClosingConfirmation?.()
+    }
+  }, [plateNumber, price, description, phone, photoIds])
 
   /** Собирает данные формы */
   const buildAdData = (force = false) => ({
@@ -59,6 +64,8 @@ export default function CreatePlateAd() {
 
     try {
       const result = await submitAd(adData)
+      // F9: Отключаем подтверждение закрытия после успешной отправки
+      window.Telegram?.WebApp?.disableClosingConfirmation?.()
       setSent(true)
       if (photoIds.length > 0 && (result as Record<string, unknown>).published) {
         setPublished(true)
@@ -87,7 +94,10 @@ export default function CreatePlateAd() {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return // F5: Prevent double-submit
+    setSubmitting(true) // F5: Block immediately
     if (!plateNumber || !price || !city || !phone) {
+      setSubmitting(false)
       setErrorType('validation')
       setFormErrors(['Заполните все обязательные поля: номер, цена, город, телефон'])
       setTimeout(() => {

@@ -64,7 +64,7 @@ export default function MyAds() {
     loadAds()
   }, [loadAds])
 
-  /** Пометить объявление как проданное */
+  /** F6: Пометить объявление как проданное — с error handling */
   const markAsSold = async (adType: string, adId: number) => {
     const uid = getUserId()
     if (!uid) return
@@ -72,10 +72,15 @@ export default function MyAds() {
       const initData = window.Telegram?.WebApp?.initData
       const headers: Record<string, string> = {}
       if (initData) headers['X-Telegram-Init-Data'] = initData
-      await fetch(`/api/ads/${adType}/${adId}/sold?user_id=${uid}`, { method: 'POST', headers })
+      const res = await fetch(`/api/ads/${adType}/${adId}/sold?user_id=${uid}`, { method: 'POST', headers })
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`)
+      }
       // Перезагрузить список
       loadAds()
-    } catch {}
+    } catch {
+      alert('Ошибка при отметке "Продано". Попробуйте ещё раз.')
+    }
   }
 
   /**
@@ -147,8 +152,12 @@ export default function MyAds() {
         />
       </div>
 
-      {/* Состояние загрузки */}
-      {loading && null}
+      {/* F8: Состояние загрузки — показываем текст вместо пустого экрана */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9CA3AF', fontSize: 14 }}>
+          Загрузка...
+        </div>
+      )}
 
       {/* Ошибка загрузки */}
       {error && !loading && (

@@ -1,6 +1,7 @@
 """FSM handler for collecting photos after ad submission."""
 
 import logging
+import time
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -9,7 +10,6 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKey
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import MAX_CAR_PHOTOS, MAX_PLATE_PHOTOS
-from app.models.car_ad import AdStatus
 from app.models.photo import AdPhoto, AdType
 from app.texts import (
     PHOTOS_SAVED,
@@ -70,42 +70,46 @@ async def _finish_and_publish(
     else:
         await message.answer(PHOTOS_SKIPPED, reply_markup=ReplyKeyboardRemove())
 
-    # Auto-approve and publish
+    # F13: НЕ авто-одобряем — объявление остаётся PENDING для модерации
     try:
-        from app.services.car_ad_service import get_car_ad
-        from app.services.plate_ad_service import get_plate_ad
-        from app.utils.publish import publish_to_channel
-
-        if ad_type == "car_ad":
-            ad = await get_car_ad(session, ad_id)
-        else:
-            ad = await get_plate_ad(session, ad_id)
-
-        if ad:
-            # Auto-approve
-            ad.status = AdStatus.APPROVED
-            logger.info("[photos] Auto-approved %s #%d with %d photos", ad_type, ad_id, photo_count)
-
-            # Publish to channel
-            cb_type = "car" if ad_type == "car_ad" else "plate"
-            await publish_to_channel(bot, ad, cb_type, session)
-
-            await message.answer("🎉 Объявление опубликовано!")
-        else:
-            logger.error("[photos] Ad not found: %s #%d", ad_type, ad_id)
+        await message.answer(
+            "✅ Объявление отправлено на модерацию! Мы уведомим вас после проверки."
+        )
+        logger.info("[photos] %s #%d submitted for moderation with %d photos", ad_type, ad_id, photo_count)
     except Exception:
-        logger.exception("[photos] Failed to publish %s #%d", ad_type, ad_id)
+        logger.exception("[photos] Failed to notify user for %s #%d", ad_type, ad_id)
+
+
+FSM_TIMEOUT_SECONDS = 3600  # F11: 1 час таймаут для FSM
+
+
+async def _check_fsm_timeout(state: FSMContext, message: Message) -> bool:
+    """F11: Проверить, не истёк ли таймаут FSM state (1 час). Возвращает True если истёк."""
+    data = await state.get_data()
+    started_at = data.get("started_at", 0)
+    if started_at and (time.time() - started_at) > FSM_TIMEOUT_SECONDS:
+        await state.clear()
+        await message.answer(
+            "⏰ Время на отправку фото истекло (1 час). Пожалуйста, подайте объявление заново.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return True
+    return False
 
 
 @router.message(PhotoCollectStates.waiting_photos, lambda m: m.text == WEB_APP_SKIP_PHOTOS)
 async def skip_photos(message: Message, state: FSMContext, bot: Bot, session: AsyncSession):
     """User chose to skip sending photos."""
+    if await _check_fsm_timeout(state, message):
+        return
     await _finish_and_publish(message, state, bot, session, photo_count=0)
 
 
 @router.message(PhotoCollectStates.waiting_photos, lambda m: m.text == PHOTOS_DONE_BTN)
 async def done_photos(message: Message, state: FSMContext, bot: Bot, session: AsyncSession):
     """User pressed Done button."""
+    if await _check_fsm_timeout(state, message):
+        return
     data = await state.get_data()
     photo_count = data.get("photo_count", 0)
     await _finish_and_publish(message, state, bot, session, photo_count=photo_count)
@@ -119,6 +123,8 @@ async def collect_photo(
     bot: Bot,
 ):
     """Collect a photo from the user."""
+    if await _check_fsm_timeout(state, message):
+        return
     data = await state.get_data()
     ad_id = data["ad_id"]
     ad_type = data["ad_type"]

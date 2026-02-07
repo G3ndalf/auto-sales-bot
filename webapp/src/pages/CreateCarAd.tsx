@@ -44,9 +44,15 @@ export default function CreateCarAd() {
 
   useBackButton('/')
 
+  // F9: Включаем подтверждение закрытия когда форма заполнена
   useEffect(() => {
-    window.Telegram?.WebApp?.disableClosingConfirmation?.()
-  }, [])
+    const hasData = !!(brand || model || year || price || description || phone || photoIds.length)
+    if (hasData) {
+      window.Telegram?.WebApp?.enableClosingConfirmation?.()
+    } else {
+      window.Telegram?.WebApp?.disableClosingConfirmation?.()
+    }
+  }, [brand, model, year, price, description, phone, photoIds])
 
   const touch = (field: string) => {
     setTouched(prev => ({ ...prev, [field]: true }))
@@ -92,6 +98,8 @@ export default function CreateCarAd() {
 
     try {
       const result = await submitAd(adData)
+      // F9: Отключаем подтверждение закрытия после успешной отправки
+      window.Telegram?.WebApp?.disableClosingConfirmation?.()
       setSent(true)
       if (photoIds.length > 0 && (result as Record<string, unknown>).published) {
         setPublished(true)
@@ -121,8 +129,13 @@ export default function CreateCarAd() {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return // F5: Prevent double-submit
+    setSubmitting(true) // F5: Block immediately before validation
     setTouched({ brand: true, model: true, year: true, price: true, city: true, phone: true })
-    if (!allRequired) return
+    if (!allRequired) {
+      setSubmitting(false)
+      return
+    }
     await doSubmit(buildAdData(false))
   }
 

@@ -65,11 +65,15 @@ export default function EditPlateAd() {
     setDescription(data.description || '')
     const loadedCity = data.city || ''
     setCity(loadedCity)
-    // Автоопределение региона по загруженному городу
-    const foundRegion = TEXTS.REGIONS.find(r =>
-      (r.cities as readonly string[]).includes(loadedCity)
-    )
-    if (foundRegion) setRegion(foundRegion.name)
+    // F1: Загрузка region из данных, fallback на автоопределение
+    if (data.region) {
+      setRegion(data.region)
+    } else {
+      const foundRegion = TEXTS.REGIONS.find(r =>
+        (r.cities as readonly string[]).includes(loadedCity)
+      )
+      if (foundRegion) setRegion(foundRegion.name)
+    }
     setPhone(data.contact_phone || '')
     setTelegram(data.contact_telegram || '')
   }, [originalData])
@@ -91,6 +95,7 @@ export default function EditPlateAd() {
       plate_number: plateNumber.trim(),
       price: parseInt(price),
       description: description.trim(),
+      region, // F1: отправка region
       city,
       contact_phone: phone.trim(),
       contact_telegram: telegram.trim() || null,
@@ -152,6 +157,22 @@ export default function EditPlateAd() {
             <CharCounter value={description} max={1000} />
           </div>
         </div>
+      </div>
+
+      {/* F18: Предупреждение о невозможности изменить фото */}
+      <div
+        style={{
+          padding: '10px 16px',
+          marginBottom: '12px',
+          borderRadius: '8px',
+          backgroundColor: '#3B82F622',
+          border: '1px solid #3B82F644',
+          color: '#60A5FA',
+          fontSize: '12px',
+          lineHeight: '1.4',
+        }}
+      >
+        📷 Фото нельзя изменить. Для смены фото создайте новое объявление.
       </div>
 
       {/* Section: Местоположение и контакты */}
