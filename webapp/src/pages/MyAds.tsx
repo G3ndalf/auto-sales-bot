@@ -69,7 +69,10 @@ export default function MyAds() {
     const uid = getUserId()
     if (!uid) return
     try {
-      await fetch(`/api/ads/${adType}/${adId}/sold?user_id=${uid}`, { method: 'POST' })
+      const initData = window.Telegram?.WebApp?.initData
+      const headers: Record<string, string> = {}
+      if (initData) headers['X-Telegram-Init-Data'] = initData
+      await fetch(`/api/ads/${adType}/${adId}/sold?user_id=${uid}`, { method: 'POST', headers })
       // Перезагрузить список
       loadAds()
     } catch {}

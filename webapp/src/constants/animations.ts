@@ -65,5 +65,5 @@ export const soldBadgeScale = {
 /** Плавающая анимация для пустых состояний (иконка вверх-вниз) */
 export const floatLoop = {
   y: [0, -10, 0],
-  transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
+  transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' as const },
 }

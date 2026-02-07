@@ -1,5 +1,5 @@
 from sqlalchemy import select, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.car_ad import AdStatus, CarAd
@@ -22,37 +22,28 @@ async def get_or_create_user(
 ) -> User:
     """Get existing user or create new one.
 
-    Обрабатывает race condition: если между SELECT и INSERT другой
-    запрос уже создал пользователя с тем же telegram_id, ловим
-    IntegrityError и повторно ищем.
+    Uses INSERT ... ON CONFLICT DO UPDATE to handle race conditions
+    atomically without separate SELECT + INSERT.
     """
-    # 1. Попробовать найти
-    user = await _find_user(session, telegram_id)
-    if user:
-        # Обновить username и full_name если изменились
-        if username is not None and user.username != username:
-            user.username = username
-        if full_name is not None and user.full_name != full_name:
-            user.full_name = full_name
-        return user
-
-    # 2. Создать нового
-    try:
-        user = User(
+    stmt = (
+        pg_insert(User)
+        .values(
             telegram_id=telegram_id,
             username=username,
             full_name=full_name or "User",
         )
-        session.add(user)
-        await session.flush()
-        return user
-    except IntegrityError:
-        # Race condition: другой запрос уже создал пользователя
-        await session.rollback()
-        user = await _find_user(session, telegram_id)
-        if user:
-            return user
-        raise  # Если и после rollback не нашли — что-то серьёзное
+        .on_conflict_do_update(
+            index_elements=["telegram_id"],
+            set_={
+                "username": username,
+                "full_name": full_name or User.full_name,
+            },
+        )
+        .returning(User)
+    )
+    result = await session.execute(stmt)
+    user = result.scalar_one()
+    return user
 
 
 async def get_user_by_telegram_id(

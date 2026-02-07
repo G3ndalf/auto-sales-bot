@@ -2,13 +2,42 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-/** Telegram user IDs с правами администратора (должен совпадать с ADMIN_IDS на бэкенде) */
-export const ADMIN_IDS = [5849807401];
+/**
+ * Get Telegram initData for server-side HMAC validation.
+ * Sent as X-Telegram-Init-Data header with every request.
+ */
+function getInitData(): string | null {
+  try {
+    return window.Telegram?.WebApp?.initData || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build common headers including initData for authentication.
+ */
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  const initData = getInitData();
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+  return headers;
+}
 
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const existingHeaders = (init?.headers as Record<string, string>) || {};
+  const headers = authHeaders(existingHeaders);
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
+}
+
+/** Response from /api/me */
+export interface MeResponse {
+  user_id: number;
+  is_admin: boolean;
 }
 
 function getAdminToken(): string | null {
@@ -89,6 +118,7 @@ export interface CarAdFull {
   photos: string[];
   created_at: string | null;
   view_count: number;
+  is_sold?: boolean;
 }
 
 export interface PlateAdPreview {
@@ -116,6 +146,7 @@ export interface PlateAdFull {
   photos: string[];
   created_at: string | null;
   view_count: number;
+  is_sold?: boolean;
 }
 
 /** Элемент списка избранных объявлений */
@@ -324,7 +355,7 @@ export async function submitAd(data: Record<string, unknown>): Promise<{ ok: boo
   const body = { ...data, user_id: uid };
   const res = await fetch(`${API_BASE}/api/submit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -374,8 +405,13 @@ export async function uploadPhoto(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('photo', file);
 
+  const initData = getInitData();
+  const headers: Record<string, string> = {};
+  if (initData) headers['X-Telegram-Init-Data'] = initData;
+
   const res = await fetch(`${API_BASE}/api/photos/upload?user_id=${uid}`, {
     method: 'POST',
+    headers,
     body: formData,
     // НЕ ставим Content-Type — браузер сам добавит с boundary
   });
@@ -501,6 +537,9 @@ export const api = {
   },
 
   // Admin
+  /** Get current user info (authenticated via initData) */
+  getMe: () => fetchJSON<MeResponse>('/api/me'),
+
   adminGetPending: () => {
     return fetchJSON<PaginatedResponse<AdminPendingAd>>(`/api/admin/pending${adminQueryParams()}`);
   },

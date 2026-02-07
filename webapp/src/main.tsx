@@ -93,7 +93,7 @@ try {
   wa?.setBackgroundColor?.('#0B0F19')
   // Отключаем свайп-вниз-для-закрытия — конфликтует со свайпом фото в галерее.
   // Пользователь может закрыть Mini App через BackButton или кнопку ✕ в шапке.
-  ;(wa as any)?.disableVerticalSwipes?.()
+  wa?.disableVerticalSwipes?.()
 } catch { /* ignore */ }
 
 // ─── Рендер приложения ───

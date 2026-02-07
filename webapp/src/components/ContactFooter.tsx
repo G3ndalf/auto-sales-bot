@@ -24,8 +24,8 @@ export default function ContactFooter({ phone, authorUsername }: ContactFooterPr
     navigator.clipboard?.writeText(formatted).catch(() => {})
 
     const wa = window.Telegram?.WebApp
-    if ((wa as any)?.showPopup) {
-      ;(wa as any).showPopup({
+    if (wa?.showPopup) {
+      wa.showPopup({
         title: 'Номер скопирован',
         message: formatted,
         buttons: [{ id: 'ok', type: 'default', text: 'OK' }],
@@ -40,8 +40,8 @@ export default function ContactFooter({ phone, authorUsername }: ContactFooterPr
     if (!authorUsername) return
     const wa = window.Telegram?.WebApp
     const url = `https://t.me/${authorUsername}`
-    if ((wa as any)?.openTelegramLink) {
-      ;(wa as any).openTelegramLink(url)
+    if (wa?.openTelegramLink) {
+      wa.openTelegramLink(url)
     } else {
       window.open(url, '_blank')
     }

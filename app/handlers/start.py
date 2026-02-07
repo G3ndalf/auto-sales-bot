@@ -20,6 +20,7 @@ import re
 import time
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart
 from aiogram.types import (
     CallbackQuery,
@@ -100,7 +101,7 @@ async def _send_start_menu(message: Message, user_id: int | None = None) -> None
     remove_msg = await message.answer("⏳", reply_markup=ReplyKeyboardRemove())
     try:
         await remove_msg.delete()
-    except Exception:
+    except TelegramBadRequest:
         pass
 
     # ── Основное сообщение с приветствием + inline кнопками ──────────
@@ -307,7 +308,7 @@ async def _send_card_with_optional_photo(
         try:
             await message.answer_photo(photo=photo.file_id, caption=card_text)
             return
-        except Exception:
+        except TelegramBadRequest:
             logger.warning(
                 "Failed to send photo for ad %s/%d, falling back to text",
                 ad_type.value, ad_id,

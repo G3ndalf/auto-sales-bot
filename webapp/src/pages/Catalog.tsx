@@ -13,10 +13,10 @@ let _catalogTab: Tab = 'cars'
  */
 export function clearCarsCache() {
   // Обнуляем module-level кэш CarsList
-  (window as any).__clearCarsCache?.()
+  window.__clearCarsCache?.()
 }
 export function clearPlatesCache() {
-  (window as any).__clearPlatesCache?.()
+  window.__clearPlatesCache?.()
 }
 
 export default function Catalog() {

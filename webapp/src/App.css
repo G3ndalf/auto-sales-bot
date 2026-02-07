@@ -1241,6 +1241,7 @@ label.required::after { content: ' *'; color: var(--red); font-weight: 700; }
   font-size: 1.5em;
   font-weight: 800;
   position: relative; z-index: 1;
+  text-align: center;
 }
 
 .profile-username {

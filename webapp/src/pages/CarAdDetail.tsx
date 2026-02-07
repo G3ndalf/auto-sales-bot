@@ -107,9 +107,7 @@ export default function CarAdDetail() {
     colorDim: 'rgba(20, 184, 166, 0.12)',
   })
 
-  // Cast ad для доступа к author_username и is_sold (приходят из API, но нет в типе)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const adAny = ad as any
+  // is_sold and author fields are part of CarAdFull type
 
   return (
     <div className="detail-page">
@@ -123,7 +121,7 @@ export default function CarAdDetail() {
       />
 
       {/* ─── Бейдж «Продано» — shared анимация soldBadgeScale ─── */}
-      {adAny.is_sold && (
+      {ad.is_sold && (
         <motion.div
           className="sold-badge"
           variants={soldBadgeScale}

@@ -47,7 +47,16 @@ from aiogram.fsm.storage.base import StorageKey
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.auth import get_authenticated_user, get_authenticated_user_or_fallback
 from app.config import settings
+from app.constants import (
+    AD_EXPIRY_DAYS,
+    DEFAULT_PAGE_SIZE,
+    DESCRIPTION_PREVIEW_LENGTH,
+    DUPLICATE_CHECK_DAYS,
+    MAX_PAGE_SIZE,
+    MAX_SUBMIT_BODY_SIZE,
+)
 from app.handlers.photos import PhotoCollectStates
 from app.models.car_ad import AdStatus, CarAd, FuelType, Transmission
 from app.models.ad_view import AdView
@@ -74,9 +83,6 @@ from app.utils.rate_limiter import submit_limiter
 from app.utils.photo_storage import save_photo, get_photo_path, is_local_photo, ALLOWED_TYPES, MAX_PHOTO_SIZE
 
 logger = logging.getLogger(__name__)
-
-# Max request body size for submit endpoint (10 KB)
-MAX_SUBMIT_BODY_SIZE = 10 * 1024
 
 # Telegram file_id: alphanumeric, underscores, dashes only
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
@@ -158,6 +164,9 @@ def create_api_app(
     app.on_startup.append(_on_startup)
     app.on_cleanup.append(_on_cleanup)
 
+    # Auth endpoint
+    app.router.add_get("/api/me", get_me)
+
     # Submit endpoint (sendData fallback)
     app.router.add_post("/api/submit", handle_submit)
 
@@ -214,14 +223,13 @@ def create_api_app(
 
 
 def _check_admin_access(request: web.Request) -> bool:
-    """Check admin access via secret token OR user_id from ADMIN_IDS.
+    """Check admin access via secret token OR validated initData user_id.
 
-    Два способа авторизации:
+    Три способа авторизации (в порядке приоритета):
     1. Секретный токен (из inline-кнопки бота) — основной
-    2. user_id из ADMIN_IDS (для навигации внутри Mini App) — резервный
+    2. Валидированный user_id из initData HMAC — безопасный
+    3. user_id из query param (legacy fallback) — TODO: удалить
 
-    user_id можно подделать, но это допустимый риск: админ-панель
-    показывает только статистику и модерацию, критичных операций нет.
     """
     # Способ 1: секретный токен
     token = request.query.get("token")
@@ -229,15 +237,20 @@ def _check_admin_access(request: web.Request) -> bool:
         if hmac.compare_digest(token, settings.admin_token):
             return True
 
-    # Способ 2: user_id из ADMIN_IDS
+    # Способ 2: validated initData
+    user_id = get_authenticated_user(request)
+    if user_id and settings.admin_ids and user_id in settings.admin_ids:
+        return True
+
+    # Способ 3: legacy fallback (query param) — TODO: remove
     user_id_str = (
         request.query.get("user_id")
         or request.headers.get("X-Telegram-User-Id")
     )
     if user_id_str and settings.admin_ids:
         try:
-            user_id = int(user_id_str)
-            if user_id in settings.admin_ids:
+            uid = int(user_id_str)
+            if uid in settings.admin_ids:
                 return True
         except (ValueError, TypeError):
             pass
@@ -266,9 +279,34 @@ async def cors_middleware(request: web.Request, handler):
         if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
             response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-User-Id"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-User-Id, X-Telegram-Init-Data"
     response.headers["Access-Control-Expose-Headers"] = "X-Telegram-User-Id"
     return response
+
+
+async def get_me(request: web.Request) -> web.Response:
+    """GET /api/me — get current user info from validated initData.
+
+    Returns: {user_id: int, is_admin: bool}
+    """
+    user_id = get_authenticated_user_or_fallback(request)
+    if not user_id:
+        return web.json_response({"error": "Not authenticated"}, status=401)
+
+    is_admin = bool(settings.admin_ids and user_id in settings.admin_ids)
+    return web.json_response({"user_id": user_id, "is_admin": is_admin})
+
+
+async def check_ad_ownership(session, ad, user_id_tg: int) -> bool:
+    """Check if user_id_tg is the owner of the ad.
+
+    Loads the owner User by ad.user_id and compares telegram_id.
+    Returns True if owner matches, False otherwise.
+    """
+    owner = (await session.execute(
+        select(User).where(User.id == ad.user_id)
+    )).scalar_one_or_none()
+    return bool(owner and owner.telegram_id == user_id_tg)
 
 
 async def get_brands(request: web.Request) -> web.Response:
@@ -309,7 +347,7 @@ async def get_car_ads(request: web.Request) -> web.Response:
     q = request.query.get("q")          # full-text-like search term
     sort = request.query.get("sort")    # sort option key
     offset = _safe_int(request.query.get("offset"), 0)
-    limit = min(_safe_int(request.query.get("limit"), 20), 50)
+    limit = min(_safe_int(request.query.get("limit"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
 
     # Фильтры по цене и году
     price_min = _safe_int(request.query.get("price_min"), 0)
@@ -406,12 +444,8 @@ async def get_car_ad(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest(text="Invalid ad_id")
     pool = request.app["session_pool"]
 
-    # user_id для уникальных просмотров (из query или header)
-    viewer_id = _safe_int(
-        request.query.get("user_id")
-        or request.headers.get("X-Telegram-User-Id"),
-        0,
-    )
+    # user_id для уникальных просмотров
+    viewer_id = get_authenticated_user_or_fallback(request) or 0
 
     async with pool() as session:
         stmt = select(CarAd).where(CarAd.id == ad_id, CarAd.status == AdStatus.APPROVED)
@@ -481,7 +515,7 @@ async def get_plate_ads(request: web.Request) -> web.Response:
     q = request.query.get("q")          # full-text-like search term
     sort = request.query.get("sort")    # sort option key
     offset = _safe_int(request.query.get("offset"), 0)
-    limit = min(_safe_int(request.query.get("limit"), 20), 50)
+    limit = min(_safe_int(request.query.get("limit"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
 
     # Фильтры по цене
     price_min = _safe_int(request.query.get("price_min"), 0)
@@ -558,11 +592,7 @@ async def get_plate_ad_detail(request: web.Request) -> web.Response:
     pool = request.app["session_pool"]
 
     # user_id для уникальных просмотров
-    viewer_id = _safe_int(
-        request.query.get("user_id")
-        or request.headers.get("X-Telegram-User-Id"),
-        0,
-    )
+    viewer_id = get_authenticated_user_or_fallback(request) or 0
 
     async with pool() as session:
         stmt = select(PlateAd).where(PlateAd.id == ad_id, PlateAd.status == AdStatus.APPROVED)
@@ -925,8 +955,8 @@ async def _edit_ad(
     if not ad_id:
         return web.json_response({"error": "Invalid ad_id"}, status=400)
 
-    # user_id — telegram_id владельца, передаётся как query param
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    # user_id — from validated initData or legacy query param
+    user_id_tg = get_authenticated_user_or_fallback(request)
     if not user_id_tg:
         return web.json_response({"error": "Missing user_id"}, status=400)
 
@@ -952,11 +982,7 @@ async def _edit_ad(
             )
 
         # ── Проверка владельца ─────────────────────────────────────
-        owner = (await session.execute(
-            select(User).where(User.id == ad.user_id)
-        )).scalar_one_or_none()
-
-        if not owner or owner.telegram_id != user_id_tg:
+        if not await check_ad_ownership(session, ad, user_id_tg):
             return web.json_response({"error": "Forbidden"}, status=403)
 
         # ── Подготовить merged dict для валидации ──────────────────
@@ -1027,7 +1053,7 @@ async def _delete_ad(request: web.Request, model_class) -> web.Response:
     if not ad_id:
         return web.json_response({"error": "Invalid ad_id"}, status=400)
 
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    user_id_tg = get_authenticated_user_or_fallback(request)
     if not user_id_tg:
         return web.json_response({"error": "Missing user_id"}, status=400)
 
@@ -1041,11 +1067,7 @@ async def _delete_ad(request: web.Request, model_class) -> web.Response:
             return web.json_response({"error": "Ad not found"}, status=404)
 
         # ── Проверка владельца ─────────────────────────────────────
-        owner = (await session.execute(
-            select(User).where(User.id == ad.user_id)
-        )).scalar_one_or_none()
-
-        if not owner or owner.telegram_id != user_id_tg:
+        if not await check_ad_ownership(session, ad, user_id_tg):
             return web.json_response({"error": "Forbidden"}, status=403)
 
         # ── Мягкое удаление ────────────────────────────────────────
@@ -1221,7 +1243,7 @@ async def handle_submit(request: web.Request) -> web.Response:
             )
 
             # ── Проверка дублей (та же марка+модель+год от того же пользователя за 7 дней) ──
-            week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+            week_ago = datetime.now(timezone.utc) - timedelta(days=DUPLICATE_CHECK_DAYS)
 
             if ad_type == "car_ad":
                 dupe = (await session.execute(
@@ -1293,7 +1315,7 @@ async def handle_submit(request: web.Request) -> web.Response:
                 )
 
             # ── Установить срок действия объявления (30 дней) ──
-            ad.expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            ad.expires_at = datetime.now(timezone.utc) + timedelta(days=AD_EXPIRY_DAYS)
 
             # ── Обработка photo_ids (фото загруженные через /api/photos/upload) ──
             # Если Mini App отправил photo_ids — прикрепляем фото к объявлению
@@ -1378,7 +1400,7 @@ async def handle_submit(request: web.Request) -> web.Response:
 
 async def add_favorite(request: web.Request) -> web.Response:
     """POST /api/favorites — добавить в избранное."""
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    user_id_tg = get_authenticated_user_or_fallback(request) or 0
     ad_type = request.query.get("ad_type")  # "car" или "plate"
     ad_id = _safe_int(request.query.get("ad_id"), 0)
 
@@ -1416,7 +1438,7 @@ async def add_favorite(request: web.Request) -> web.Response:
 
 async def remove_favorite(request: web.Request) -> web.Response:
     """DELETE /api/favorites — убрать из избранного."""
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    user_id_tg = get_authenticated_user_or_fallback(request) or 0
     ad_type = request.query.get("ad_type")
     ad_id = _safe_int(request.query.get("ad_id"), 0)
 
@@ -1450,7 +1472,7 @@ async def remove_favorite(request: web.Request) -> web.Response:
 
 async def get_favorites(request: web.Request) -> web.Response:
     """GET /api/favorites?user_id= — список избранного."""
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    user_id_tg = get_authenticated_user_or_fallback(request) or 0
     if not user_id_tg:
         return web.json_response({"ok": False, "error": "Missing user_id"}, status=400)
 
@@ -1536,7 +1558,7 @@ async def mark_as_sold(request: web.Request) -> web.Response:
     """POST /api/ads/{ad_type}/{ad_id}/sold — отметить как проданное."""
     ad_type = request.match_info["ad_type"]
     ad_id = _safe_int(request.match_info.get("ad_id"), 0)
-    user_id_tg = _safe_int(request.query.get("user_id"), 0)
+    user_id_tg = get_authenticated_user_or_fallback(request)
 
     if ad_type not in ("car", "plate") or not ad_id or not user_id_tg:
         return web.json_response({"error": "Invalid params"}, status=400)
@@ -1549,8 +1571,7 @@ async def mark_as_sold(request: web.Request) -> web.Response:
         if not ad:
             return web.json_response({"error": "Not found"}, status=404)
 
-        owner = (await session.execute(select(User).where(User.id == ad.user_id))).scalar_one_or_none()
-        if not owner or owner.telegram_id != user_id_tg:
+        if not await check_ad_ownership(session, ad, user_id_tg):
             return web.json_response({"error": "Forbidden"}, status=403)
 
         ad.status = AdStatus.SOLD
@@ -1783,7 +1804,7 @@ async def admin_get_users(request: web.Request) -> web.Response:
 
     q = request.query.get("q")
     offset = _safe_int(request.query.get("offset"), 0)
-    limit = min(_safe_int(request.query.get("limit"), 20), 50)
+    limit = min(_safe_int(request.query.get("limit"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
 
     pool = request.app["session_pool"]
     async with pool() as session:
@@ -1809,17 +1830,27 @@ async def admin_get_users(request: web.Request) -> web.Response:
             await session.execute(stmt.offset(offset).limit(limit))
         ).scalars().all()
 
-        # Подсчитать ads_count для каждого пользователя
-        items = []
-        for user in users:
-            car_count = (await session.execute(
-                select(func.count()).select_from(CarAd).where(CarAd.user_id == user.id)
-            )).scalar_one()
-            plate_count = (await session.execute(
-                select(func.count()).select_from(PlateAd).where(PlateAd.user_id == user.id)
-            )).scalar_one()
+        # Batch count ads per user (fix N+1)
+        user_ids = [u.id for u in users]
+        ads_count_map: dict[int, int] = {}
+        if user_ids:
+            car_counts = (await session.execute(
+                select(CarAd.user_id, func.count())
+                .where(CarAd.user_id.in_(user_ids))
+                .group_by(CarAd.user_id)
+            )).all()
+            plate_counts = (await session.execute(
+                select(PlateAd.user_id, func.count())
+                .where(PlateAd.user_id.in_(user_ids))
+                .group_by(PlateAd.user_id)
+            )).all()
+            for uid, cnt in car_counts:
+                ads_count_map[uid] = ads_count_map.get(uid, 0) + cnt
+            for uid, cnt in plate_counts:
+                ads_count_map[uid] = ads_count_map.get(uid, 0) + cnt
 
-            items.append({
+        items = [
+            {
                 "id": user.id,
                 "telegram_id": user.telegram_id,
                 "username": user.username,
@@ -1828,8 +1859,10 @@ async def admin_get_users(request: web.Request) -> web.Response:
                 "is_banned": user.is_banned,
                 "is_admin": user.is_admin,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
-                "ads_count": car_count + plate_count,
-            })
+                "ads_count": ads_count_map.get(user.id, 0),
+            }
+            for user in users
+        ]
 
     return web.json_response({"items": items, "total": total})
 
@@ -2189,7 +2222,7 @@ async def admin_generate_ad(request: web.Request) -> web.Response:
 
         # Сразу одобряем
         ad.status = AdStatus.APPROVED
-        ad.expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+        ad.expires_at = datetime.now(timezone.utc) + timedelta(days=AD_EXPIRY_DAYS)
 
         # Подобрать до 3 рандомных фото из существующих в БД
         all_photos_stmt = select(AdPhoto.file_id).distinct()

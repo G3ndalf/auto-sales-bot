@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Integer, String, func
+from sqlalchemy import DateTime, Enum, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -18,6 +18,9 @@ class AdPhoto(Base):
     """Photo attached to an advertisement."""
 
     __tablename__ = "ad_photos"
+    __table_args__ = (
+        Index("ix_photos_type_ad", "ad_type", "ad_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ad_type: Mapped[AdType] = mapped_column(

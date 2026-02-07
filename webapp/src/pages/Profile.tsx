@@ -190,7 +190,7 @@ export default function Profile() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.15 }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
               <h1 className="profile-name" style={{ margin: 0 }}>{displayName}</h1>
               <motion.button

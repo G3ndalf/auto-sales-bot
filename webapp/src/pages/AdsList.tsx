@@ -51,8 +51,8 @@ let _carsCache: AdsCache | null = null
 let _platesCache: AdsCache | null = null
 
 /** Регистрируем глобальный сброс кэшей для pull-to-refresh */
-;(window as any).__clearCarsCache = () => { _carsCache = null }
-;(window as any).__clearPlatesCache = () => { _platesCache = null }
+window.__clearCarsCache = () => { _carsCache = null }
+window.__clearPlatesCache = () => { _platesCache = null }
 
 // ─── Конфигурации ─────────────────────────────────────────────
 

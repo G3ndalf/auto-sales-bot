@@ -49,7 +49,7 @@ export default function PlateAdDetail() {
       />
 
       {/* Бейдж «Продано» — shared анимация soldBadgeScale */}
-      {(ad as any).is_sold && (
+      {ad.is_sold && (
         <motion.div
           className="sold-badge"
           variants={soldBadgeScale}
