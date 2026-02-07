@@ -24,6 +24,7 @@ from aiogram import Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart
 from aiogram.types import (
+    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -115,7 +116,10 @@ async def _send_start_menu(message: Message, user_id: int | None = None) -> None
             ),
         ])
 
-    # Кнопка перезагрузки убрана — это была dev-кнопка
+    # Кнопка перезагрузки — для разработки (TODO: убрать в продакшене)
+    inline_buttons.append([
+        InlineKeyboardButton(text="🔄 Перезагрузить", callback_data="reload_app"),
+    ])
 
     inline_kb = InlineKeyboardMarkup(inline_keyboard=inline_buttons) if inline_buttons else None
     await message.answer(START_WELCOME, reply_markup=inline_kb)
@@ -308,3 +312,11 @@ async def _send_card_with_optional_photo(
             )
 
     await message.answer(card_text)
+
+
+@router.callback_query(lambda c: c.data == "reload_app")
+async def on_reload(callback: CallbackQuery, session: AsyncSession) -> None:
+    """Перезагрузка — пересоздаёт главное меню (dev-кнопка)."""
+    await callback.answer()
+    if callback.message:
+        await _send_start_menu(callback.message, user_id=callback.from_user.id)
