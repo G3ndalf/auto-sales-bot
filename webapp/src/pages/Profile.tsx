@@ -13,7 +13,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { api, getUserId, ADMIN_IDS } from '../api'
+import { api, getUserId } from '../api'
 import type { UserProfile } from '../api'
 import { ClipboardList, Settings, CheckCircle, ClockCircle, CloseCircle, Chart, Garage, Hashtag, Pen } from '@solar-icons/react'
 
@@ -35,6 +35,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
@@ -51,8 +52,15 @@ export default function Profile() {
       return
     }
 
-    api.getProfile(uid)
-      .then(data => setProfile(data))
+    // Загружаем профиль и проверяем админ-доступ параллельно
+    Promise.all([
+      api.getProfile(uid),
+      api.getMe().catch(() => null),
+    ])
+      .then(([data, me]) => {
+        setProfile(data)
+        if (me?.is_admin) setIsAdmin(true)
+      })
       .catch(() => setProfile({
         name: 'Пользователь',
         username: null,
@@ -289,7 +297,7 @@ export default function Profile() {
             )}
           </motion.div>
           {/* Админ-панель — только для администраторов */}
-          {ADMIN_IDS.includes(Number(getUserId())) && (
+          {isAdmin && (
             <motion.div
               className="profile-action"
               variants={staggerItem}
