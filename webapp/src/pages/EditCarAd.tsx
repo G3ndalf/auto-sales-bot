@@ -19,6 +19,7 @@ import { normalizePhone } from '../utils/format'
 import RegionCitySelector from '../components/RegionCitySelector'
 import CharCounter from '../components/CharCounter'
 import EditFormWrapper from '../components/EditFormWrapper'
+import PhotoEditor from '../components/PhotoEditor'
 import { useEditAd } from '../hooks/useEditAd'
 import { BRANDS } from '../data/brands'
 import { COLORS } from '../constants/colors'
@@ -381,21 +382,8 @@ export default function EditCarAd() {
         </div>
       </div>
 
-      {/* F18: Предупреждение о невозможности изменить фото */}
-      <div
-        style={{
-          padding: '10px 16px',
-          marginBottom: '12px',
-          borderRadius: '8px',
-          backgroundColor: '#3B82F622',
-          border: '1px solid #3B82F644',
-          color: '#60A5FA',
-          fontSize: '12px',
-          lineHeight: '1.4',
-        }}
-      >
-        📷 Фото нельзя изменить. Для смены фото создайте новое объявление.
-      </div>
+      {/* Редактор фотографий */}
+      {id && <PhotoEditor adType="car" adId={parseInt(id)} />}
 
       {/* Section: Цена и описание */}
       <div className="form-section">

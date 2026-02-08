@@ -260,6 +260,12 @@ export interface UserAd {
   created_at: string | null;
 }
 
+export interface AdPhotoItem {
+  id: number;
+  file_id: string;
+  position: number;
+}
+
 export interface UserProfile {
   name: string;
   username: string | null;
@@ -607,5 +613,46 @@ export const api = {
     return fetchJSON<{ ok: boolean }>(`/api/admin/users/${telegramId}/unban${adminQueryParams()}`, {
       method: 'POST',
     });
+  },
+
+  // ===== Управление фотографиями объявления =====
+
+  /** Получить список фото объявления */
+  getAdPhotos: (adType: 'car' | 'plate', adId: number) =>
+    fetchJSON<AdPhotoItem[]>(`/api/ads/${adType}/${adId}/photos`),
+
+  /** Удалить фото объявления */
+  deleteAdPhoto: (adType: 'car' | 'plate', adId: number, photoId: number) => {
+    const uid = getUserId();
+    return fetchJSON<{ ok: boolean }>(
+      `/api/ads/${adType}/${adId}/photos/${photoId}?user_id=${uid}`,
+      { method: 'DELETE' },
+    );
+  },
+
+  /** Добавить фото к объявлению (multipart upload) */
+  addAdPhoto: async (adType: 'car' | 'plate', adId: number, file: File): Promise<AdPhotoItem> => {
+    const uid = getUserId();
+    if (!uid) throw new Error('user_id not available');
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const initData = getInitData();
+    const headers: Record<string, string> = {};
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+
+    const res = await fetch(
+      `${API_BASE}/api/ads/${adType}/${adId}/photos?user_id=${uid}`,
+      { method: 'POST', headers, body: formData },
+    );
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(payload.error || `Ошибка загрузки (${res.status})`);
+    }
+
+    const data = await res.json();
+    return data.photo;
   },
 };

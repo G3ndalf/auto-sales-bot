@@ -17,6 +17,7 @@ import type { PlateAdFull } from '../api'
 import RegionCitySelector from '../components/RegionCitySelector'
 import CharCounter from '../components/CharCounter'
 import EditFormWrapper from '../components/EditFormWrapper'
+import PhotoEditor from '../components/PhotoEditor'
 import { useEditAd } from '../hooks/useEditAd'
 
 export default function EditPlateAd() {
@@ -159,21 +160,8 @@ export default function EditPlateAd() {
         </div>
       </div>
 
-      {/* F18: Предупреждение о невозможности изменить фото */}
-      <div
-        style={{
-          padding: '10px 16px',
-          marginBottom: '12px',
-          borderRadius: '8px',
-          backgroundColor: '#3B82F622',
-          border: '1px solid #3B82F644',
-          color: '#60A5FA',
-          fontSize: '12px',
-          lineHeight: '1.4',
-        }}
-      >
-        📷 Фото нельзя изменить. Для смены фото создайте новое объявление.
-      </div>
+      {/* Редактор фотографий */}
+      {id && <PhotoEditor adType="plate" adId={parseInt(id)} />}
 
       {/* Section: Местоположение и контакты */}
       <div className="form-section">

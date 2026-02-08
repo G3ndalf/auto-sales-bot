@@ -20,6 +20,11 @@ Endpoints:
     DELETE /api/ads/car/{ad_id}?user_id=      — soft-delete car ad (status → rejected)
     DELETE /api/ads/plate/{ad_id}?user_id=    — soft-delete plate ad
 
+  Photo management:
+    GET    /api/ads/{ad_type}/{ad_id}/photos              — list photos (public)
+    DELETE /api/ads/{ad_type}/{ad_id}/photos/{photo_id}   — delete photo (owner)
+    POST   /api/ads/{ad_type}/{ad_id}/photos              — add photo (owner, multipart)
+
   Submit (Mini App fallback):
     POST /api/submit                          — create ad from Mini App
 
@@ -54,7 +59,9 @@ from app.constants import (
     DEFAULT_PAGE_SIZE,
     DESCRIPTION_PREVIEW_LENGTH,
     DUPLICATE_CHECK_DAYS,
+    MAX_CAR_PHOTOS,
     MAX_PAGE_SIZE,
+    MAX_PLATE_PHOTOS,
     MAX_SUBMIT_BODY_SIZE,
 )
 from app.handlers.photos import PhotoCollectStates
@@ -202,6 +209,11 @@ def create_api_app(
 
     # ── Отметить как проданное ─────────────────────────────────
     app.router.add_post("/api/ads/{ad_type}/{ad_id}/sold", mark_as_sold)
+
+    # ── Управление фотографиями объявления ──────────────────
+    app.router.add_get("/api/ads/{ad_type}/{ad_id}/photos", get_ad_photos)
+    app.router.add_delete("/api/ads/{ad_type}/{ad_id}/photos/{photo_id}", delete_ad_photo)
+    app.router.add_post("/api/ads/{ad_type}/{ad_id}/photos", add_ad_photo)
 
     # Admin routes
     app.router.add_get("/api/admin/pending", admin_get_pending)
@@ -1609,6 +1621,164 @@ async def mark_as_sold(request: web.Request) -> web.Response:
         await session.commit()
 
     return web.json_response({"ok": True})
+
+
+# --- Photo management endpoints ---
+
+
+async def get_ad_photos(request: web.Request) -> web.Response:
+    """GET /api/ads/{ad_type}/{ad_id}/photos — список фото объявления (публичный)."""
+    ad_type = request.match_info["ad_type"]
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+
+    if ad_type not in ("car", "plate") or not ad_id:
+        return web.json_response({"error": "Invalid params"}, status=400)
+
+    pool = request.app["session_pool"]
+    async with pool() as session:
+        photos = (await session.execute(
+            select(AdPhoto)
+            .where(AdPhoto.ad_type == AdType(ad_type), AdPhoto.ad_id == ad_id)
+            .order_by(AdPhoto.position)
+        )).scalars().all()
+
+        return web.json_response([
+            {"id": p.id, "file_id": p.file_id, "position": p.position}
+            for p in photos
+        ])
+
+
+async def delete_ad_photo(request: web.Request) -> web.Response:
+    """DELETE /api/ads/{ad_type}/{ad_id}/photos/{photo_id} — удалить фото (владелец)."""
+    ad_type = request.match_info["ad_type"]
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+    photo_id = _safe_int(request.match_info.get("photo_id"), 0)
+
+    if ad_type not in ("car", "plate") or not ad_id or not photo_id:
+        return web.json_response({"error": "Invalid params"}, status=400)
+
+    user_id_tg = get_authenticated_user_or_fallback(request)
+    if not user_id_tg:
+        return web.json_response({"error": "Missing user_id"}, status=400)
+
+    model = CarAd if ad_type == "car" else PlateAd
+    pool = request.app["session_pool"]
+
+    async with pool() as session:
+        ad = (await session.execute(select(model).where(model.id == ad_id))).scalar_one_or_none()
+        if not ad:
+            return web.json_response({"error": "Ad not found"}, status=404)
+
+        if not await check_ad_ownership(session, ad, user_id_tg):
+            return web.json_response({"error": "Forbidden"}, status=403)
+
+        photo = (await session.execute(
+            select(AdPhoto).where(
+                AdPhoto.id == photo_id,
+                AdPhoto.ad_type == AdType(ad_type),
+                AdPhoto.ad_id == ad_id,
+            )
+        )).scalar_one_or_none()
+
+        if not photo:
+            return web.json_response({"error": "Photo not found"}, status=404)
+
+        await session.delete(photo)
+        await session.commit()
+
+    return web.json_response({"ok": True})
+
+
+async def add_ad_photo(request: web.Request) -> web.Response:
+    """POST /api/ads/{ad_type}/{ad_id}/photos — добавить фото к объявлению (владелец, multipart)."""
+    ad_type = request.match_info["ad_type"]
+    ad_id = _safe_int(request.match_info.get("ad_id"), 0)
+
+    if ad_type not in ("car", "plate") or not ad_id:
+        return web.json_response({"error": "Invalid params"}, status=400)
+
+    user_id_tg = get_authenticated_user_or_fallback(request)
+    if not user_id_tg:
+        return web.json_response({"error": "Missing user_id"}, status=400)
+
+    max_photos = MAX_CAR_PHOTOS if ad_type == "car" else MAX_PLATE_PHOTOS
+    model = CarAd if ad_type == "car" else PlateAd
+    pool = request.app["session_pool"]
+
+    async with pool() as session:
+        ad = (await session.execute(select(model).where(model.id == ad_id))).scalar_one_or_none()
+        if not ad:
+            return web.json_response({"error": "Ad not found"}, status=404)
+
+        if not await check_ad_ownership(session, ad, user_id_tg):
+            return web.json_response({"error": "Forbidden"}, status=403)
+
+        # Проверить лимит фото
+        current_count = (await session.execute(
+            select(func.count()).select_from(AdPhoto).where(
+                AdPhoto.ad_type == AdType(ad_type), AdPhoto.ad_id == ad_id,
+            )
+        )).scalar() or 0
+
+        if current_count >= max_photos:
+            return web.json_response(
+                {"error": f"Максимум {max_photos} фото"}, status=400,
+            )
+
+        # Читаем multipart
+        try:
+            reader = await request.multipart()
+            field = await reader.next()
+        except Exception:
+            return web.json_response({"error": "Invalid multipart"}, status=400)
+
+        if field is None or field.name != "photo":
+            return web.json_response({"error": "Missing 'photo' field"}, status=400)
+
+        content_type = field.headers.get("Content-Type", "").split(";")[0].strip()
+        if content_type not in ALLOWED_TYPES:
+            return web.json_response(
+                {"error": "Неподдерживаемый формат. Допустимы: JPEG, PNG, WebP"}, status=400,
+            )
+
+        data = bytearray()
+        while True:
+            chunk = await field.read_chunk(8192)
+            if not chunk:
+                break
+            data.extend(chunk)
+            if len(data) > MAX_PHOTO_SIZE:
+                return web.json_response(
+                    {"error": f"Файл слишком большой (макс. {MAX_PHOTO_SIZE // 1024 // 1024}MB)"},
+                    status=400,
+                )
+
+        if not data:
+            return web.json_response({"error": "Пустой файл"}, status=400)
+
+        file_id = save_photo(bytes(data), content_type)
+
+        # Определить следующую позицию
+        max_pos = (await session.execute(
+            select(func.max(AdPhoto.position)).where(
+                AdPhoto.ad_type == AdType(ad_type), AdPhoto.ad_id == ad_id,
+            )
+        )).scalar()
+        next_pos = (max_pos or 0) + 1
+
+        photo = AdPhoto(
+            ad_type=AdType(ad_type),
+            ad_id=ad_id,
+            file_id=file_id,
+            position=next_pos,
+        )
+        session.add(photo)
+        await session.commit()
+
+        return web.json_response({
+            "ok": True,
+            "photo": {"id": photo.id, "file_id": photo.file_id, "position": photo.position},
+        })
 
 
 # --- Admin endpoints ---
