@@ -64,8 +64,9 @@ export default function MyAds() {
     loadAds()
   }, [loadAds])
 
-  /** F6: Пометить объявление как проданное — с error handling */
+  /** Пометить объявление как проданное — с confirm + error handling */
   const markAsSold = async (adType: string, adId: number) => {
+    if (!window.confirm('Отметить как проданное? Объявление будет снято с публикации.')) return
     const uid = getUserId()
     if (!uid) return
     try {
@@ -76,7 +77,6 @@ export default function MyAds() {
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
       }
-      // Перезагрузить список
       loadAds()
     } catch {
       alert('Ошибка при отметке "Продано". Попробуйте ещё раз.')
@@ -224,7 +224,7 @@ export default function MyAds() {
                     : ad.plate_number || 'Номер'
                 }
                 status={ad.status}
-                onEdit={() => handleEdit(ad.ad_type, ad.id)}
+                onEdit={['pending', 'approved'].includes(ad.status) ? () => handleEdit(ad.ad_type, ad.id) : undefined}
                 onDelete={() => handleDelete(ad.ad_type, ad.id)}
                 onMarkSold={ad.status === 'approved' ? () => markAsSold(ad.ad_type, ad.id) : undefined}
               />
