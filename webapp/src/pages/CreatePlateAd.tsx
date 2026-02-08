@@ -243,6 +243,7 @@ export default function CreatePlateAd() {
               onBlur={() => touch('phone')}
               placeholder="8-999-123-45-67"
               className={fc('phone', phone)}
+            />
           </div>
         </div>
       </div>
